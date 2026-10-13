@@ -1,0 +1,15 @@
+# gltest configuration.
+#
+# Direct tests (`tests/direct`) run fully in-process and need no network.
+# Integration tests (`tests/integration`) deploy to StudioNet and are run with
+# `gltest.integration.config.yaml`, which reads the deployer key from the
+# environment. Never commit a secret here.
+#
+# IMPORTANT: gltest CLEARS its artifacts directory on every run. It must not
+# point at `artifacts/`, because that directory holds the committed evidence
+# pack (artifacts/DEPLOYMENT.md, artifacts/screenshots/, artifacts/studionet/).
+# A plain `pytest tests/direct/ -q` used to delete all of it.
+paths:
+  contracts: contracts
+  # Scoped to a subdirectory so test runs cannot destroy the evidence pack.
+  artifacts: artifacts/gltest
