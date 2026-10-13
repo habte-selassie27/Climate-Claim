@@ -1,0 +1,33 @@
+[genlayer-js] initializeConsensusSmartContract() is deprecated and will be removed in a future release. The consensus contract is now resolved from the static chain definition.
+- Calling method get_checks on contract at 0xE16032420e3155C0822e9150a98c6B1163869F0c...
+
+Result:
+[
+  {
+    detail: 'passed: the threshold comparison',
+    name: 'threshold_crossed',
+    status: 'pass'
+  },
+  {
+    detail: 'passed: coverage of the observation period',
+    name: 'period_covered',
+    status: 'pass'
+  },
+  {
+    detail: 'passed: the reported location',
+    name: 'location_match',
+    status: 'pass'
+  },
+  {
+    detail: 'passed: agreement between sources',
+    name: 'source_agreement',
+    status: 'pass'
+  },
+  {
+    detail: 'passed: completeness of the evidence',
+    name: 'data_completeness',
+    status: 'pass'
+  }
+]
+
+✔ Read operation successfully executed
