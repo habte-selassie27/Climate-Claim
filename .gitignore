@@ -1,0 +1,24 @@
+.env
+.env.local
+*.env
+!.env.example
+
+__pycache__/
+*.pyc
+.pytest_cache/
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Generated scratch (local traces, temp captures).
+tmp/
+*.log
+
+# Local CLI captures are noisy and regenerable, so they are ignored by default.
+# The evidence pack is explicitly NOT ignored: it is the proof that the claims,
+# addresses, hashes and screenshots in it are real.
+artifacts/*
+!artifacts/DEPLOYMENT.md
+!artifacts/screenshots/
+!artifacts/studionet/
