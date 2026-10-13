@@ -8,6 +8,7 @@ import { Claims } from "./pages/Claims";
 import { ClaimDetail } from "./pages/ClaimDetail";
 import { Demo } from "./pages/Demo";
 import { Policies, PolicyDetail } from "./pages/Policies";
+import { PolicyNew } from "./pages/PolicyNew";
 import { HowItWorks } from "./pages/HowItWorks";
 
 const net = activeNetwork();
@@ -47,9 +48,16 @@ function Chrome() {
             <span aria-hidden="true">◈</span> {net.label}
           </span>
           {wallet.wrongNetwork ? (
-            <span className="badge badge-sim" role="alert">
-              Wrong network ({wallet.chainId})
-            </span>
+            <button
+              type="button"
+              className="copy-btn badge-wrongnet"
+              role="alert"
+              onClick={() => void wallet.switchNetwork()}
+              disabled={wallet.switching}
+              title={`Your wallet is on chain ${wallet.chainId}. Click to switch to ${net.label} (chain ${net.chainId}).`}
+            >
+              <span aria-hidden="true">⚠</span> Wrong network ({wallet.chainId}) — switch
+            </button>
           ) : wallet.connected && wallet.address ? (
             <span className="badge badge-live" title={wallet.address}>
               <span aria-hidden="true">◉</span> {truncateAddress(wallet.address)}
@@ -118,6 +126,7 @@ export default function App() {
             <Route path="/claims" element={<Claims />} />
             <Route path="/claims/:id" element={<ClaimDetail />} />
             <Route path="/policies" element={<Policies />} />
+            <Route path="/policies/new" element={<PolicyNew />} />
             <Route path="/policies/:id" element={<PolicyDetail />} />
             <Route path="/how-it-works" element={<HowItWorks />} />
             <Route

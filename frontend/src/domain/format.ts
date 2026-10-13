@@ -24,6 +24,27 @@ export function fromScaled(value: unknown, decimals = SCALE_DECIMALS): string {
   return (n / 10 ** decimals).toFixed(decimals);
 }
 
+/**
+ * "5.00" -> 500. The inverse of fromScaled, for form input.
+ * Returns null when the text is not a finite number, so callers can
+ * report a field error instead of silently sending 0.
+ */
+export function toScaled(text: string, decimals = SCALE_DECIMALS): number | null {
+  const t = text.trim();
+  // Number("") is 0, which would silently turn an empty field into zero.
+  if (t === "") return null;
+  const n = Number(t);
+  if (!Number.isFinite(n)) return null;
+  return Math.round(n * 10 ** decimals);
+}
+
+/** "48.85" -> 48850000. Degrees to the contract's microdegrees. */
+export function toMicroDegrees(text: string): number | null {
+  const n = Number(text);
+  if (!Number.isFinite(n)) return null;
+  return Math.round(n * 1_000_000);
+}
+
 /** 120 -> "1.20 mm" */
 export function scaledWithUnit(value: unknown, unit: string): string {
   return `${fromScaled(value)} ${unit}`;

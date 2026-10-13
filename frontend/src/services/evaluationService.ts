@@ -41,8 +41,13 @@ export async function walletAvailable(): Promise<boolean> {
   return typeof window !== "undefined" && "ethereum" in window;
 }
 
-/** A write the UI can trigger. */
-export type WriteKind = "request_evaluation" | "open_dispute" | "settle_claim" | "start_claim";
+/** A write the UI can trigger. Names match the schema exactly. */
+export type WriteKind =
+  | "request_evaluation"
+  | "open_dispute"
+  | "settle_claim"
+  | "start_claim"
+  | "create_policy";
 
 export interface WriteCallbacks {
   /** Called once the tx hash is known, so the UI can show and persist it. */

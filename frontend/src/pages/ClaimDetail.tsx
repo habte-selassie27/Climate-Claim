@@ -29,6 +29,13 @@ import type { SourceDef } from "../domain/types";
 const net = activeNetwork();
 
 /**
+ * Maximum dispute grounds length. Mirrors the contract's
+ * `self._require_text(grounds, "grounds", 300)` in `open_dispute`
+ * (contracts/climateclaim.py). Value, not behaviour: the contract re-checks it.
+ */
+const DISPUTE_GROUNDS_MAX = 300;
+
+/**
  * The main screen. Everything rendered here comes from the deployed contract:
  * the claim, its policy, the evidence, the per-check results, the dispute
  * history and the settlement state.
@@ -37,6 +44,12 @@ export function ClaimDetail() {
   const { id = "" } = useParams();
   const wallet = useWallet();
   const [tx, setTx] = useState<TxState>(IDLE);
+  // Dispute grounds. The contract requires non-empty grounds (max 300 chars) and
+  // records them in the dispute history, so the user must supply their own
+  // reason rather than the app sending a fixed string.
+  const [disputeOpen, setDisputeOpen] = useState(false);
+  const [grounds, setGrounds] = useState("");
+  const [groundsError, setGroundsError] = useState("");
 
   // Seeded from the captured snapshot: paints real recorded data immediately,
   // then transparently upgrades to live chain reads (which are rate limited to
@@ -56,6 +69,35 @@ export function ClaimDetail() {
     },
     [],
   );
+
+  /**
+   * Submit a dispute with the user's own grounds.
+   *
+   * Mirrors the contract's `open_dispute` validation: grounds must be non-empty
+   * and at most MAX_DISPUTE_GROUNDS (300) characters, else it reverts with
+   * "EXPECTED: grounds required". Validating here avoids a transaction that is
+   * guaranteed to fail; the contract remains the authority.
+   */
+  const submitDispute = useCallback(async () => {
+    const text = grounds.trim();
+    if (!text) {
+      setGroundsError("Give a reason for the dispute — the contract requires one.");
+      return;
+    }
+    if (text.length > DISPUTE_GROUNDS_MAX) {
+      setGroundsError(
+        `Keep the grounds to ${DISPUTE_GROUNDS_MAX} characters or fewer (currently ${text.length}).`,
+      );
+      return;
+    }
+    setGroundsError("");
+    const result = await runWrite("open_dispute", [id, text], { onPhase: setTx });
+    if (result.phase === "accepted" || result.phase === "finalized") {
+      setDisputeOpen(false);
+      setGrounds("");
+      bundle.refresh();
+    }
+  }, [grounds, id]);
 
   if (bundle.loading) {
     return (
@@ -132,8 +174,23 @@ export function ClaimDetail() {
           <strong>Wrong network</strong>
           <p>
             Your wallet is on chain {wallet.chainId}. This app reads {net.label} (chain{" "}
-            {net.chainId}). Switch networks to send a transaction.
+            {net.chainId}). Reading still works; switch networks to send a transaction.
           </p>
+          <div className="btn-row">
+            <button
+              type="button"
+              className="btn"
+              onClick={() => void wallet.switchNetwork()}
+              disabled={wallet.switching}
+            >
+              {wallet.switching ? "Switching…" : `Switch to ${net.label}`}
+            </button>
+          </div>
+          {wallet.switchError ? (
+            <p className="small muted" style={{ marginTop: "var(--space-2)" }}>
+              {wallet.switchError} You can also switch manually in your wallet extension.
+            </p>
+          ) : null}
         </div>
       ) : null}
 
@@ -214,10 +271,14 @@ export function ClaimDetail() {
               <button
                 type="button"
                 className="btn btn-secondary"
-                disabled={tx.phase !== "idle" || !decided || wallet.wrongNetwork || !wallet.connected}
-                onClick={() => void doWrite("open_dispute", [claim.id, "Disputed from the web app."])}
+                /* Only *submitting* needs a wallet. Opening the form to read the
+                   rules and write grounds does not, so it stays available and
+                   the submit button carries the wallet gate instead. */
+                disabled={tx.phase !== "idle" || !decided}
+                onClick={() => setDisputeOpen((v) => !v)}
+                aria-expanded={disputeOpen}
               >
-                Open dispute
+                {disputeOpen ? "Close dispute form" : "Open dispute"}
               </button>
               <button
                 type="button"
@@ -228,6 +289,63 @@ export function ClaimDetail() {
                 Settle claim
               </button>
             </div>
+
+            {disputeOpen ? (
+              <div className="field" style={{ marginTop: "var(--space-3)" }}>
+                <label htmlFor="dispute-grounds">Grounds for the dispute</label>
+                <textarea
+                  id="dispute-grounds"
+                  rows={4}
+                  maxLength={DISPUTE_GROUNDS_MAX}
+                  value={grounds}
+                  placeholder="Why should this decision be challenged? Name the source, station or observation period you believe the validators judged incorrectly."
+                  aria-describedby="dispute-help"
+                  aria-invalid={Boolean(groundsError)}
+                  onChange={(e) => {
+                    setGrounds(e.target.value);
+                    if (groundsError) setGroundsError("");
+                  }}
+                />
+                <p className="field-hint" id="dispute-help">
+                  The contract stores this text with the dispute and requires it to be non-empty, at
+                  most {DISPUTE_GROUNDS_MAX} characters. It is shown in the dispute history.
+                </p>
+                {groundsError ? (
+                  <p className="field-error" role="alert">
+                    {groundsError}
+                  </p>
+                ) : null}
+                <div className="btn-row" style={{ marginTop: "var(--space-3)" }}>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={tx.phase !== "idle" || wallet.wrongNetwork || !wallet.connected}
+                    onClick={() => void submitDispute()}
+                  >
+                    Submit dispute
+                  </button>
+                  {!wallet.connected ? (
+                    <span className="small muted">
+                      Connect a wallet on {net.label} to submit.
+                    </span>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      setDisputeOpen(false);
+                      setGrounds("");
+                      setGroundsError("");
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <span className="small muted num">
+                    {grounds.trim().length}/{DISPUTE_GROUNDS_MAX}
+                  </span>
+                </div>
+              </div>
+            ) : null}
 
             {!canSettle && settlement.amount === 0 ? (
               <p className="small muted" style={{ marginTop: "var(--space-3)" }}>

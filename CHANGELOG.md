@@ -5,6 +5,74 @@ gaps are stated plainly; nothing is claimed that was not run.
 
 ---
 
+## Close UI gaps: create-policy form, start-claim action, source cards
+
+### DONE
+
+Closed the three UI gaps listed in `docs/ui-sketch.md`:
+
+- **`/policies/new`** (`pages/PolicyNew.tsx`, route in `App.tsx`) — form for
+  the contract's 18-param `create_policy` write. Field validation mirrors
+  `contracts/climateclaim.py` (metric enum, 1–4 sources all sharing the metric,
+  lat/lon ±90/±180 degrees → microdegrees, tolerance ≤200000 m, agreement-rule
+  enum, min_sources ≤ sources chosen, period order + ≤366 days,
+  `historical_simulation` requires a past period, canonical unit follows the
+  metric, threshold ±100000 as a ×100 integer, `consecutive_days`
+  precipitation-only, condition ≤300 chars, payout 0..10^30). Live policy
+  sentence previews what validators will read; `condition_text` auto-fills from
+  it until the user edits it. Owner-only write: reads `get_owner` and warns
+  when the connected wallet is not the owner (`EXPECTED: not owner` otherwise).
+  After acceptance the new id is resolved from a **live** `get_policy_count`
+  read and linked directly; a snapshot fallback never fabricates an id.
+- **"Start a claim"** (`components/StartClaimPanel.tsx`, on `/policies/:id`) —
+  period inputs default to the policy window, clamped `min`/`max`; duplicate
+  pre-check via the contract's `find_claim` view with a link to the existing
+  claim; full tx lifecycle; disabled with stated reason when retired /
+  wrong-network / no wallet. New claim id resolved from a live `find_claim`
+  read after acceptance.
+- **`SourceRegistryCard`** is no longer dead code: rendered on `/policies/:id`
+  under "Eligible sources" (previously built but never mounted anywhere).
+
+Supporting: `create_policy` added to `WriteKind`; new service helpers
+`getOwner`, `getPolicyCount`, `findClaim` (all snapshot-fallback reads);
+`toScaled` / `toMicroDegrees` form helpers in `domain/format.ts` (`toScaled`
+returns null for empty text — `Number("")` is 0, which would silently submit a
+zero threshold); form-field styles added to `global.css`.
+
+Scripts added (evidence, not gates): `scripts/smoke-new-routes.mjs`,
+`scripts/verify-panels.mjs`, `scripts/verify-validation.mjs`.
+
+### PROOF
+
+- `npx tsc -b --noEmit` (in `frontend/`) → **clean**
+- `npm run build` (in `frontend/`) → succeeds
+- `smoke-new-routes.mjs` against a fresh `vite preview` → PASS both routes;
+  asserts real render (h1 text) — the first run was a false PASS against a
+  stale preview server that 404'd on every path, and the script was fixed to
+  assert page content, not just console silence
+- `verify-panels.mjs` → `/policies/policy-3` has `hasStartClaim: true`,
+  2 date inputs, headings `Terms / Eligible sources / Start a claim /
+  Claims on this policy`; screenshots in `artifacts/screenshots/`
+  (`n1-policy-new-form.png`, `n2-policy-detail-start-claim.png`,
+  `n3-policy-detail-full.png`, `n4-policy-new-validation.png`)
+
+### NEXT
+
+- Re-run `npm run build` once the in-progress `ClaimDetail.tsx` edit (someone
+  is adding a dispute-grounds form; `DISPUTE_GROUNDS_MAX` was still undeclared
+  at 19:23) settles — my files type-check clean on their own; the only
+  current tsc errors are in that file
+- `tests/integration/` — gate 3 has still never been run (carried forward)
+
+### BLOCKED
+
+- (carried) StudioNet explorer paused; no finalized claim on chain; not a git
+  repository; a real end-to-end `create_policy` / `start_claim` write needs the
+  contract owner's wallet connected, so it was verified by build + render, not
+  by a live write
+
+---
+
 ## Frontend moved: `app/` → `frontend/`
 
 ### DONE

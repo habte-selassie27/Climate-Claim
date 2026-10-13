@@ -1,12 +1,21 @@
 import { Link, useParams } from "react-router-dom";
 import { useRead } from "../hooks/useRead";
-import { listClaims, listPolicies, snapshotClaims, snapshotPolicies } from "../services/claimService";
+import {
+  listClaims,
+  listPolicies,
+  listSources,
+  snapshotClaims,
+  snapshotPolicies,
+  snapshotSources,
+} from "../services/claimService";
 import { DataModeBadge } from "../components/DataModeBadge";
 import { OriginBadge } from "../components/OriginBadge";
+import { SourceRegistryCard } from "../components/SourceRegistryCard";
+import { StartClaimPanel } from "../components/StartClaimPanel";
 import { policySentence } from "../domain/copy";
 import { fromScaled, microDegrees, periodLabel } from "../domain/format";
 import { activeNetwork } from "../config/network";
-import type { Claim, Policy } from "../domain/types";
+import type { Claim, Policy, SourceDef } from "../domain/types";
 
 const net = activeNetwork();
 
@@ -29,6 +38,12 @@ export function Policies() {
             pending={policies.refreshing}
           networkLabel={net.label}
         />
+        <div className="btn-row" style={{ marginTop: "var(--space-3)" }}>
+          <Link className="btn" to="/policies/new">
+            Create a policy
+          </Link>
+          <span className="small muted">Owner-only: the contract registers policies from its owner.</span>
+        </div>
       </header>
 
       {policies.loading ? (
@@ -102,6 +117,12 @@ export function PolicyDetail() {
   const claims = useRead(() => listClaims(), [], snapshotClaims());
   const onPolicy = ((claims.data ?? []) as Claim[]).filter((c) => c.policy_id === id);
 
+  // The registry entries this policy draws from, for the source cards.
+  const sources = useRead(() => listSources(), [], snapshotSources());
+  const policySources = ((sources.data ?? []) as SourceDef[]).filter((s) =>
+    policy ? policy.source_ids.includes(s.id) : false,
+  );
+
   if (policies.loading) {
     return (
       <div className="panel" aria-busy="true">
@@ -168,73 +189,91 @@ export function PolicyDetail() {
       ) : null}
 
       <div className="claim-grid">
-        <div className="panel">
-          <div className="panel-head">
-            <h2>Terms</h2>
-            <span className="badge">{policy.status}</span>
+        <div className="stack">
+          <div className="panel">
+            <div className="panel-head">
+              <h2>Terms</h2>
+              <span className="badge">{policy.status}</span>
+            </div>
+            <dl className="terms">
+              <dt>Condition</dt>
+              <dd>{policy.condition_text}</dd>
+              <dt>Location</dt>
+              <dd>
+                {policy.location_name}{" "}
+                <span className="mono num">
+                  ({microDegrees(policy.lat_scaled)}, {microDegrees(policy.lon_scaled)})
+                </span>
+              </dd>
+              <dt>Distance tolerance</dt>
+              <dd className="num">{policy.tolerance_m} m</dd>
+              <dt>Observation period</dt>
+              <dd className="num">
+                {periodLabel(policy.period_start, policy.period_end)} {policy.timezone}
+              </dd>
+              <dt>Metric</dt>
+              <dd>
+                {policy.metric} ({policy.unit})
+              </dd>
+              <dt>Aggregation</dt>
+              <dd>{policy.aggregation.replace("_", " ")}</dd>
+              <dt>Eligible sources</dt>
+              <dd>{policy.source_ids.join(", ")}</dd>
+              <dt>Agreement rule</dt>
+              <dd>{policy.agreement_rule}</dd>
+              <dt>Minimum sources</dt>
+              <dd className="num">{policy.min_sources}</dd>
+              <dt>Payout</dt>
+              <dd className="num">
+                {policy.payout_amount > 0 ? `${policy.payout_amount} base units` : "none"}
+              </dd>
+              <dt>Beneficiary</dt>
+              <dd className="mono">{policy.beneficiary}</dd>
+            </dl>
           </div>
-          <dl className="terms">
-            <dt>Condition</dt>
-            <dd>{policy.condition_text}</dd>
-            <dt>Location</dt>
-            <dd>
-              {policy.location_name}{" "}
-              <span className="mono num">
-                ({microDegrees(policy.lat_scaled)}, {microDegrees(policy.lon_scaled)})
-              </span>
-            </dd>
-            <dt>Distance tolerance</dt>
-            <dd className="num">{policy.tolerance_m} m</dd>
-            <dt>Observation period</dt>
-            <dd className="num">
-              {periodLabel(policy.period_start, policy.period_end)} {policy.timezone}
-            </dd>
-            <dt>Metric</dt>
-            <dd>
-              {policy.metric} ({policy.unit})
-            </dd>
-            <dt>Aggregation</dt>
-            <dd>{policy.aggregation.replace("_", " ")}</dd>
-            <dt>Eligible sources</dt>
-            <dd>{policy.source_ids.join(", ")}</dd>
-            <dt>Agreement rule</dt>
-            <dd>{policy.agreement_rule}</dd>
-            <dt>Minimum sources</dt>
-            <dd className="num">{policy.min_sources}</dd>
-            <dt>Payout</dt>
-            <dd className="num">
-              {policy.payout_amount > 0 ? `${policy.payout_amount} base units` : "none"}
-            </dd>
-            <dt>Beneficiary</dt>
-            <dd className="mono">{policy.beneficiary}</dd>
-          </dl>
+
+          <div className="panel">
+            <div className="panel-head">
+              <h2>Eligible sources</h2>
+              <span className="small muted">from the contract's registry</span>
+            </div>
+            {policySources.length === 0 ? (
+              <p className="small muted">No registry entries matched this policy's sources.</p>
+            ) : (
+              policySources.map((s) => <SourceRegistryCard key={s.id} source={s} />)
+            )}
+          </div>
         </div>
 
-        <div className="panel">
-          <div className="panel-head">
-            <h2>Claims on this policy</h2>
-          </div>
-          {onPolicy.length === 0 ? (
-            <div className="empty">No claims yet on this policy.</div>
-          ) : (
-            <ul className="checklist">
-              {onPolicy.map((c) => (
-                <li key={c.id} className="check-row">
-                  <span className="check-icon" aria-hidden="true">
-                    {c.id.split("-")[1]}
-                  </span>
-                  <div>
-                    <div className="check-name">
-                      <Link to={`/claims/${c.id}`}>{c.id}</Link>
+        <div className="stack">
+          <StartClaimPanel policy={policy} onChanged={claims.refresh} />
+
+          <div className="panel">
+            <div className="panel-head">
+              <h2>Claims on this policy</h2>
+            </div>
+            {onPolicy.length === 0 ? (
+              <div className="empty">No claims yet on this policy.</div>
+            ) : (
+              <ul className="checklist">
+                {onPolicy.map((c) => (
+                  <li key={c.id} className="check-row">
+                    <span className="check-icon" aria-hidden="true">
+                      {c.id.split("-")[1]}
+                    </span>
+                    <div>
+                      <div className="check-name">
+                        <Link to={`/claims/${c.id}`}>{c.id}</Link>
+                      </div>
+                      <p className="check-detail">
+                        {c.decision ? `${c.decision.replace("_", " ")} · ${c.state}` : c.state}
+                      </p>
                     </div>
-                    <p className="check-detail">
-                      {c.decision ? `${c.decision.replace("_", " ")} · ${c.state}` : c.state}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       </div>
     </div>

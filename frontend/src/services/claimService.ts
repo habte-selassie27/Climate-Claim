@@ -210,6 +210,29 @@ export async function listSources() {
   return readWithFallback(METHODS.list_sources, (SNAPSHOT.sources as never[]) ?? []);
 }
 
+/** Contract owner address. Needed by the create-policy form: the contract's
+ * `create_policy` is owner-only and reverts with "EXPECTED: not owner". */
+export async function getOwner(): Promise<ReadResult<string | undefined>> {
+  return readWithFallback<string>(METHODS.get_owner, SNAPSHOT.owner);
+}
+
+/** Live-first policy count. Used after a create_policy write to resolve the
+ * new sequential id (policy-{count}) without guessing. */
+export async function getPolicyCount(): Promise<ReadResult<number | undefined>> {
+  return readWithFallback<number>(METHODS.get_policy_count, SNAPSHOT.policyCount);
+}
+
+/** Existing claim for an exact (policy, period) key, or "" when there is none.
+ * Mirrors the contract's `find_claim` view; used to warn about duplicates
+ * before the user sends a start_claim write. */
+export async function findClaim(
+  policyId: string,
+  periodStart: string,
+  periodEnd: string,
+): Promise<ReadResult<string | undefined>> {
+  return readWithFallback<string>(METHODS.find_claim, "", [policyId, periodStart, periodEnd]);
+}
+
 /* --- snapshot seeds ------------------------------------------------------
  * These let a page paint real recorded data on the first frame instead of
  * showing a skeleton for the ten seconds the rate-limited round trip takes.
@@ -251,6 +274,11 @@ export function snapshotSources(): SourceDef[] {
 
 export function snapshotPolicies(): Policy[] {
   return (SNAPSHOT.policies as Policy[]) ?? [];
+}
+
+/** Snapshot seed for the owner read. */
+export function snapshotOwner(): string {
+  return SNAPSHOT.owner;
 }
 
 export async function getContractAddressLabel(): Promise<string> {

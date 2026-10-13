@@ -39,7 +39,9 @@ if (!CHROME) {
 }
 
 const PAGES = [
-  { path: "/", name: "01-landing", full: true },
+  // The landing page was captured before React finished its first paint on a cold
+  // cache, producing a blank h1. Give it a settle window like the rest.
+  { path: "/", name: "01-landing", full: true, wait: 2500 },
   { path: "/demo?scenario=conflicting-sources", name: "02-demo-source-conflict", full: true, wait: 2500 },
   { path: "/demo?scenario=location-mismatch", name: "03-demo-location-mismatch", full: true, wait: 9000 },
   { path: "/demo?scenario=missing-observations", name: "04-demo-missing-observations", full: true, wait: 2500 },
@@ -50,9 +52,23 @@ const PAGES = [
   { path: "/claims/claim-5", name: "09-claim-5-not-confirmed", full: true, wait: 15000 },
   { path: "/claims/claim-1", name: "10-claim-1-external-error", full: true, wait: 15000 },
   { path: "/policies", name: "11-policies", full: true, wait: 10000 },
-  { path: "/policies/policy-3", name: "12-policy-3-detail", full: true, wait: 15000 },
+  { path: "/policies/policy-3", name: "12-policy-3-detail-start-claim", full: true, wait: 15000 },
   { path: "/how-it-works", name: "13-how-it-works", full: true },
-  { path: "/claims/claim-2", name: "14-claim-2-mobile-360", full: true, width: 360, height: 900, wait: 15000 },
+  { path: "/policies/new", name: "14-policy-new-form", full: true, wait: 10000 },
+  {
+    path: "/claims/claim-5",
+    name: "15-dispute-form-open",
+    full: true,
+    wait: 15000,
+    // Open the dispute form by clicking its toggle, then fill grounds, so the
+    // screenshot shows the real interactive state rather than the closed one.
+    async click(selector) {
+      const el = document.querySelector(selector);
+      if (el) el.click();
+    },
+    clickSelector: "button.btn-secondary",
+  },
+  { path: "/claims/claim-2", name: "16-claim-2-mobile-360", full: true, width: 360, height: 900, wait: 15000 },
 ];
 
 mkdirSync(OUT, { recursive: true });
@@ -127,6 +143,33 @@ for (const page of PAGES) {
   );
   await send("Page.navigate", { url: `${BASE}${page.path}` }, sessionId);
   await sleep(page.wait ?? 1200);
+
+  // Optional interaction step, evaluated in the page after it settles.
+  if (page.clickSelector) {
+    await send(
+      "Runtime.evaluate",
+      { expression: `(() => { const el = document.querySelector(${JSON.stringify(page.clickSelector)}); if (el) { el.click(); return true; } return false; })()`, returnByValue: true },
+      sessionId,
+    );
+    await sleep(900);
+    // Fill the grounds textarea so the screenshot shows a realistic state.
+    await send(
+      "Runtime.evaluate",
+      {
+        expression: `(() => {
+          const ta = document.querySelector('#dispute-grounds');
+          if (!ta) return false;
+          const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+          setter.call(ta, 'NASA POWER reports 3.79 mm for 2024-06-01, which is above the 5.00 mm threshold when taken with the unit it publishes (mm/day rather than mm). The validator appears to have compared the two sources without reconciling their units.');
+          ta.dispatchEvent(new Event('input', { bubbles: true }));
+          return true;
+        })()`,
+        returnByValue: true,
+      },
+      sessionId,
+    );
+    await sleep(400);
+  }
 
   const { result } = await send(
     "Runtime.evaluate",

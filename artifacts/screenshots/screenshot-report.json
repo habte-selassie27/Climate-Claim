@@ -155,7 +155,7 @@
   },
   {
     "page": "/policies/policy-3",
-    "file": "/home/izzy/Documents/Climate-Claim/artifacts/screenshots/12-policy-3-detail.png",
+    "file": "/home/izzy/Documents/Climate-Claim/artifacts/screenshots/12-policy-3-detail-start-claim.png",
     "title": "ClimateClaim — evidence-based parametric weather claims",
     "h1": "Policy policy-3",
     "origin": "◉ Live from StudioNet",
@@ -182,8 +182,36 @@
     "overflowX": false
   },
   {
+    "page": "/policies/new",
+    "file": "/home/izzy/Documents/Climate-Claim/artifacts/screenshots/14-policy-new-form.png",
+    "title": "ClimateClaim — evidence-based parametric weather claims",
+    "h1": "Create a policy",
+    "origin": null,
+    "finality": null,
+    "decision": null,
+    "summary": null,
+    "checks": 0,
+    "evidenceRows": 0,
+    "claimRows": 0,
+    "overflowX": false
+  },
+  {
+    "page": "/claims/claim-5",
+    "file": "/home/izzy/Documents/Climate-Claim/artifacts/screenshots/15-dispute-form-open.png",
+    "title": "ClimateClaim — evidence-based parametric weather claims",
+    "h1": "Claim claim-5",
+    "origin": "◉ Live from StudioNet",
+    "finality": "◕Accepted — can still be appealed",
+    "decision": "✕Condition not confirmed",
+    "summary": "Open-Meteo ERA5 crossed the threshold on 0 days.",
+    "checks": 5,
+    "evidenceRows": 1,
+    "claimRows": 0,
+    "overflowX": false
+  },
+  {
     "page": "/claims/claim-2",
-    "file": "/home/izzy/Documents/Climate-Claim/artifacts/screenshots/14-claim-2-mobile-360.png",
+    "file": "/home/izzy/Documents/Climate-Claim/artifacts/screenshots/16-claim-2-mobile-360.png",
     "title": "ClimateClaim — evidence-based parametric weather claims",
     "h1": "Claim claim-2",
     "origin": "◉ Live from StudioNet",
