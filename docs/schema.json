@@ -1,0 +1,390 @@
+{
+  "_note": "Saved from: genlayer schema 0xE16032420e3155C0822e9150a98c6B1163869F0c (StudioNet). Raw CLI output kept at docs/schema.genlayer-cli.txt.",
+  "contract": "0xE16032420e3155C0822e9150a98c6B1163869F0c",
+  "network": "studionet",
+  "capturedAt": "2026-10-13T14:45:18.785Z",
+  "schema": {
+    "ctor": {
+      "params": [
+        [
+          "owner",
+          "address"
+        ]
+      ],
+      "kwparams": {}
+    },
+    "methods": {
+      "create_policy": {
+        "params": [
+          [
+            "location_name",
+            "string"
+          ],
+          [
+            "lat_scaled",
+            "int"
+          ],
+          [
+            "lon_scaled",
+            "int"
+          ],
+          [
+            "tolerance_m",
+            "int"
+          ],
+          [
+            "source_ids",
+            "array"
+          ],
+          [
+            "agreement_rule",
+            "string"
+          ],
+          [
+            "min_sources",
+            "int"
+          ],
+          [
+            "data_mode",
+            "string"
+          ],
+          [
+            "period_start",
+            "string"
+          ],
+          [
+            "period_end",
+            "string"
+          ],
+          [
+            "timezone",
+            "string"
+          ],
+          [
+            "metric",
+            "string"
+          ],
+          [
+            "unit",
+            "string"
+          ],
+          [
+            "comparator",
+            "string"
+          ],
+          [
+            "threshold_scaled",
+            "int"
+          ],
+          [
+            "aggregation",
+            "string"
+          ],
+          [
+            "condition_text",
+            "string"
+          ],
+          [
+            "payout_amount",
+            "int"
+          ]
+        ],
+        "kwparams": {},
+        "readonly": false,
+        "ret": "string",
+        "payable": false
+      },
+      "finalize_decision": {
+        "params": [
+          [
+            "claim_id",
+            "string"
+          ]
+        ],
+        "kwparams": {},
+        "readonly": false,
+        "ret": "null",
+        "payable": false
+      },
+      "find_claim": {
+        "params": [
+          [
+            "policy_id",
+            "string"
+          ],
+          [
+            "period_start",
+            "string"
+          ],
+          [
+            "period_end",
+            "string"
+          ]
+        ],
+        "kwparams": {},
+        "readonly": true,
+        "ret": "string"
+      },
+      "fund": {
+        "params": [],
+        "kwparams": {},
+        "readonly": false,
+        "ret": "null",
+        "payable": true
+      },
+      "get_checks": {
+        "params": [
+          [
+            "claim_id",
+            "string"
+          ]
+        ],
+        "kwparams": {},
+        "readonly": true,
+        "ret": "array"
+      },
+      "get_claim": {
+        "params": [
+          [
+            "claim_id",
+            "string"
+          ]
+        ],
+        "kwparams": {},
+        "readonly": true,
+        "ret": "dict"
+      },
+      "get_claim_count": {
+        "params": [],
+        "kwparams": {},
+        "readonly": true,
+        "ret": "int"
+      },
+      "get_criteria_version": {
+        "params": [],
+        "kwparams": {},
+        "readonly": true,
+        "ret": "string"
+      },
+      "get_disputes": {
+        "params": [
+          [
+            "claim_id",
+            "string"
+          ]
+        ],
+        "kwparams": {},
+        "readonly": true,
+        "ret": "array"
+      },
+      "get_evidence": {
+        "params": [
+          [
+            "claim_id",
+            "string"
+          ]
+        ],
+        "kwparams": {},
+        "readonly": true,
+        "ret": "array"
+      },
+      "get_owner": {
+        "params": [],
+        "kwparams": {},
+        "readonly": true,
+        "ret": "string"
+      },
+      "get_policy": {
+        "params": [
+          [
+            "policy_id",
+            "string"
+          ]
+        ],
+        "kwparams": {},
+        "readonly": true,
+        "ret": "dict"
+      },
+      "get_policy_count": {
+        "params": [],
+        "kwparams": {},
+        "readonly": true,
+        "ret": "int"
+      },
+      "get_settlement": {
+        "params": [
+          [
+            "claim_id",
+            "string"
+          ]
+        ],
+        "kwparams": {},
+        "readonly": true,
+        "ret": "dict"
+      },
+      "get_source": {
+        "params": [
+          [
+            "source_id",
+            "string"
+          ]
+        ],
+        "kwparams": {},
+        "readonly": true,
+        "ret": "dict"
+      },
+      "list_policies": {
+        "params": [],
+        "kwparams": {},
+        "readonly": true,
+        "ret": "array"
+      },
+      "list_sources": {
+        "params": [],
+        "kwparams": {},
+        "readonly": true,
+        "ret": "array"
+      },
+      "open_dispute": {
+        "params": [
+          [
+            "claim_id",
+            "string"
+          ],
+          [
+            "grounds",
+            "string"
+          ]
+        ],
+        "kwparams": {},
+        "readonly": false,
+        "ret": "null",
+        "payable": false
+      },
+      "register_source": {
+        "params": [
+          [
+            "source_id",
+            "string"
+          ],
+          [
+            "name",
+            "string"
+          ],
+          [
+            "kind",
+            "string"
+          ],
+          [
+            "metric",
+            "string"
+          ],
+          [
+            "param",
+            "string"
+          ],
+          [
+            "url_template",
+            "string"
+          ],
+          [
+            "unit",
+            "string"
+          ],
+          [
+            "attribution",
+            "string"
+          ]
+        ],
+        "kwparams": {},
+        "readonly": false,
+        "ret": "null",
+        "payable": false
+      },
+      "request_evaluation": {
+        "params": [
+          [
+            "claim_id",
+            "string"
+          ]
+        ],
+        "kwparams": {},
+        "readonly": false,
+        "ret": "null",
+        "payable": false
+      },
+      "resolve_dispute": {
+        "params": [
+          [
+            "claim_id",
+            "string"
+          ]
+        ],
+        "kwparams": {},
+        "readonly": false,
+        "ret": "null",
+        "payable": false
+      },
+      "retire_policy": {
+        "params": [
+          [
+            "policy_id",
+            "string"
+          ]
+        ],
+        "kwparams": {},
+        "readonly": false,
+        "ret": "null",
+        "payable": false
+      },
+      "set_beneficiary": {
+        "params": [
+          [
+            "policy_id",
+            "string"
+          ],
+          [
+            "beneficiary",
+            "address"
+          ]
+        ],
+        "kwparams": {},
+        "readonly": false,
+        "ret": "null",
+        "payable": false
+      },
+      "settle_claim": {
+        "params": [
+          [
+            "claim_id",
+            "string"
+          ]
+        ],
+        "kwparams": {},
+        "readonly": false,
+        "ret": "null",
+        "payable": false
+      },
+      "start_claim": {
+        "params": [
+          [
+            "policy_id",
+            "string"
+          ],
+          [
+            "period_start",
+            "string"
+          ],
+          [
+            "period_end",
+            "string"
+          ]
+        ],
+        "kwparams": {},
+        "readonly": false,
+        "ret": "string",
+        "payable": false
+      }
+    }
+  }
+}
