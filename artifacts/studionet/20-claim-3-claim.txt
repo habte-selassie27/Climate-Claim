@@ -1,0 +1,21 @@
+[genlayer-js] initializeConsensusSmartContract() is deprecated and will be removed in a future release. The consensus contract is now resolved from the static chain definition.
+- Calling method get_claim on contract at 0xE16032420e3155C0822e9150a98c6B1163869F0c...
+
+Result:
+{
+  claimant: '0x5B3661C576c7001e6d6279C67F3779705d334c89',
+  criteria_version: 'climateclaim-criteria-1',
+  decision: '',
+  eval_error: '',
+  eval_round: 0,
+  finalized: false,
+  id: 'claim-3',
+  observed_value_scaled: 0,
+  policy_id: 'policy-2',
+  reason_code: '',
+  settlement_state: 'not_settled',
+  state: 'created',
+  summary: ''
+}
+
+✔ Read operation successfully executed
