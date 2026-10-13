@@ -1,0 +1,59 @@
+{
+  "label": "historical_simulation",
+  "captured_at": "2026-10-13",
+  "note": "Recorded response from the documented endpoints in docs/sources.md. Re-verified against the live endpoints on 2026-10-13; the values matched exactly. Not a live feed.",
+  "location": {
+    "name": "Paris",
+    "requested_lat": 48.8566,
+    "requested_lon": 2.3522
+  },
+  "period": { "start": "2024-06-01", "end": "2024-06-05", "timezone": "UTC" },
+  "sources": {
+    "om_archive_precip": {
+      "provider": "Open-Meteo Historical Weather API (ERA5)",
+      "url": "https://archive-api.open-meteo.com/v1/archive?latitude=48.8566&longitude=2.3522&start_date=2024-06-01&end_date=2024-06-05&daily=precipitation_sum&timezone=UTC",
+      "reported_lat": 48.89279,
+      "reported_lon": 2.2920206,
+      "grid_offset_m": 5973,
+      "unit": "mm",
+      "daily": {
+        "2024-06-01": 1.2,
+        "2024-06-02": 0.0,
+        "2024-06-03": 0.1,
+        "2024-06-04": 0.8,
+        "2024-06-05": 0.5
+      }
+    },
+    "nasa_precip": {
+      "provider": "NASA POWER Daily API v2 (MERRA-2)",
+      "url": "https://power.larc.nasa.gov/api/temporal/daily/point?parameters=PRECTOTCORR&community=RE&longitude=2.3522&latitude=48.8566&start=20240601&end=20240605&format=JSON",
+      "reported_lat": 48.8566,
+      "reported_lon": 2.3522,
+      "unit": "mm/day",
+      "daily": {
+        "2024-06-01": 3.79,
+        "2024-06-02": 0.29,
+        "2024-06-03": 0.09,
+        "2024-06-04": 0.14,
+        "2024-06-05": 0.66
+      }
+    }
+  },
+  "on_chain_claims": [
+    {
+      "claim_id": "claim-2",
+      "policy_id": "policy-3",
+      "threshold_scaled": 100,
+      "tolerance_m": 12000,
+      "outcome": "confirmed"
+    },
+    {
+      "claim_id": "claim-4",
+      "policy_id": "policy-4",
+      "threshold_scaled": 500,
+      "tolerance_m": 5000,
+      "outcome": "inconclusive",
+      "note": "Grid cell is ~5973 m from the policy point, outside this policy's 5000 m tolerance, so the location check failed and the outcome is inconclusive rather than not_confirmed."
+    }
+  ]
+}
