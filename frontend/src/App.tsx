@@ -2,7 +2,7 @@ import { NavLink, Route, Routes, Link } from "react-router-dom";
 import { activeNetwork } from "./config/network";
 import { useWallet } from "./hooks/useWallet";
 import { CONTRACT_ADDRESS } from "./config/contracts";
-import { truncateAddress } from "./domain/format";
+import { WalletPanel } from "./components/WalletPanel";
 import { Landing } from "./pages/Landing";
 import { Claims } from "./pages/Claims";
 import { ClaimDetail } from "./pages/ClaimDetail";
@@ -47,26 +47,14 @@ function Chrome() {
           <span className="badge" title={`Chain ${net.chainId}`}>
             <span aria-hidden="true">◈</span> {net.label}
           </span>
-          {wallet.wrongNetwork ? (
-            <button
-              type="button"
-              className="copy-btn badge-wrongnet"
-              role="alert"
-              onClick={() => void wallet.switchNetwork()}
-              disabled={wallet.switching}
-              title={`Your wallet is on chain ${wallet.chainId}. Click to switch to ${net.label} (chain ${net.chainId}).`}
-            >
-              <span aria-hidden="true">⚠</span> Wrong network ({wallet.chainId}) — switch
-            </button>
-          ) : wallet.connected && wallet.address ? (
-            <span className="badge badge-live" title={wallet.address}>
-              <span aria-hidden="true">◉</span> {truncateAddress(wallet.address)}
+          {wallet.wrongNetwork && wallet.connected ? (
+            <span className="badge badge-sim" role="alert">
+              Wrong network ({wallet.chainId})
             </span>
-          ) : (
-            <button type="button" className="copy-btn" onClick={() => void wallet.request()}>
-              {wallet.available ? "Connect wallet" : "Read-only"}
-            </button>
-          )}
+          ) : null}
+          {/* One control for the whole wallet lifecycle: discover, choose,
+              connect, show address, copy, switch network, disconnect. */}
+          <WalletPanel />
         </div>
       </div>
     </header>

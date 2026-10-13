@@ -207,6 +207,28 @@ main {
   margin-left: auto;
 }
 
+/* The nav is the flexible element. Without this the wider wallet control pushed
+   the status badges onto a second row, which in turn moved the wallet to the
+   far left and broke the dropdown's positioning. */
+@media (min-width: 900px) {
+  .chrome-nav {
+    flex-wrap: nowrap;
+    min-width: 0;
+  }
+  .chrome-nav a {
+    white-space: nowrap;
+  }
+  .chrome-status {
+    flex-wrap: nowrap;
+  }
+  .wallet-label {
+    max-width: 11ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
 .chrome-nav a {
   color: var(--rain-slate-70);
   text-decoration: none;
@@ -1123,6 +1145,204 @@ details.disclosure > summary {
 .field textarea {
   resize: vertical;
   min-height: 72px;
+}
+
+/* --- wallet ---------------------------------------------------------------
+   One control covering the whole lifecycle. Positioned so the sheet can drop
+   below the trigger without being clipped by the header. */
+
+.wallet-panel {
+  position: relative;
+}
+
+.wallet-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-ui);
+  font-size: var(--step--1);
+  font-weight: 700;
+  min-height: 32px;
+  padding: 2px var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hail);
+  background: var(--surface);
+  color: var(--rain-slate);
+  cursor: pointer;
+}
+
+.wallet-trigger:hover:not(:disabled) {
+  border-color: var(--isobar);
+  color: var(--isobar);
+}
+
+.wallet-trigger.is-connected {
+  border-color: var(--lichen);
+  background: var(--lichen-wash);
+  color: var(--lichen);
+}
+
+.wallet-trigger.is-wrongnet {
+  border-color: var(--amber-flag);
+  background: var(--amber-wash);
+  color: var(--amber-flag);
+}
+
+.wallet-trigger:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.wallet-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  flex: none;
+  /* Icons come from wallets as data URIs and may be SVG, which can carry
+     script. Rendering through <img> keeps it inert (EIP-6963 security note). */
+  object-fit: contain;
+  background: var(--gauge-paper);
+}
+
+.wallet-icon-empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--rain-slate-45);
+}
+
+.wallet-warn {
+  color: var(--amber-flag);
+  font-weight: 700;
+}
+
+.wallet-sheet {
+  /* Fixed, with top/left computed from the trigger rect and clamped to the
+     viewport. An absolutely-positioned sheet cannot clamp, and the header
+     wraps on narrow widths, which pushed the sheet off-screen. */
+  position: fixed;
+  z-index: 60;
+  width: min(340px, calc(100vw - 32px));
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--hail);
+  border-radius: var(--radius-md);
+  box-shadow: 0 6px 20px rgba(38, 50, 61, 0.18);
+  padding: var(--space-4);
+}
+
+.wallet-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.wallet-sheet-title {
+  margin: 0;
+  font-size: var(--step-1);
+}
+
+.wallet-section {
+  font-family: var(--font-ui);
+  font-size: var(--step--1);
+  color: var(--rain-slate-70);
+  margin: var(--space-4) 0 var(--space-2);
+}
+
+.wallet-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.wallet-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--hail);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  color: var(--rain-slate);
+  min-height: 44px;
+}
+
+.wallet-option:hover {
+  border-color: var(--isobar);
+}
+
+.wallet-option.is-selected {
+  border-color: var(--isobar);
+  background: var(--isobar-wash);
+}
+
+.wallet-option-name {
+  display: block;
+  font-weight: 700;
+  font-size: var(--step--1);
+}
+
+.wallet-option-rdns {
+  display: block;
+  font-size: 11px;
+  color: var(--rain-slate-45);
+}
+
+.wallet-check {
+  margin-left: auto;
+  color: var(--isobar);
+  font-weight: 700;
+}
+
+.wallet-tag {
+  font-size: 11px;
+  border: 1px solid var(--hail);
+  border-radius: var(--radius-sm);
+  padding: 0 4px;
+  color: var(--rain-slate-70);
+}
+
+.wallet-account {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.wallet-address {
+  display: block;
+  font-size: 12px;
+  background: var(--gauge-paper);
+  border: 1px solid var(--hail);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  overflow-wrap: anywhere;
+}
+
+.wallet-btn-primary {
+  border-color: var(--isobar);
+  color: var(--isobar);
+}
+
+.wallet-note {
+  margin-top: var(--space-3);
+  padding: var(--space-2);
+  border-left: 3px solid var(--isobar);
+  background: var(--isobar-wash);
+}
+
+.wallet-footnote {
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--hail-soft);
+  font-size: 12px;
 }
 
 /* Wrong-network affordance in the header. It is a button, not a static badge,

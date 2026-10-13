@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ReadResult } from "../services/rpc";
+import type { DataOrigin, ReadResult } from "../services/rpc";
 import { SNAPSHOT_CAPTURED_AT } from "../services/rpc";
 
 export interface ReadState<T> {
   data: T | undefined;
-  origin: "live" | "snapshot";
+  /** Where the data on screen came from. "mixed" means a composite read where
+   *  some sub-reads were live and some fell back to the snapshot. */
+  origin: DataOrigin;
   capturedAt?: string;
   liveError?: string;
   loading: boolean;
@@ -36,7 +38,7 @@ export function useRead<T>(
 ): ReadState<T> {
   const seeded = seed !== undefined;
   const [data, setData] = useState<T | undefined>(seed);
-  const [origin, setOrigin] = useState<"live" | "snapshot">(seeded ? "snapshot" : "live");
+  const [origin, setOrigin] = useState<DataOrigin>(seeded ? "snapshot" : "live");
   const [capturedAt, setCapturedAt] = useState<string | undefined>(seeded ? SNAPSHOT_CAPTURED_AT : undefined);
   const [liveError, setLiveError] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(!seeded);

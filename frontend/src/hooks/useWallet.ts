@@ -1,114 +1,192 @@
-import { useCallback, useEffect, useState } from "react";
-import { EXPECTED_CHAIN_ID, detectWalletChainId } from "../services/client";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { EXPECTED_CHAIN_ID } from "../services/client";
 import { activeNetwork } from "../config/network";
+import {
+  getWallets,
+  revokePermissions,
+  startWalletDiscovery,
+  subscribeWallets,
+  type DiscoveredWallet,
+  type Eip1193Provider,
+} from "../services/wallet";
+
+const SELECTED_KEY = "climateclaim.selectedWallet";
 
 export interface WalletState {
-  /** True when a wallet provider exists at all (e.g. a browser extension). */
+  /** Wallets that have announced themselves, EIP-6963 first. */
+  wallets: DiscoveredWallet[];
+  /** True when at least one wallet exists. */
   available: boolean;
+  /** True once discovery has run at least once, so the UI can show a spinner. */
+  discovering: boolean;
+  /** The wallet the user chose, if any. */
+  selected: DiscoveredWallet | null;
+  /** Prompt for a wallet choice when more than one is available. */
+  choose: (uuid: string) => void;
+  /** Connect: opens the wallet's own approval prompt. */
+  connect: () => Promise<void>;
+  /** End the session locally, and ask the wallet to revoke if it can. */
+  disconnect: () => Promise<{ revoked: boolean }>;
+  /** Provider of the connected wallet, for reads and writes. */
+  provider: Eip1193Provider | null;
   connected: boolean;
   address: string | null;
   chainId: number | null;
   wrongNetwork: boolean;
-  request: () => Promise<void>;
-  /**
-   * Ask the wallet to switch to the configured network.
-   * Resolves true on success, false when the user declines or the wallet
-   * refuses. Never throws, so callers can stay declarative.
-   */
+  /** Ask the wallet to switch to the configured network. */
   switchNetwork: () => Promise<boolean>;
-  /** True while a switch request is in flight, so the button can disable. */
   switching: boolean;
-  /** Human-readable reason the last switch attempt did not succeed. */
-  switchError: string;
+  /** Human-readable reason the last attempt failed. */
+  error: string;
+  busy: boolean;
+}
+
+function readChainId(provider: Eip1193Provider | null): Promise<number | null> {
+  if (!provider) return Promise.resolve(null);
+  try {
+    return provider
+      .request({ method: "eth_chainId" })
+      .then((raw) => (typeof raw === "string" ? Number.parseInt(raw, 16) : null))
+      .catch(() => null);
+  } catch {
+    return Promise.resolve(null);
+  }
 }
 
 /**
- * Wallet presence and network check.
+ * Wallet presence, selection and connection.
  *
- * Reads never require a wallet. The wrong-network state is a blocking banner,
- * not a crash, and no-wallet is explained rather than treated as an error.
- *
- * Network switching uses the EIP-3326 method `wallet_switchEthereumChain`.
- * If the network is not yet known to the wallet it first attempts
- * `wallet_addEthereumChain`, then retries the switch. Both parameters are built
- * from `config/network.ts` rather than hardcoded here.
+ * Discovery uses EIP-6963 (see services/wallet.ts) because a page cannot
+ * enumerate browser extensions. Reading the contract never needs a wallet; only
+ * writing does.
  */
 export function useWallet(): WalletState {
+  const [wallets, setWallets] = useState<DiscoveredWallet[]>([]);
+  const [discovering, setDiscovering] = useState(true);
+  const [selectedUuid, setSelectedUuid] = useState<string | null>(
+    () => (typeof localStorage === "undefined" ? null : localStorage.getItem(SELECTED_KEY)),
+  );
   const [address, setAddress] = useState<string | null>(null);
   const [chainId, setChainId] = useState<number | null>(null);
-  const [available, setAvailable] = useState(false);
+  const [error, setError] = useState("");
   const [switching, setSwitching] = useState(false);
-  const [switchError, setSwitchError] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const readChainId = useCallback(async () => {
-    setChainId(await detectWalletChainId());
+  // Discovery is a page-lifetime subscription.
+  useEffect(() => {
+    const stop = startWalletDiscovery();
+    const unsubscribe = subscribeWallets((list) => {
+      setWallets(list);
+      setDiscovering(false);
+    });
+    return () => {
+      stop();
+      unsubscribe();
+    };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    void detectWalletChainId().then((id) => {
-      if (!cancelled) setChainId(id);
-    });
-    const eth = (window as unknown as { ethereum?: { isMetaMask?: boolean } }).ethereum;
-    if (!cancelled) setAvailable(Boolean(eth));
+  const selected = useMemo(
+    () => wallets.find((w) => w.info.uuid === selectedUuid) ?? null,
+    [wallets, selectedUuid],
+  );
 
-    // The wallet can change network or account without a reload. Listen for
-    // both, so the header badge does not go stale after the user switches.
-    const provider = (window as unknown as { ethereum?: { on?: Function; removeListener?: Function } })
-      .ethereum;
-    const onAccountsChanged = (accounts: unknown) => {
+  const provider = selected?.provider ?? null;
+
+  // Track chain and account changes from the connected provider.
+  useEffect(() => {
+    if (!provider) return;
+    let cancelled = false;
+
+    const refresh = async () => {
+      const id = await readChainId(provider);
+      if (!cancelled) setChainId(id);
+      try {
+        const accounts = (await provider.request({ method: "eth_accounts" })) as string[];
+        if (cancelled) return;
+        setAddress(accounts?.[0] ?? null);
+      } catch {
+        if (!cancelled) setAddress(null);
+      }
+    };
+    void refresh();
+
+    const onAccounts = (accounts: unknown) => {
       const list = Array.isArray(accounts) ? accounts : [];
       setAddress(typeof list[0] === "string" ? list[0] : null);
-      void readChainId();
     };
-    provider?.on?.("accountsChanged", onAccountsChanged);
-    provider?.on?.("chainChanged", () => void readChainId());
+    const onChain = () => void readChainId(provider).then((id) => !cancelled && setChainId(id));
 
+    provider.on?.("accountsChanged" as never, onAccounts as never);
+    provider.on?.("chainChanged" as never, onChain as never);
     return () => {
       cancelled = true;
-      provider?.removeListener?.("accountsChanged", onAccountsChanged);
+      provider.removeListener?.("accountsChanged" as never, onAccounts as never);
+      provider.removeListener?.("chainChanged" as never, onChain as never);
     };
-  }, [readChainId]);
+  }, [provider]);
 
-  const request = useCallback(async () => {
-    if (typeof window === "undefined" || !("ethereum" in window)) return;
+  const choose = useCallback((uuid: string) => {
+    setSelectedUuid(uuid);
+    setError("");
+    setAddress(null);
+    if (typeof localStorage !== "undefined") localStorage.setItem(SELECTED_KEY, uuid);
+  }, []);
+
+  /** Auto-select when there is exactly one wallet, so the common case is one click. */
+  useEffect(() => {
+    if (wallets.length === 1 && !selectedUuid) {
+      choose(wallets[0].info.uuid);
+    }
+  }, [wallets, selectedUuid, choose]);
+
+  const connect = useCallback(async () => {
+    if (!provider) {
+      setError(wallets.length ? "Choose a wallet first." : "No wallet detected.");
+      return;
+    }
+    setBusy(true);
+    setError("");
     try {
-      const provider = (
-        window as unknown as {
-          ethereum: { request: (a: { method: string }) => Promise<unknown> };
-        }
-      ).ethereum;
       const accounts = (await provider.request({ method: "eth_requestAccounts" })) as string[];
       setAddress(accounts?.[0] ?? null);
-      await readChainId();
-    } catch {
-      setAddress(null);
+      setChainId(await readChainId(provider));
+    } catch (err) {
+      const code = (err as { code?: number })?.code;
+      setError(
+        code === 4001
+          ? "The connection request was declined."
+          : "The wallet did not return an account.",
+      );
+    } finally {
+      setBusy(false);
     }
-  }, [readChainId]);
+  }, [provider, wallets.length]);
+
+  const disconnect = useCallback(async () => {
+    const target = provider;
+    setAddress(null);
+    setError("");
+    if (!target) return { revoked: false };
+    const revoked = await revokePermissions(target);
+    return { revoked };
+  }, [provider]);
 
   const switchNetwork = useCallback(async (): Promise<boolean> => {
-    if (typeof window === "undefined" || !("ethereum" in window)) return false;
+    if (!provider) return false;
     const net = activeNetwork();
     const chainHex = `0x${net.chainId.toString(16)}`;
     setSwitching(true);
-    setSwitchError("");
+    setError("");
     try {
-      const provider = (
-        window as unknown as {
-          ethereum: { request: (a: { method: string; params?: unknown[] }) => Promise<unknown> };
-        }
-      ).ethereum;
-
       try {
         await provider.request({
           method: "wallet_switchEthereumChain",
           params: [{ chainId: chainHex }],
         });
       } catch (err) {
-        // 4902 = the chain is not known to the wallet yet. Offer to add it,
-        // then switch again. This is the usual first-run experience.
         const code = (err as { code?: number })?.code;
         if (code === 4902) {
+          // Wallet has never seen this network: add it, then switch.
           await provider.request({
             method: "wallet_addEthereumChain",
             params: [
@@ -124,34 +202,39 @@ export function useWallet(): WalletState {
             method: "wallet_switchEthereumChain",
             params: [{ chainId: chainHex }],
           });
-        } else if (code === 4001) {
-          setSwitchError("The network change was declined.");
-          return false;
         } else {
-          setSwitchError("The wallet could not switch networks.");
+          setError(code === 4001 ? "The network change was declined." : "Could not switch network.");
           return false;
         }
       }
-
-      await readChainId();
+      setChainId(await readChainId(provider));
       return true;
     } catch {
-      setSwitchError("The wallet could not switch networks.");
+      setError("Could not switch network.");
       return false;
     } finally {
       setSwitching(false);
     }
-  }, [readChainId]);
+  }, [provider]);
 
   return {
-    available,
+    wallets,
+    available: wallets.length > 0,
+    discovering,
+    selected,
+    choose,
+    connect,
+    disconnect,
+    provider,
     connected: Boolean(address),
     address,
     chainId,
     wrongNetwork: chainId !== null && chainId !== EXPECTED_CHAIN_ID,
-    request,
     switchNetwork,
     switching,
-    switchError,
+    error,
+    busy,
   };
 }
+
+export { getWallets };

@@ -1,0 +1,18 @@
+[
+  {
+    "path": "/policies/new",
+    "rendered": true,
+    "h1": "Create a policy",
+    "consoleErrors": [],
+    "failedRequests": [],
+    "screenshot": "n1-policy-new-form.png"
+  },
+  {
+    "path": "/policies/policy-3",
+    "rendered": true,
+    "h1": "Policy policy-3",
+    "consoleErrors": [],
+    "failedRequests": [],
+    "screenshot": "n2-policy-detail-start-claim.png"
+  }
+]

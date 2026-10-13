@@ -186,9 +186,9 @@ export function ClaimDetail() {
               {wallet.switching ? "Switching…" : `Switch to ${net.label}`}
             </button>
           </div>
-          {wallet.switchError ? (
+          {wallet.error ? (
             <p className="small muted" style={{ marginTop: "var(--space-2)" }}>
-              {wallet.switchError} You can also switch manually in your wallet extension.
+              {wallet.error} You can also switch manually in your wallet extension.
             </p>
           ) : null}
         </div>
