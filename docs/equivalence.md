@@ -47,8 +47,14 @@ validator also enforces the threshold-side invariant, so validators can never
 **EQUIVALENCE RULE** (implemented in `_equivalent`)
 
 1. `decision` must be **exactly equal**.
-2. `reason_code` must be equal **or** fall inside the same documented group
-   (e.g. `source_conflict` ≡ `insufficient_agreement`).
+2. `reason_code` must be equal **or** fall inside the same documented group.
+   In the deployed contract every group is currently a **singleton**
+   (`REASON_GROUPS` at contracts/climateclaim.py:73-80 lists
+   `source_conflict`, `missing_observations`, `location_mismatch`,
+   `threshold_crossed`, `threshold_not_crossed`, `sources_unreachable`, each
+   alone), so in practice reason_code must match exactly. The grouping mechanism
+   exists so two semantically-equivalent codes could be tolerated without
+   loosening the rule; no such pair is currently defined.
 3. **Required** checks must be equal: `threshold_crossed`, `period_covered`,
    `data_completeness`.
 4. **Non-required** checks (`location_match`, `source_agreement`) must be equal,
@@ -106,21 +112,41 @@ invents a reading and never computes the threshold comparison.
 
 ## TESTS COVERING THIS
 
-Direct (`tests/direct/`), all with mocked web + LLM:
+Direct (`tests/direct/`), all with mocked web + LLM — 114 tests across seven
+files. The scenario coverage that the equivalence rule depends on lives mostly in
+`test_equivalence.py`, `test_evaluation.py` and `test_llm_parsing.py`:
 
-- `test_equivalence.py` — `_equivalent` on near-equal vs clearly-different
-  results; reason-code grouping; the confirmed-but-below-threshold invariant.
-- `test_threshold.py` — clearly above / below / exactly at / boundary day.
-- `test_aggregation.py` — max_single, daily_total, cumulative, consecutive_days.
-- `test_conflict.py` — one source crosses, the other does not.
-- `test_missing.py` — gaps, empty body, no interpolation.
-- `test_location.py` — station outside tolerance.
-- `test_period.py` — out-of-period readings ignored; timezone boundary.
-- `test_units.py` — unit mismatch normalized / rejected.
-- `test_llm_parsing.py` — malformed, missing keys, wrong types, out-of-range,
-  extra commentary, unknown enums, and a prompt-injection fixture.
-- `test_state_machine.py` — every valid and invalid transition.
-- `test_settlement.py` — finality gate, double-settle, failed transfer,
-  unauthorized caller, amount boundaries.
-- `test_validation.py` — malformed submissions, bad period, retired policy,
-  bad coordinates, bad comparator/aggregation.
+- `test_equivalence.py` (11) — `_equivalent` on near-equal vs clearly-different
+  results (`test_near_equal_is_equivalent`,
+  `test_clearly_different_observed_not_equivalent`); decision / reason-code /
+  required-check / source mismatches; optional-check `unclear` tolerance; and the
+  threshold-side invariant in both directions
+  (`test_invariant_confirmed_below_threshold_rejected`,
+  `test_invariant_not_confirmed_above_threshold_rejected`).
+- `test_evaluation.py` (26) — threshold boundary cases (clearly above / below /
+  exactly-at for `gt` and `gte` / crossing only on the first or last day);
+  aggregation rules (daily_total, cumulative, consecutive_days pass and fail);
+  conflicting sources under `unanimous` vs `any`
+  (`test_unanimous_conflict_is_inconclusive`, `test_any_rule_resolves_conflict`);
+  missing observations and no-interpolation (`test_gap_in_period_is_inconclusive`,
+  `test_empty_body_source_missing`, `test_no_interpolation`); location mismatch
+  vs within-tolerance; out-of-period readings ignored; unit normalisation
+  (`test_inch_units_normalized`) and unsupported-unit rejection; source-down
+  partial vs all-unreachable; malformed payload and changed layout.
+- `test_llm_parsing.py` (9) — valid, malformed, missing-keys, wrong-types,
+  unknown-enum, extra-commentary LLM output; `test_llm_cannot_override_decision`;
+  `test_prompt_injection_in_evidence_ignored`; LLM raising is tolerated.
+- `test_state_machine.py` (14) — every valid transition and the invalid ones;
+  dispute flow including grounds round-tripping
+  (`test_dispute_flow_records_history`, `test_dispute_grounds_round_two`) and the
+  dispute limit; duplicate-claim rejection; retry after inconclusive and after
+  `EXTERNAL`; unauthorized evaluation.
+- `test_settlement.py` (12) — finality gate (available / mismatched / missing),
+  double-settle rejected, non-confirmed rejected, non-owner rejected, insufficient
+  balance, zero payout, and transfer failure marking `settlement_failed`.
+- `test_policy_registry.py` (20) — field validation (period order/length, source
+  count/duplicates/metric, consecutive-days-requires-precipitation), owner-only
+  guards, retire and beneficiary locks.
+- `test_smoke.py` (6) — deploy state, policy+claim creation, the bulk
+  `list_claims` view agreeing with `get_claim`, and confirmed / not_confirmed /
+  conflicting-sources happy paths.

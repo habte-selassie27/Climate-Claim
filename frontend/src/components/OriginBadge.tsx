@@ -1,5 +1,5 @@
 interface Props {
-  mode: "live" | "snapshot" | "recorded";
+  mode: "live" | "snapshot" | "recorded" | "mixed";
   /** When the snapshot was captured on-chain. */
   capturedAt?: string;
   /** Why the live read failed, when it did. */
@@ -29,6 +29,18 @@ export function OriginBadge({
         title={`Read live from ${networkLabel}.`}
       >
         <span aria-hidden="true">◉</span> Live from {networkLabel}
+      </span>
+    );
+  }
+  // A composite that is part live, part recorded. Say so instead of overstating.
+  if (mode === "mixed") {
+    return (
+      <span
+        className="badge badge-origin"
+        data-testid="origin-badge"
+        title={`Some of this was read live from ${networkLabel}; some came from the snapshot captured ${capturedAt ?? "unknown"}.`}
+      >
+        <span aria-hidden="true">◑</span> Mixed live &amp; recorded
       </span>
     );
   }

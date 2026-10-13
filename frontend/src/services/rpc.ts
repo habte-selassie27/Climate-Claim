@@ -19,7 +19,16 @@ import snapshotData from "../data/onchain-snapshot.json";
 
 const CONTRACT_FOR_READS = CONTRACT_ADDRESS as `0x${string}`;
 
-export type DataOrigin = "live" | "snapshot";
+/**
+ * Where a value came from.
+ *
+ * - "live": read from the chain this session.
+ * - "snapshot": the committed recording (src/data/onchain-snapshot.json).
+ * - "mixed": a composite (e.g. the claim bundle) where SOME reads were live
+ *   and others fell back to the snapshot. Labelling a partially-live object
+ *   simply "live" would overstate it, so composites use "mixed".
+ */
+export type DataOrigin = "live" | "snapshot" | "mixed";
 
 export interface ReadResult<T> {
   data: T;

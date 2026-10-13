@@ -101,6 +101,12 @@ export interface Claim {
   settlement_state: SettlementState;
   /** Stable error prefix such as "EXTERNAL: sources_unreachable". Empty when ok. */
   eval_error: string;
+  /**
+   * Grounds of the currently-open dispute, set by `open_dispute` and cleared
+   * once the re-evaluation records the round. Empty unless state is "disputed".
+   * Mirrors the contract's `pending_grounds` (contracts/climateclaim.py).
+   */
+  pending_grounds?: string;
 }
 
 export interface EvidenceRecord {
@@ -123,13 +129,19 @@ export interface CheckResult {
   detail: string;
 }
 
+/**
+ * One recorded dispute round, exactly as `get_disputes` returns it
+ * (contracts/climateclaim.py `_write_outcome`): round, opener, grounds,
+ * prev_decision, new_decision. Written when the re-evaluation lands.
+ */
 export interface Dispute {
-  claim_id: string;
   round: number;
+  /** Address that opened the dispute (the claimant or the owner). */
+  opener: string;
+  /** The disputant's own words, preserved verbatim. */
   grounds: string;
-  opened_by: string;
-  opened_at: string;
-  resolved: boolean;
+  prev_decision: Decision | "";
+  new_decision: Decision | "";
 }
 
 export interface Settlement {

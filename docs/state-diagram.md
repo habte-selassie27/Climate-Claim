@@ -61,7 +61,7 @@ and covered by direct tests (valid **and** invalid).
 
 | From | Method | To | Guard |
 |---|---|---|---|
-| — | `start_claim` | `created` | policy active; period valid and not in the future for archive mode; not a duplicate of (policy, period); payout beneficiary is the claimant |
+| — | `start_claim` | `created` | policy active; period within the policy window; not a duplicate of (policy, period); `claim_count` below the 1,000,000 cap |
 | `created` | `request_evaluation` | `decided_*` / `inconclusive` / `evidence_collected` | claim belongs to caller or caller is owner |
 | `inconclusive` | `request_evaluation` | `decided_*` / `inconclusive` / `evidence_collected` | retry allowed |
 | `evidence_collected` | `request_evaluation` | `decided_*` / `inconclusive` / `evidence_collected` | retry after `EXTERNAL` |

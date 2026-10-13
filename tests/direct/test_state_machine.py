@@ -62,6 +62,8 @@ def test_dispute_flow_records_history(cc, direct_vm):
     _, cid = _confirmed_claim(cc, direct_vm)
     cc.open_dispute(cid, "I believe the gauge under-read.")
     assert cc.get_claim(cid)["state"] == "disputed"
+    # The open dispute's grounds are readable while it awaits re-evaluation.
+    assert cc.get_claim(cid)["pending_grounds"] == "I believe the gauge under-read."
     cc.resolve_dispute(cid)
     c = cc.get_claim(cid)
     assert c["state"] == "decided_confirmed"
@@ -71,6 +73,21 @@ def test_dispute_flow_records_history(cc, direct_vm):
     assert disputes[0]["round"] == 1
     assert disputes[0]["prev_decision"] == "confirmed"
     assert disputes[0]["new_decision"] == "confirmed"
+    # The disputant's own words are kept, not a placeholder.
+    assert disputes[0]["grounds"] == "I believe the gauge under-read."
+    # Consumed once recorded: the pending slot clears for the next round.
+    assert c["pending_grounds"] == ""
+
+
+def test_dispute_grounds_round_two(cc, direct_vm):
+    """A second dispute round keeps each round's own grounds."""
+    _, cid = _confirmed_claim(cc, direct_vm)
+    cc.open_dispute(cid, "round one grounds")
+    cc.resolve_dispute(cid)
+    cc.open_dispute(cid, "round two grounds")
+    cc.resolve_dispute(cid)
+    disputes = cc.get_disputes(cid)
+    assert [d["grounds"] for d in disputes] == ["round one grounds", "round two grounds"]
 
 
 def test_dispute_limit_enforced(cc, direct_vm):

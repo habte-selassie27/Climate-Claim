@@ -30,6 +30,16 @@ def test_create_policy_and_claim(cc, direct_vm):
     assert c["decision"] == ""
 
 
+def test_list_claims_matches_get_claim(cc, direct_vm):
+    """The bulk view agrees with the per-claim view, field for field."""
+    pid = make_policy(cc)
+    cid = cc.start_claim(pid, "2024-06-01", "2024-06-05")
+    listed = cc.list_claims()
+    assert len(listed) == 1
+    assert listed[0] == cc.get_claim(cid)
+    assert listed[0]["pending_grounds"] == ""
+
+
 def test_evaluation_confirmed(cc, direct_vm):
     pid = make_policy(cc, threshold_scaled=100, source_ids=["om_archive_precip"])
     cid = cc.start_claim(pid, "2024-06-01", "2024-06-05")

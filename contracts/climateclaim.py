@@ -207,6 +207,12 @@ class Claim:
     evidence_json: str
     checks_json: str
     disputes_json: str
+    # Grounds of the currently-open dispute. Written by `open_dispute`, consumed
+    # (with `pending_opener`) by `_write_outcome` when the re-evaluation records
+    # the round, so the history keeps what the disputant actually wrote instead
+    # of a placeholder.
+    pending_grounds: str
+    pending_opener: Address
 
 
 # ---------------------------------------------------------------------------
@@ -1184,6 +1190,8 @@ class ClimateClaim(gl.Contract):
             evidence_json="[]",
             checks_json="[]",
             disputes_json="[]",
+            pending_grounds="",
+            pending_opener=gl.message.sender_address,
         )
         self.claims[cid] = claim
         self.claim_ids.append(cid)
@@ -1227,7 +1235,8 @@ class ClimateClaim(gl.Contract):
             self._revert("EXPECTED: cannot dispute")
         if _json_len(claim.disputes_json) >= MAX_DISPUTE_ROUNDS:
             self._revert("EXPECTED: dispute limit reached")
-        self._require_text(grounds, "grounds", 300)
+        claim.pending_grounds = self._require_text(grounds, "grounds", 300)
+        claim.pending_opener = gl.message.sender_address
         claim.state = STATE_DISPUTED
         self.claims[claim_id] = claim
 
@@ -1384,7 +1393,21 @@ class ClimateClaim(gl.Contract):
     def get_claim(self, claim_id: str) -> dict:
         if claim_id not in self.claims:
             return {}
-        c = self.claims[claim_id]
+        return self._claim_dict(self.claims[claim_id])
+
+    @gl.public.view
+    def list_claims(self) -> list:
+        """All claims as dicts (same shape as get_claim).
+
+        One read instead of get_claim_count + N get_claim round trips, which
+        matters against the public RPC's 30 requests/minute limit.
+        """
+        out = []
+        for cid in self.claim_ids:
+            out.append(self._claim_dict(self.claims[cid]))
+        return out
+
+    def _claim_dict(self, c: Claim) -> dict:
         return {
             "id": c.id,
             "policy_id": c.policy_id,
@@ -1399,6 +1422,7 @@ class ClimateClaim(gl.Contract):
             "eval_error": c.eval_error,
             "finalized": c.finalized,
             "settlement_state": c.settlement_state,
+            "pending_grounds": c.pending_grounds,
         }
 
     @gl.public.view
@@ -1706,12 +1730,13 @@ class ClimateClaim(gl.Contract):
             disputes = _json_list(claim.disputes_json)
             disputes.append({
                 "round": len(disputes) + 1,
-                "opener": gl.message.sender_address.as_hex,
-                "grounds": "re-evaluation",
+                "opener": claim.pending_opener.as_hex,
+                "grounds": claim.pending_grounds,
                 "prev_decision": dispute_prev,
                 "new_decision": decision,
             })
             claim.disputes_json = json.dumps(disputes, separators=(",", ":"))
+            claim.pending_grounds = ""
         self.claims[claim_id] = claim
 
     def _check_detail(self, name: str, status: str) -> str:

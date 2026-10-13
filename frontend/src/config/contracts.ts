@@ -1,17 +1,19 @@
 /**
  * Deployed contract addresses and schema-derived method names.
  *
- * ADDRESS VERIFICATION: `0xE16032420e3155C0822e9150a98c6B1163869F0c` was read
- * from the StudioNet deployment and confirmed live by calling view methods on
- * it (get_claim_count -> 2, get_policy_count -> 3).
+ * ADDRESS VERIFICATION: `0x6E4BD06bD969E745546A7957d818eDaD47882ea8` is the v2
+ * StudioNet deployment (deploy tx 0x85748a90fe90c0b4c92ef7810be643935cd1fadce04dc7f9a425f8c66cc8809f,
+ * consensus 5/5 AGREE, ACCEPTED), confirmed live by calling view methods
+ * (list_policies -> 7, list_claims -> 6, list_sources -> 5). The v1 deployment
+ * (0xE160...0c) and its artifacts are preserved under artifacts/deployment-v1/.
  *
- * METHOD NAMES: taken from `genlayer schema 0xE160...0c`, saved verbatim at
+ * METHOD NAMES: taken from `genlayer schema 0x6E4B...ea8`, saved verbatim at
  * docs/schema.genlayer-cli.txt. Not from memory.
  */
 
 import { ACTIVE_NETWORK } from "./network";
 
-export const CONTRACT_ADDRESS = "0xE16032420e3155C0822e9150a98c6B1163869F0c";
+export const CONTRACT_ADDRESS = "0x6E4BD06bD969E745546A7957d818eDaD47882ea8";
 
 /** Owner / claimant address of the deployed contract (local `rabby` account). */
 export const DEPLOYER_ADDRESS = "0x5B3661C576c7001e6d6279C67F3779705d334c89";
@@ -35,6 +37,7 @@ export const METHODS = {
   get_claim_count: "get_claim_count",
   find_claim: "find_claim",
   get_claim: "get_claim",
+  list_claims: "list_claims",
   get_evidence: "get_evidence",
   get_checks: "get_checks",
   get_disputes: "get_disputes",

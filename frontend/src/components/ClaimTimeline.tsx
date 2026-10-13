@@ -108,20 +108,22 @@ export function ClaimTimeline({ claim, disputes, settlement }: Props) {
           <h4>Dispute history</h4>
           <div className="table-wrap">
             <table>
-              <caption>Each round keeps the decision it replaced.</caption>
+              <caption>Each round keeps the decision it replaced and the grounds that challenged it.</caption>
               <thead>
                 <tr>
                   <th scope="col">Round</th>
                   <th scope="col">Grounds</th>
-                  <th scope="col">Previous decision</th>
+                  <th scope="col">Decision before</th>
+                  <th scope="col">Decision after</th>
                 </tr>
               </thead>
               <tbody>
                 {disputes.map((d) => (
-                  <tr key={`${d.round}-${d.opened_at}`}>
+                  <tr key={d.round}>
                     <td className="num">{d.round}</td>
                     <td>{d.grounds}</td>
-                    <td>{(d as { prev_decision?: string }).prev_decision || "none"}</td>
+                    <td>{d.prev_decision || "none"}</td>
+                    <td>{d.new_decision || "none"}</td>
                   </tr>
                 ))}
               </tbody>

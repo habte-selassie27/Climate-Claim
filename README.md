@@ -6,7 +6,12 @@ shows you the readings that produced the answer — including when the honest an
 "we cannot tell".**
 
 Deployed on GenLayer StudioNet at
-[`0xE16032420e3155C0822e9150a98c6B1163869F0c`](artifacts/DEPLOYMENT.md).
+[`0x6E4BD06bD969E745546A7957d818eDaD47882ea8`](artifacts/DEPLOYMENT.md)
+(deploy tx
+`0x85748a90fe90c0b4c92ef7810be643935cd1fadce04dc7f9a425f8c66cc8809f`,
+consensus 5/5 AGREE). The earlier v1 deployment
+(`0xE16032420e3155C0822e9150a98c6B1163869F0c`) and its artifacts are preserved
+under [`artifacts/deployment-v1/`](artifacts/deployment-v1/).
 
 ---
 
@@ -77,39 +82,50 @@ pip install -r requirements.txt
 # Note: GENVM_VERSION is required. Bare genvm-lint resolves a newer cached
 # GenVM and fails to load the pinned SDK.
 GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/climateclaim.py
-pytest tests/direct/ -q
+# Python 3.12+ required (genlayer_py needs collections.abc.Buffer).
+python3.12 -m pytest tests/direct/ -q
 ```
 
 ### Read the deployed contract
 
 ```bash
 genlayer network set studionet
-genlayer schema 0xE16032420e3155C0822e9150a98c6B1163869F0c
-genlayer call 0xE16032420e3155C0822e9150a98c6B1163869F0c get_claim --args claim-2
-genlayer receipt 0x1b87c46dbcae997058539638e36df6b921658c97a8eb305990399ab7a753d0e1
+genlayer schema 0x6E4BD06bD969E745546A7957d818eDaD47882ea8
+genlayer call 0x6E4BD06bD969E745546A7957d818eDaD47882ea8 get_claim --args claim-2
+genlayer receipt 0x85748a90fe90c0b4c92ef7810be643935cd1fadce04dc7f9a425f8c66cc8809f
 ```
 
 ---
 
 ## What is on chain right now
 
-Five real claims, all readable, all reproduced in
+Six real claims, all readable, all reproduced in
 [`artifacts/DEPLOYMENT.md`](artifacts/DEPLOYMENT.md):
 
-| Claim | Decision | Why | Evidence |
-|---|---|---|---|
-| `claim-1` | *evaluation failed* | `EXTERNAL: sources_unreachable` | NASA POWER unreachable; retryable |
-| `claim-2` | **Confirmed** | `threshold_crossed` | 1.20 mm vs `> 1.00 mm`, station `48.8928,2.2920` |
-| `claim-3` | *not evaluated* | state `created` | demonstrates the start of the lifecycle |
-| `claim-4` | **Inconclusive** | `location_mismatch` | grid cell 5 973 m away, outside a 5 km tolerance |
-| `claim-5` | **Not confirmed** | `threshold_not_crossed` | 1.20 mm vs `> 5.00 mm` |
+| Claim | Policy | Decision | Why | Evidence |
+|---|---|---|---|---|
+| `claim-1` | 1 | *evaluation failed* | `EXTERNAL: sources_unreachable` | NASA POWER unreachable; retryable |
+| `claim-2` | 3 | **Not confirmed** | `threshold_not_crossed` | 0.90 mm vs `> 1.00 mm`, station `48.8928,2.2920` |
+| `claim-3` | 2 | *not evaluated* | state `created` | demonstrates the start of the lifecycle |
+| `claim-4` | 4 | **Inconclusive** | `location_mismatch` | grid cell ~5 973 m away, outside a 5 km tolerance |
+| `claim-5` | 5 | **Not confirmed** | `threshold_not_crossed` | 0.90 mm vs `> 5.00 mm` |
+| `claim-6` | 7 | **Not confirmed** | `threshold_not_crossed` | 0.90 mm vs `> 1.00 mm` (payout configured) |
 
 `claim-4` is the interesting one. It was *expected* to be `not_confirmed` and instead
 became `inconclusive`, because Open-Meteo answered the Paris request with a grid cell
-5 973 m away — outside that policy's 5 km tolerance but inside policy-3's 12 km. The
+~5 973 m away — outside that policy's 5 km tolerance but inside policy-3's 12 km. The
 distance rule alone flips the outcome, and the contract said so instead of guessing.
 
-**No claim is finalized.** All five report `finalized: false`, so the UI shows
+**Why `claim-2` is `not_confirmed`, not `confirmed`.** The live Open-Meteo archive
+returns a maximum of **0.90 mm** for Paris 2024-06-01..05 at the time of this
+seeding (reanalysis data is periodically revised; the earlier v1 deployment recorded
+1.20 mm for the same window). Nothing was adjusted to force a pass: against a
+`> 1.00 mm` threshold, 0.90 mm honestly does not cross, so the claim is
+`not_confirmed`. A claim that the real reading *does* cross (a `> 0.50 mm` policy)
+is the intended `confirmed` + settlement demonstration and is pending the owner's
+keystore to run `finalize_decision` / `settle_claim` on chain.
+
+**No claim is finalized.** All six report `finalized: false`, so the UI shows
 *Accepted — can still be appealed* and never claims finality it cannot demonstrate.
 
 ---
@@ -177,16 +193,25 @@ numbers fail the threshold, so validators cannot agree on something plainly wron
 | Threshold comparison on extracted numbers | A one-sentence plain-language summary |
 | Reason code and decision | |
 
-The model is told to return `inconclusive` when evidence is insufficient, is never
-asked to do arithmetic, and cannot fill a gap. Its output is schema-validated,
-enum-coerced and range-checked before use.
+The model is never asked for the decision or for a threshold value: the decision,
+reason code and `observed_value_scaled` are computed in deterministic code and
+passed *to* the prompt as `COMPUTED …` fields. The only enum it supplies is
+`location_match` (`pass`/`fail`/`unclear`), plus a one-sentence summary. It is
+never asked to do arithmetic and cannot fill a gap. Its output is schema-validated,
+enum-coerced and range-checked before use, and an unusable reply degrades the
+location check to `unclear` rather than inventing a reading.
 
 ---
 
 ## Settlement
 
-Deliberately conservative, and currently **undemonstrated on chain** — every policy was
-created with `payout_amount: 0`.
+Deliberately conservative. Policies 7 and 8 were created on the v2 deployment
+with a real `payout_amount` (1,000,000 wei), so a payout is now possible in
+principle; the finalize→settle path has **not yet been exercised end-to-end on
+chain** in this deployment (it is gated on the owner's keystore for
+`finalize_decision` / `settle_claim`). The state machine and its gates are proven
+in the direct suite (`tests/direct/test_settlement.py`, 12 tests), not by a live
+transfer. Earlier v1 policies all used `payout_amount: 0`.
 
 1. Evaluation and settlement are separate. Settlement never calls a model.
 2. A payout requires the contract's own `finalized` flag, read at `LATEST_FINAL`.
@@ -259,9 +284,13 @@ Screenshots: [`artifacts/screenshots/`](artifacts/screenshots/).
 
 ```bash
 GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/climateclaim.py   # 3 checks + validation
-pytest tests/direct/ -q                                                # 112 passed
+python3.12 -m pytest tests/direct/ -q                                 # 114 passed
 cd frontend && npx tsc -b --noEmit && npm run build                      # typecheck + build
 ```
+
+> The contract suite needs **Python 3.12+** (`genlayer_py` imports
+> `collections.abc.Buffer`, added in 3.12). On a box whose default `python3` is
+> 3.10, use `python3.12 -m pytest` explicitly.
 
 The direct suite mocks web and LLM so it is fast and deterministic. It covers the
 adversarial cases: threshold boundaries (`>` at exactly the threshold), all four
@@ -279,12 +308,25 @@ Stated plainly:
 
 1. **The StudioNet explorer is paused.** Transaction links cannot be verified, so the
    UI disables them with a reason instead of linking to a dead page.
-2. **No claim is finalized**, so finality and settlement are implemented and unit
-   tested but not demonstrated on chain.
+2. **No claim is finalized or settled yet.** The v2 deployment created policies 7
+   and 8 with a real `payout_amount` (1,000,000 wei), so a payout is possible in
+   principle, but `finalize_decision` / `settle_claim` have not been run against
+   this deployment — they are owner-only and gated on the local keystore. Finality
+   and settlement are implemented and unit-tested (12 tests in
+   `test_settlement.py`) but not yet demonstrated by a live transfer. The
+   confirmed claim that would exercise this path is pending that owner action.
 3. **No integration tests.** `tests/integration/` does not exist. On-chain behaviour
-   was verified by real writes against StudioNet rather than by an integration suite.
+   was verified by real writes against StudioNet (deploy, 7 policies, 7 claims,
+   5 evaluations — receipts under `artifacts/studionet-v2/`) rather than by an
+   integration suite.
 4. **StudioNet only.** No Bradbury/Asimov deployment, so no public-proof address.
-5. **Payout amounts are zero**, so settlement cannot be walked end to end.
+   The configured chain ids for those testnets were not independently verified
+   against the docs in this pass.
+5. **The observed reading moved between deployments.** The live Open-Meteo archive
+   now returns max 0.90 mm for Paris 2024-06-01..05, where the v1 deployment
+   recorded 1.20 mm. Reanalysis data is revised over time. This is why the current
+   `claim-2` / `claim-5` / `claim-6` are `not_confirmed` rather than the earlier
+   mixed result — the honest outcome for the data as it stands today.
 6. **Grid cells are not points.** A tight distance tolerance produces `inconclusive`
    by design. That is correct behaviour, but it surprises people who expect a single
    location answer.
@@ -320,6 +362,26 @@ Stated plainly:
   [Literata](https://fonts.google.com/specimen/Literata) — typography, served from
   Google Fonts with system fallbacks.
 - Build rules: [`AGENTS.md`](AGENTS.md), [`Prompt.md`](Prompt.md), [`UI.md`](UI.md).
+
+### Starters consulted (patterns, not vendored code)
+
+No starter repository code was vendored. The contract, tests, fixtures and app were
+written for this project against the GenLayer docs and the verified SDK. These
+official starters informed the structure and the evidence-fetch / resolution
+patterns, and are credited here per the build rules:
+
+- [GenLayer Project Boilerplate](https://github.com/genlayerlabs/genlayer-project-boilerplate)
+  — the contract + frontend layout this repo adapts (separate `contracts/`,
+  `tests/`, `frontend/`, `docs/`).
+- [GenLayer Gym](https://gym.genlayer.foundation/) — web-access source and
+  evaluation patterns; informed the "fetch structured facts, then evaluate"
+  split and the source registry in `docs/sources.md`.
+- [Intelligent Oracle](https://www.intelligentoracle.com/) — oracle / consensus
+  patterns; informed the leader-plus-validator equivalence design in
+  `docs/equivalence.md`.
+- [Prediction Market Kit](https://github.com/courtofinternet/pm-kit) — outcome
+  resolution flows; informed the claim state machine and the
+  accepted-vs-finalized distinction in `docs/state-diagram.md`.
 
 No starter repository code was vendored. The contract, tests, fixtures and app were
 written for this project against the GenLayer docs and the verified SDK.

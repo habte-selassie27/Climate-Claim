@@ -51,26 +51,21 @@ export async function listClaims(): Promise<ReadResult<Claim[]>> {
     .filter(Boolean)
     .map((c) => as<Claim>(c));
 
-  const claims: Claim[] = [];
-  let liveError: string | undefined;
-  let origin: ReadResult<unknown>["origin"] = "live";
+  // One `list_claims` read replaces the old get_claim_count + N×get_claim fan-out,
+  // which mattered against the 30 req/min public RPC. Normalise scaled fields.
+  const result = await readWithFallback<Claim[]>(METHODS.list_claims, snapshotClaims);
+  const normalised = (result.data ?? []).map((c) => ({
+    ...c,
+    observed_value_scaled: toNumber(c.observed_value_scaled),
+    eval_round: toNumber(c.eval_round),
+  }));
 
-  for (const id of ids) {
-    const snap = SNAPSHOT.claims[id]?.claim as Claim | undefined;
-    const res = await readWithFallback<Claim>(METHODS.get_claim, snap, [id]);
-    if (res.origin !== "live") {
-      origin = "snapshot";
-      liveError = res.liveError ?? liveError;
-    }
-    if (res.data) claims.push(res.data);
-  }
-
-  if (!claims.length) return { data: snapshotClaims, origin: "snapshot", liveError };
+  if (!normalised.length) return { data: snapshotClaims, origin: "snapshot", liveError: result.liveError };
   return {
-    data: claims,
-    origin,
-    capturedAt: origin === "snapshot" ? SNAPSHOT.capturedAt : undefined,
-    liveError,
+    data: normalised,
+    origin: result.origin,
+    capturedAt: result.origin === "snapshot" ? SNAPSHOT.capturedAt : undefined,
+    liveError: result.liveError,
   };
 }
 
@@ -147,7 +142,13 @@ export async function getClaimBundle(claimId: string): Promise<ReadResult<ClaimB
     settlementRes.origin,
     policy.origin,
   ];
-  const origin = origins.includes("live") ? "live" : "snapshot";
+  // "live" only if EVERY read was live; "mixed" if some were and some fell back.
+  // Never label a partially-live bundle simply "live" — that overstates it.
+  const origin = origins.every((o) => o === "live")
+    ? "live"
+    : origins.some((o) => o === "live")
+      ? "mixed"
+      : "snapshot";
   const liveError = [claimRes.liveError, evidenceRes.liveError, checksRes.liveError].find(Boolean);
 
   const bundle: ClaimBundle = {
