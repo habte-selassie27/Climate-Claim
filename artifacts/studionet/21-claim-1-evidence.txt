@@ -1,0 +1,20 @@
+[genlayer-js] initializeConsensusSmartContract() is deprecated and will be removed in a future release. The consensus contract is now resolved from the static chain definition.
+- Calling method get_evidence on contract at 0xE16032420e3155C0822e9150a98c6B1163869F0c...
+
+Result:
+[
+  {
+    crossed: false,
+    days_covered: 0,
+    error: 'EXTERNAL: fetch_failed',
+    ok: false,
+    period_end: '2024-06-05',
+    period_start: '2024-06-01',
+    source_id: 'nasa_precip',
+    station: 'Paris',
+    unit: 'mm/day',
+    value_scaled: 0
+  }
+]
+
+✔ Read operation successfully executed
