@@ -23,6 +23,17 @@ verified, that is stated explicitly rather than filled in.
 | Schema saved at | `docs/schema.json` (strict JSON), raw CLI output at `docs/schema.genlayer-cli.txt` |
 | Criteria version | `climateclaim-criteria-1` |
 
+> **Post-deploy step required.** The contract seeds no sources itself; its
+> registry starts empty and holds only what an owner registers. Any deployment
+> must be seeded before a policy can be created:
+>
+> ```bash
+> ./scripts/seed-sources.sh <contract-address>
+> ```
+>
+> Until then every `create_policy` reverts with `EXPECTED: unknown source`. See
+> `docs/sources.md` and `docs/sources.json`.
+
 Verified live (`artifacts/studionet/01-…`, `02-…`):
 
 ```

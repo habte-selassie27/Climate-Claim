@@ -1,5 +1,20 @@
 # Source registry
 
+> **The contract seeds nothing.** `ClimateClaim`'s source registry starts empty
+> and holds only what an owner registers through the owner-only
+> `register_source` write. The contract carries no hardcoded knowledge of any
+> provider.
+>
+> The canonical catalogue is [`sources.json`](sources.json). Seed a deployment with:
+>
+> ```bash
+> ./scripts/seed-sources.sh <contract-address>
+> ```
+>
+> Until a deployment is seeded, every `create_policy` reverts with
+> `EXPECTED: unknown source` — the contract validates a policy's sources against
+> the registry rather than trusting arbitrary identifiers.
+
 Measurable weather facts in ClimateClaim come from **documented, authoritative
 public weather-data endpoints** that need no API key or cookies. The Intelligent
 Contract extracts only small structured facts (date, value, unit, reported

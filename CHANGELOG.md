@@ -5,6 +5,76 @@ gaps are stated plainly; nothing is claimed that was not run.
 
 ---
 
+## Remove the constructor-seeded source registry
+
+### DONE
+
+The contract no longer hardcodes any weather provider. `_seed_sources()` and its
+call from `__init__` are gone (72 lines removed); the constructor now only sets
+`owner`, `criteria_version` and the two counters. The registry holds only what
+an owner registers through the owner-only `register_source` write.
+
+- **`docs/sources.json`** — new canonical catalogue, extracted verbatim from the
+  deleted seeding code. One source of truth for both the seed script and tests,
+  so the two cannot drift.
+- **`scripts/seed-sources.sh <address>`** — new post-deploy seeding step. Reads
+  the catalogue, skips sources already registered, issues one `register_source`
+  write per entry, then reads `list_sources` back. Fields are joined with US
+  (0x1f) and read back into separate variables so values containing spaces,
+  braces and slashes survive intact.
+- **`tests/direct/conftest.py`** — the `cc` fixture now registers the catalogue
+  through the public `register_source` API (exactly what a deployer does) rather
+  than relying on constructor side effects. New `cc_empty` fixture leaves a
+  deployment untouched.
+- **`tests/direct/test_policy_registry.py`** — the old
+  `test_deploy_seeds_sources_and_defaults` asserted 5 seeded sources. Replaced
+  by four tests that pin the new behaviour: the registry starts empty, defaults
+  are sane, `create_policy` is rejected with `EXPECTED: unknown source` while
+  empty, and registering the catalogue is what populates it.
+- **`frontend/src/pages/PolicyNew.tsx`** — the empty-source branch previously
+  said "the registry is seeded on deployment", which is now false. Replaced with
+  an alert naming `register_source` and the seed script.
+- **`docs/sources.md`**, **`README.md`**, **`artifacts/DEPLOYMENT.md`** — state
+  the post-deploy requirement and the revert a fresh deployment would hit.
+
+### PROOF
+
+```
+$ GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/climateclaim.py
+✓ Lint passed (3 checks)
+✓ Validation passed
+  Contract: ClimateClaim
+  Methods: 26 (15 view, 11 write)
+
+$ pytest tests/direct/ -q
+130 passed in 4.12s
+
+$ npx tsc --noEmit        # no output
+$ npx vite build
+✓ built in 3.16s
+```
+
+Seed script argument parsing verified against a stubbed `genlayer` on `PATH`
+(no chain writes): all 8 fields of each source arrive as separate, intact
+arguments, with the URL's `{lat}/{lon}/{start}/{end}/{param}` placeholders and
+spaces preserved.
+
+### NEXT
+
+Redeploy `contracts/climateclaim.py`, then run `./scripts/seed-sources.sh` against
+the new address before creating policies. Point
+`frontend/src/config/contracts.ts` at the new address. `tests/integration/`
+remains unwritten — the only quality gate never run.
+
+### BLOCKED
+
+StudioNet explorer still paused (`DEPLOYMENT_PAUSED`), so no transaction links
+can be verified. The currently deployed contract is the previous revision, so
+the deployed state still has its 5 constructor-seeded sources; the next deploy
+will not, and will need seeding.
+
+---
+
 ## Close UI gaps: create-policy form, start-claim action, source cards
 
 ### DONE

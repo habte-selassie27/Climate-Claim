@@ -12,15 +12,44 @@ from conftest import (
 )
 
 
-def test_deploy_seeds_sources_and_defaults(cc):
-    assert cc.get_criteria_version().startswith("climateclaim-criteria")
-    assert cc.get_policy_count() == 0
-    assert cc.get_claim_count() == 0
-    assert len(cc.list_sources()) == 5
-    s = cc.get_source("om_archive_precip")
+def test_deploy_starts_with_empty_source_registry(cc_empty):
+    """The constructor seeds nothing.
+
+    The contract carries no hardcoded knowledge of any weather provider: the
+    registry only ever holds what an owner registers through `register_source`.
+    """
+    assert cc_empty.list_sources() == []
+    assert cc_empty.get_source("om_archive_precip") == {}
+    assert cc_empty.get_source("nasa_precip") == {}
+    assert cc_empty.get_source("does_not_exist") == {}
+
+
+def test_deploy_defaults_are_sane(cc_empty):
+    assert cc_empty.get_criteria_version().startswith("climateclaim-criteria")
+    assert cc_empty.get_policy_count() == 0
+    assert cc_empty.get_claim_count() == 0
+
+
+def test_policy_rejected_while_registry_is_empty(cc_empty):
+    """The honest consequence of an unseeded deployment.
+
+    create_policy validates its sources against the registry, so with nothing
+    registered it must reject rather than silently accept an unknown provider.
+    """
+    with pytest.raises(Exception) as err:
+        make_policy(cc_empty)
+    assert "unknown source" in str(err.value)
+
+
+def test_registering_sources_is_what_populates_the_registry(cc_empty):
+    """The seeded fixture proves the production path works."""
+    from conftest import register_catalogue
+
+    register_catalogue(cc_empty)
+    assert len(cc_empty.list_sources()) == 5
+    s = cc_empty.get_source("om_archive_precip")
     assert s["metric"] == "precipitation"
     assert "archive-api.open-meteo.com" in s["url_template"]
-    assert cc.get_source("does_not_exist") == {}
 
 
 def test_create_policy_persists(cc):

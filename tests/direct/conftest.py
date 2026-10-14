@@ -76,9 +76,54 @@ def deploy(direct_deploy):
     return _deploy
 
 
+def _catalogue():
+    """The source catalogue, read from docs/sources.json.
+
+    The contract no longer hardcodes any source, so tests register them through
+    the same public `register_source` path a deployer uses. Reading the same
+    file the seed script reads keeps the two from drifting.
+    """
+    import json
+    import pathlib
+
+    root = pathlib.Path(__file__).resolve().parents[2]
+    return json.loads((root / "docs" / "sources.json").read_text())["sources"]
+
+
+def register_catalogue(cc):
+    """Register every catalogued source on a freshly deployed contract."""
+    for s in _catalogue():
+        cc.register_source(
+            s["id"],
+            s["name"],
+            s["kind"],
+            s["metric"],
+            s["param"],
+            s["url_template"],
+            s["unit"],
+            s["attribution"],
+        )
+    return cc
+
+
+@pytest.fixture
+def cc_empty(deploy):
+    """A deployment left exactly as the constructor leaves it: no sources.
+
+    This is the honest default, and the one the registry tests use.
+    """
+    return deploy()
+
+
 @pytest.fixture
 def cc(deploy):
-    return deploy()
+    """A deployment with the documented sources registered.
+
+    Every test that creates a policy needs sources in the registry, and they
+    are added here through the public API rather than baked into the
+    constructor.
+    """
+    return register_catalogue(deploy())
 
 
 @pytest.fixture

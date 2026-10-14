@@ -589,9 +589,15 @@ export function PolicyNew() {
             </legend>
             <div className="field-set">
               {metricSources.length === 0 ? (
-                <span className="small muted">
-                  No sources registered for {form.metric}. The registry is seeded on deployment.
-                </span>
+                <div className="alert alert-warn" role="status">
+                  <strong>No sources registered for {form.metric}</strong>
+                  <p className="small" style={{ margin: 0 }}>
+                    The contract seeds no sources of its own — the registry holds only what the
+                    owner registers. This deployment has none for {form.metric} yet, so a policy
+                    cannot be created until one is added with <code>register_source</code> (or{" "}
+                    <code>./scripts/seed-sources.sh &lt;address&gt;</code>).
+                  </p>
+                </div>
               ) : (
                 metricSources.map((s) => (
                   <label key={s.id}>

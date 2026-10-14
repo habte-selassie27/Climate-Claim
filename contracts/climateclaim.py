@@ -970,81 +970,17 @@ class ClimateClaim(gl.Contract):
         self.criteria_version = CRITERIA_VERSION
         self.policy_counter = u256(0)
         self.claim_counter = u256(0)
-        self._seed_sources()
+        # The source registry is deliberately NOT seeded here. It starts empty
+        # and only ever contains what an owner registers through
+        # `register_source`, so the contract carries no hardcoded knowledge of
+        # any weather provider. Seed a deployment with
+        # scripts/seed-sources.sh, which reads the catalogue at
+        # docs/sources.json.
+        #
+        # Consequence: until a deployment is seeded, every create_policy
+        # reverts with "EXPECTED: unknown source".
 
     # -- A. Policy Registry -------------------------------------------------
-
-    def _seed_sources(self) -> None:
-        self.source_registry["om_archive_precip"] = Source(
-            id="om_archive_precip",
-            name="Open-Meteo Historical Weather API (ERA5 precipitation)",
-            kind="open_meteo_archive",
-            metric=METRIC_PRECIP,
-            param="precipitation_sum",
-            url_template=(
-                "https://archive-api.open-meteo.com/v1/archive"
-                "?latitude={lat}&longitude={lon}&start_date={start}&end_date={end}"
-                "&daily={param}&timezone=UTC"
-            ),
-            unit="mm",
-            attribution="Open-Meteo (CC BY 4.0)",
-        )
-        self.source_registry["om_archive_tmax"] = Source(
-            id="om_archive_tmax",
-            name="Open-Meteo Historical Weather API (ERA5 max temperature)",
-            kind="open_meteo_archive",
-            metric=METRIC_TEMP,
-            param="temperature_2m_max",
-            url_template=(
-                "https://archive-api.open-meteo.com/v1/archive"
-                "?latitude={lat}&longitude={lon}&start_date={start}&end_date={end}"
-                "&daily={param}&timezone=UTC"
-            ),
-            unit="celsius",
-            attribution="Open-Meteo (CC BY 4.0)",
-        )
-        self.source_registry["om_forecast_precip"] = Source(
-            id="om_forecast_precip",
-            name="Open-Meteo Forecast API (live precipitation)",
-            kind="open_meteo_forecast",
-            metric=METRIC_PRECIP,
-            param="precipitation_sum",
-            url_template=(
-                "https://api.open-meteo.com/v1/forecast"
-                "?latitude={lat}&longitude={lon}&daily={param}"
-                "&past_days={days}&forecast_days=1&timezone=UTC"
-            ),
-            unit="mm",
-            attribution="Open-Meteo (CC BY 4.0)",
-        )
-        self.source_registry["nasa_precip"] = Source(
-            id="nasa_precip",
-            name="NASA POWER Daily API v2 (MERRA-2 precipitation)",
-            kind="nasa_power",
-            metric=METRIC_PRECIP,
-            param="PRECTOTCORR",
-            url_template=(
-                "https://power.larc.nasa.gov/api/temporal/daily/point"
-                "?parameters={param}&community=RE&longitude={lon}&latitude={lat}"
-                "&start={start}&end={end}&format=JSON"
-            ),
-            unit="mm/day",
-            attribution="NASA POWER (open data)",
-        )
-        self.source_registry["nasa_tmax"] = Source(
-            id="nasa_tmax",
-            name="NASA POWER Daily API v2 (MERRA-2 max temperature)",
-            kind="nasa_power",
-            metric=METRIC_TEMP,
-            param="T2M_MAX",
-            url_template=(
-                "https://power.larc.nasa.gov/api/temporal/daily/point"
-                "?parameters={param}&community=RE&longitude={lon}&latitude={lat}"
-                "&start={start}&end={end}&format=JSON"
-            ),
-            unit="celsius",
-            attribution="NASA POWER (open data)",
-        )
 
     @gl.public.write
     def register_source(self, source_id: str, name: str, kind: str, metric: str,

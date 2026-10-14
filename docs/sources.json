@@ -1,0 +1,56 @@
+{
+  "_note": "Canonical source catalogue. The ClimateClaim contract deliberately contains NO hardcoded sources: its registry starts empty and only ever holds what an owner registers via register_source. This file is the single source of truth consumed by scripts/seed-sources.sh and by the direct-test fixture, so the deployed contract and the tests cannot drift apart.",
+  "_seeded_by": "scripts/seed-sources.sh <contract-address>",
+  "sources": [
+    {
+      "id": "om_archive_precip",
+      "name": "Open-Meteo Historical Weather API (ERA5 precipitation)",
+      "kind": "open_meteo_archive",
+      "metric": "precipitation",
+      "param": "precipitation_sum",
+      "url_template": "https://archive-api.open-meteo.com/v1/archive?latitude={lat}&longitude={lon}&start_date={start}&end_date={end}&daily={param}&timezone=UTC",
+      "unit": "mm",
+      "attribution": "Open-Meteo (CC BY 4.0)"
+    },
+    {
+      "id": "om_archive_tmax",
+      "name": "Open-Meteo Historical Weather API (ERA5 max temperature)",
+      "kind": "open_meteo_archive",
+      "metric": "temperature",
+      "param": "temperature_2m_max",
+      "url_template": "https://archive-api.open-meteo.com/v1/archive?latitude={lat}&longitude={lon}&start_date={start}&end_date={end}&daily={param}&timezone=UTC",
+      "unit": "celsius",
+      "attribution": "Open-Meteo (CC BY 4.0)"
+    },
+    {
+      "id": "om_forecast_precip",
+      "name": "Open-Meteo Forecast API (live precipitation)",
+      "kind": "open_meteo_forecast",
+      "metric": "precipitation",
+      "param": "precipitation_sum",
+      "url_template": "https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&daily={param}&past_days={days}&forecast_days=1&timezone=UTC",
+      "unit": "mm",
+      "attribution": "Open-Meteo (CC BY 4.0)"
+    },
+    {
+      "id": "nasa_precip",
+      "name": "NASA POWER Daily API v2 (MERRA-2 precipitation)",
+      "kind": "nasa_power",
+      "metric": "precipitation",
+      "param": "PRECTOTCORR",
+      "url_template": "https://power.larc.nasa.gov/api/temporal/daily/point?parameters={param}&community=RE&longitude={lon}&latitude={lat}&start={start}&end={end}&format=JSON",
+      "unit": "mm/day",
+      "attribution": "NASA POWER (open data)"
+    },
+    {
+      "id": "nasa_tmax",
+      "name": "NASA POWER Daily API v2 (MERRA-2 max temperature)",
+      "kind": "nasa_power",
+      "metric": "temperature",
+      "param": "T2M_MAX",
+      "url_template": "https://power.larc.nasa.gov/api/temporal/daily/point?parameters={param}&community=RE&longitude={lon}&latitude={lat}&start={start}&end={end}&format=JSON",
+      "unit": "celsius",
+      "attribution": "NASA POWER (open data)"
+    }
+  ]
+}

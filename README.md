@@ -95,6 +95,19 @@ genlayer call 0x6E4BD06bD969E745546A7957d818eDaD47882ea8 get_claim --args claim-
 genlayer receipt 0x85748a90fe90c0b4c92ef7810be643935cd1fadce04dc7f9a425f8c66cc8809f
 ```
 
+### Seed a fresh deployment's source registry
+
+The contract **seeds no sources itself** — its registry starts empty and holds
+only what an owner registers through `register_source`. A brand-new deployment
+therefore cannot create any policy until the documented sources are added:
+
+```bash
+./scripts/seed-sources.sh <contract-address>   # reads docs/sources.json
+```
+
+`register_source` is owner-only, so this must run from the deploying account.
+Until it is run, every `create_policy` reverts with `EXPECTED: unknown source`.
+
 ---
 
 ## What is on chain right now
