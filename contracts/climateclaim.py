@@ -43,6 +43,40 @@ from genlayer import *
 
 
 # ---------------------------------------------------------------------------
+# Address coercion
+# ---------------------------------------------------------------------------
+
+ADDRESS_SIZE = 20
+ADDRESS_MAX = 1 << (ADDRESS_SIZE * 8)  # 2**160
+
+
+def _coerce_address(value) -> Address:
+    """Normalise whatever the caller supplied into an `Address`.
+
+    The SDK's `Address(...)` accepts a "0x"-prefixed hex string, a base64
+    string, or a 20-byte buffer. Any other object falls through to
+    `bytes(val)`, which is why a plain integer blows up: GenLayer Studio
+    encodes an `address` constructor input as a decimal uint160, and
+    `bytes(520730917470933887511827341466861109641848507529)` tries to
+    allocate a buffer of that many bytes and raises OverflowError.
+
+    An address is a 160-bit quantity, so an integer is converted to its
+    20-byte big-endian form here instead. Out-of-range values are rejected
+    rather than silently truncated.
+    """
+    if isinstance(value, Address):
+        return value
+    if isinstance(value, bool):
+        # bool is an int subclass; it is never a valid address.
+        raise gl.vm.UserError("EXPECTED: invalid address")
+    if isinstance(value, int):
+        if value < 0 or value >= ADDRESS_MAX:
+            raise gl.vm.UserError("EXPECTED: address out of range")
+        return Address(value.to_bytes(ADDRESS_SIZE, "big"))
+    return Address(value)
+
+
+# ---------------------------------------------------------------------------
 # Constants (module-level, not storage)
 # ---------------------------------------------------------------------------
 
@@ -929,9 +963,10 @@ class ClimateClaim(gl.Contract):
     def __init__(self, owner: Address) -> None:
         """Deploy with the settlement/evaluation owner and seed the source
         registry with the documented endpoints from docs/sources.md."""
-        # Accept an Address (production ABI) and coerce raw 20-byte buffers so
-        # the constructor is usable from both the ABI and in-process tests.
-        self.owner = owner if isinstance(owner, Address) else Address(owner)
+        # Accepts an Address, a hex/base64 string, a 20-byte buffer, or a
+        # uint160 integer. Studio sends the integer form for an `address`
+        # constructor input, which the SDK's Address() cannot take directly.
+        self.owner = _coerce_address(owner)
         self.criteria_version = CRITERIA_VERSION
         self.policy_counter = u256(0)
         self.claim_counter = u256(0)
@@ -1137,7 +1172,7 @@ class ClimateClaim(gl.Contract):
         p = self._get_policy(policy_id)
         if int(p.claim_count) > 0:
             self._revert("EXPECTED: policy locked")
-        p.beneficiary = beneficiary if isinstance(beneficiary, Address) else Address(beneficiary)
+        p.beneficiary = _coerce_address(beneficiary)
         self.policies[policy_id] = p
 
     @gl.public.write
