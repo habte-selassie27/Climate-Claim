@@ -338,13 +338,53 @@ on screen at each moment.
 
 Screenshots: [`artifacts/screenshots/`](artifacts/screenshots/).
 
+### Deploying the app to Vercel
+
+The app is a static single-page bundle, so it deploys as-is. The contract is **not**
+deployed by Vercel — `vercel.json` only builds and serves `frontend/`.
+
+**Dashboard route:** open <https://vercel.com/new>, import this repository and press
+Deploy. Leave **Root Directory** at the repository root; the settings live in
+[`vercel.json`](vercel.json), which runs the build in the frontend subdirectory:
+
+| Vercel setting | Value |
+| --- | --- |
+| Install Command | `cd frontend && npm ci` |
+| Build Command | `cd frontend && npm run build` |
+| Output Directory | `frontend/dist` |
+
+The `rewrites` entry is what makes `react-router` deep links work. The app is a
+`BrowserRouter` SPA, so `/claims/claim-5` is not a file on disk; the rewrite sends it
+to `index.html` and lets the client route it. Vercel checks the filesystem *before*
+applying a rewrite, so hashed assets under `/assets/` are still served directly.
+
+**CLI route:** `npx vercel --prod` **from the repository root** (running it from
+`frontend/` makes Vercel treat that directory as the project root, and the rewrites
+here would be ignored).
+
+Three things worth knowing before you trust the deployed site:
+
+1. **No environment variables are needed**, and there are no secrets in the app. The
+   chain, the contract address and the explorer URL are typed config files
+   (`frontend/src/config/`), deliberately not `VITE_*` variables — see
+   [`.env.example`](.env.example) for why.
+2. **Reads work immediately; writes need a browser wallet.** The StudioNet RPC was
+   checked against a deployment origin and answers with
+   `access-control-allow-origin`, so the deployed page can read the chain directly.
+   Sending a transaction requires an injected wallet, which holds its own key.
+3. **The recorded deployment predates the latest contract changes.**
+   `frontend/src/config/contracts.ts` points at the v2 StudioNet address, whose
+   contract lacks the new settlement and dispute methods; the owner-only payout
+   panel will fail against it until the contract is redeployed and that address is
+   updated. The staleness note in `contracts.ts` names the exact methods.
+
 ---
 
 ## Testing
 
 ```bash
 GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/climateclaim.py   # 3 lint checks + SDK validation
-python3.12 -m pytest tests/direct/ -q                                 # 180 direct tests
+python3.12 -m pytest tests/direct/ -q                                 # 170 direct tests
 cd frontend && npm test && npx tsc -b --noEmit && npm run build          # unit tests + typecheck + build
 ```
 

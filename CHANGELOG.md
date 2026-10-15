@@ -114,7 +114,7 @@ semantics changed.
   lifecycle, refunds, retry and the recipient rule. The existing suites were
   updated for the aggregation, dispute and settlement changes; two further
   adversarial tests were added to `test_evaluation.py` (majority tie, duplicate
-  dates). Total direct tests: **130 → 180**.
+  dates). Total direct tests: **130 → 170**.
 - Frontend: aggregation union and picker follow the contract (`daily_total` gone,
   `consecutive_days` shows a `days` unit), the settlement states and copy follow
   the two-phase lifecycle (`payout_emitted` is labelled "delivery not yet
@@ -135,13 +135,17 @@ $ GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/climateclaim.py --json
              "warnings":[{"code":"I200","msg":"py-genlayer: a newer runner is available"}]}}
 
 $ python3.12 -m pytest tests/direct -q
-180 passed in 7.0s
+170 passed in 6.40s
 
 $ cd frontend && npm test && npx tsc --noEmit && npm run build
 Tests  45 passed (45)
 (tsc: clean)
 ✓ built in 3.04s
 ```
+
+> CORRECTION (re-run during the push session): this entry originally recorded
+> **180** direct tests. The suite collects and passes **170** — the count above is
+> the measured one. The lint/validate output was reproduced unchanged.
 
 `GENVM_VERSION` must be set: the linter otherwise picks the newest cached GenVM
 bundle in `~/.cache/genvm-linter` (a `genvm-manager` bundle with a different
