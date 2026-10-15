@@ -4,6 +4,17 @@ Everything below was produced by running the commands shown. Nothing here is
 reconstructed, and no hash or address was invented. Where a value could not be
 verified, that is stated explicitly rather than filled in.
 
+> **Stale relative to the contract source (read this first).** Every address,
+> hash, receipt and schema in this file was captured from the contract as it
+> stood **before** the contract audit fixes. `contracts/climateclaim.py` has
+> changed since: criteria version `climateclaim-criteria-2`, claim-scoped
+> observation windows, per-policy frozen source snapshots, enforced `data_mode`,
+> round-specific finality, two-phase settlement (`confirm_settlement`,
+> `fail_settlement`, `get_in_flight`, `get_refunds`, `get_payouts`,
+> `get_source_count`) and the aggregation/unit rules. The deployment is kept
+> because it is real evidence of a real deployment; it must be **redeployed and
+> re-captured** before anything is wired to it. Details in `CHANGELOG.md`.
+
 - **Network:** GenLayer StudioNet (`studionet`), chain id `61999`
 - **RPC:** `https://studio.genlayer.com/api`
 - **Explorer:** `https://genlayer-explorer.vercel.app` — **currently paused**

@@ -112,6 +112,14 @@ Until it is run, every `create_policy` reverts with `EXPECTED: unknown source`.
 
 ## What is on chain right now
 
+> **The deployment below predates the audit fixes.** Every claim, receipt and
+> schema under `artifacts/` and [`docs/schema.json`](docs/schema.json) was captured
+> from the v2 contract as it stood then; the contract source has since changed
+> (criteria version `climateclaim-criteria-2`). The recorded evidence is kept
+> as-is because it is real, but the deployment must be **redeployed and
+> re-captured** before its schema is used to wire the app. The differences are
+> listed in [`CHANGELOG.md`](CHANGELOG.md).
+
 Six real claims, all readable, all reproduced in
 [`artifacts/DEPLOYMENT.md`](artifacts/DEPLOYMENT.md):
 
@@ -147,11 +155,11 @@ keystore to run `finalize_decision` / `settle_claim` on chain.
 
 ```
 Policy Registry ──► Claim ──► Evidence ──► Evaluation ──► Decision ──► (dispute) ──► Settlement
-  location          state      per source     leader +        confirmed      re-evaluate    idempotent,
-  period                          records       validators      not_confirmed  round += 1     finality-gated
-  threshold                                                          inconclusive
-  aggregation
-  eligible sources
+  location          the claim's per source     leader +        confirmed     re-evaluate    two-phase,
+  period            OWN window    records     validators      not_confirmed   eval_round     finality-gated,
+  threshold     (frozen sources                              inconclusive    += 1 on a      no balance
+  aggregation    are snapshotted                                                recorded       inference
+  eligible sources at creation)                                                   outcome
   data mode
 ```
 
@@ -162,8 +170,11 @@ created ──► evidence_collected ──► pending_evaluation ──┬─�
                                                         ├─► decided_not_confirmed
                                                         └─► inconclusive
                                                               │
-        decided_* / inconclusive ──► disputed ──► (re-evaluate, round += 1) ──┘
-        decided_confirmed ──► settled   (only after finality)
+        decided_* / inconclusive ──► disputed ──► (re-evaluate; eval_round += 1
+                                                    only when an outcome is recorded)
+        decided_confirmed ──► payout_emitted ──► settled   (finality, then verified
+                                                              delivery — emission
+                                                              alone is not payment)
 ```
 
 Every transition is documented in [`docs/state-diagram.md`](docs/state-diagram.md) and
@@ -190,10 +201,21 @@ treated as equivalent when:
   `data_completeness` (supporting checks `location_match` and `source_agreement` may
   differ);
 - the **observed value** is within a documented tolerance **and sits on the same side
-  of the threshold as the decision**.
+  of the threshold as the decision**;
+- **location is authoritative**: a definite decision may not carry a failing location
+  check on either side, so a `confirmed` can never sit on top of a location failure.
 
-That last clause is deliberate: a validator will not accept a `confirmed` whose own
-numbers fail the threshold, so validators cannot agree on something plainly wrong.
+That last pair is deliberate: a validator will not accept a `confirmed` whose own
+numbers fail the threshold, nor one whose location evidence contradicts it.
+
+Two more rules earn their keep, and both exist because the honest answer is not a
+binary one:
+
+- Under the `majority` rule an **equal split is `inconclusive` / `source_conflict`**,
+  never a silent `not_confirmed`.
+- A provider response that **repeats a date** fails that source
+  (`EXTERNAL: duplicate_dates`) instead of inflating coverage or double-counting a
+  total.
 
 `strict_eq` is never used on free-form model text.
 
@@ -201,7 +223,7 @@ numbers fail the threshold, so validators cannot agree on something plainly wron
 
 | Deterministic code | Model interpretation |
 |---|---|
-| Unit conversion, aggregation, comparator | Whether a reported station is the policy location |
+| Unit conversion, aggregation, comparator | Whether a station matches the policy location **when the provider reports no coordinates** (with coordinates, the integer proximity check is authoritative) |
 | Period boundaries, gap detection | Ambiguous policy wording |
 | Threshold comparison on extracted numbers | A one-sentence plain-language summary |
 | Reason code and decision | |
@@ -218,23 +240,45 @@ location check to `unclear` rather than inventing a reading.
 
 ## Settlement
 
-Deliberately conservative. Policies 7 and 8 were created on the v2 deployment
-with a real `payout_amount` (1,000,000 wei), so a payout is now possible in
-principle; the finalize→settle path has **not yet been exercised end-to-end on
-chain** in this deployment (it is gated on the owner's keystore for
-`finalize_decision` / `settle_claim`). The state machine and its gates are proven
-in the direct suite (`tests/direct/test_settlement.py`, 12 tests), not by a live
-transfer. Earlier v1 policies all used `payout_amount: 0`.
+Deliberately conservative, and **two-phase**, because on GenLayer an emitted
+message is not a delivery: the value leaves this contract when the message is
+emitted and reaches the recipient only when the message's *child transaction*
+activates, which happens after this transaction finalizes and can still fail.
+
+```
+not_settled ──settle_claim──► payout_emitted ──confirm_settlement──► settled
+                                    │  └────fail_settlement─────► settlement_failed
+                                    └──__on_errored_message__────► settlement_failed
+                                                                   (retryable)
+```
 
 1. Evaluation and settlement are separate. Settlement never calls a model.
-2. A payout requires the contract's own `finalized` flag, read at `LATEST_FINAL`.
-   An accepted-but-appealable decision is refused.
-3. Each claim can settle at most once: `not_settled → settling → settled`, checked and
-   written before any transfer. Double-settlement is rejected and tested.
-4. Success is tracked from the transfer's own outcome, never inferred by comparing a
-   recipient's balance before and after.
-5. Amounts are sized integers. Failure lands in `settlement_failed`, never a silent
-   "settled".
+2. A payout requires the contract's own `finalized` flag — the `LATEST_FINAL`
+   snapshot must match the decision, the reason code **and** the evaluation round,
+   so a dispute re-evaluation that repeats the old decision can never be marked
+   final on the strength of the previous round's snapshot. An
+   accepted-but-appealable decision is refused.
+3. `settle_claim` emits the payout and moves the claim to `payout_emitted` — never
+   straight to `settled`. The single in-flight slot is claimed before the message is
+   emitted, so a claim has at most one payout in flight and a re-issued call is
+   rejected; `confirm_settlement` (after the operator verifies the child
+   transaction's receipt) is the only path to `settled`.
+4. Success is recorded from the message's own outcome, never inferred from a
+   recipient's balance. A failed emit reverts the whole transaction; a failed child
+   transaction is refunded through `__on_errored_message__`, which marks the claim
+   `settlement_failed` (retryable) when exactly one payout is in flight and merely
+   records the refund when attribution would be a guess.
+5. Amounts are sized integers. A failure lands in `settlement_failed`, never a
+   silent "settled", and `get_settlement` exposes `in_flight` so the UI cannot
+   render an unverified payout as paid.
+6. **Who gets paid:** the policy's `beneficiary`. `create_policy` defaults it to the
+   policy owner, `set_beneficiary` may change it before any claim references the
+   policy, and the **zero address** is the documented opt-in for "pay the claim's
+   claimant". Paying a claimant is never a silent default.
+
+> Status: this lifecycle is proven by the direct suite
+> (`tests/direct/test_settlement.py`, plus the settlement sections of
+> `test_contract_audit.py`), not yet by a live transfer. No claim is settled.
 
 ---
 
@@ -250,11 +294,14 @@ Registry with URLs, fields, units, quirks and failure behaviour:
 
 They legitimately disagree. That is the point.
 
-**Historical simulation vs live.** Every policy and claim surface carries a badge.
-Claim-2 through claim-5 are `historical_simulation`: the underlying values are fixed
-records and re-evaluating cannot change them. The app never presents recorded data as
-live, and the origin badge always states whether a screen is showing live chain reads
-or a recorded snapshot.
+**Historical simulation vs live.** `data_mode` selects the retrieval path rather
+than being a label: `historical_simulation` accepts only archive sources and a
+window entirely in the past, `live` accepts only the live source and a window that
+reaches today, and `create_policy` rejects a policy whose sources do not match its
+mode. Be precise about what the first one means: it is a **fresh retrieval of
+archived observations**, not a frozen dataset, so a provider revising its own
+history would show up. It is never presented as live, and the origin badge always
+states whether a screen is showing live chain reads or a recorded snapshot.
 
 ---
 
@@ -296,9 +343,9 @@ Screenshots: [`artifacts/screenshots/`](artifacts/screenshots/).
 ## Testing
 
 ```bash
-GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/climateclaim.py   # 3 checks + validation
-python3.12 -m pytest tests/direct/ -q                                 # 114 passed
-cd frontend && npx tsc -b --noEmit && npm run build                      # typecheck + build
+GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/climateclaim.py   # 3 lint checks + SDK validation
+python3.12 -m pytest tests/direct/ -q                                 # 180 direct tests
+cd frontend && npm test && npx tsc -b --noEmit && npm run build          # unit tests + typecheck + build
 ```
 
 > The contract suite needs **Python 3.12+** (`genlayer_py` imports
@@ -313,6 +360,13 @@ unsupported units, source failures and malformed payloads, every valid and inval
 state transition, duplicate claims, dispute limits, settlement idempotency, and
 prompt-injection fixtures.
 
+`tests/direct/test_contract_audit.py` is organised as one section per contract-audit
+finding — claim-scoped windows, frozen and final source registrations, data-mode
+enforcement, dispute counting with recovery from a failed re-evaluation,
+round-specific finality, majority ties, duplicate dates, the aggregation/unit
+rules, location authority and the source listing — so a regression in any of them
+fails a test that names it.
+
 ---
 
 ## Limitations
@@ -321,13 +375,15 @@ Stated plainly:
 
 1. **The StudioNet explorer is paused.** Transaction links cannot be verified, so the
    UI disables them with a reason instead of linking to a dead page.
-2. **No claim is finalized or settled yet.** The v2 deployment created policies 7
-   and 8 with a real `payout_amount` (1,000,000 wei), so a payout is possible in
-   principle, but `finalize_decision` / `settle_claim` have not been run against
-   this deployment — they are owner-only and gated on the local keystore. Finality
-   and settlement are implemented and unit-tested (12 tests in
-   `test_settlement.py`) but not yet demonstrated by a live transfer. The
-   confirmed claim that would exercise this path is pending that owner action.
+2. **No claim is finalized or settled yet, and the deployed contract is older than
+   the source.** The v2 deployment created policies 7 and 8 with a real
+   `payout_amount` (1,000,000 wei) and the recorded claims exercise evaluation,
+   disputes and settlement states, but `finalize_decision` / `settle_claim` /
+   `confirm_settlement` have not been run against a deployment — they are
+   owner-only. The two-phase settlement lifecycle is implemented and unit-tested
+   but **not yet demonstrated by a live transfer**, and the recorded deployment
+   predates the audit fixes described in the changelog. A redeploy is required
+   before the on-chain evidence matches the current source.
 3. **No integration tests.** `tests/integration/` does not exist. On-chain behaviour
    was verified by real writes against StudioNet (deploy, 7 policies, 7 claims,
    5 evaluations — receipts under `artifacts/studionet-v2/`) rather than by an
@@ -353,7 +409,8 @@ Stated plainly:
 - Deployment record, on-chain claims, transaction hashes, receipts, screenshots and
   known gaps: **[`artifacts/DEPLOYMENT.md`](artifacts/DEPLOYMENT.md)**
 - Screenshots: [`artifacts/screenshots/`](artifacts/screenshots/)
-- Saved contract schema: [`docs/schema.json`](docs/schema.json)
+- Saved contract schema: [`docs/schema.json`](docs/schema.json) — captured from the
+  earlier deployment, so it documents that contract, not the current source
 - Design docs: [`docs/equivalence.md`](docs/equivalence.md),
   [`docs/state-diagram.md`](docs/state-diagram.md), [`docs/sources.md`](docs/sources.md)
 - Fixtures: [`fixtures/historical/`](fixtures/historical/)

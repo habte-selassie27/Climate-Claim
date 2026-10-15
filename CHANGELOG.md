@@ -5,6 +5,168 @@ gaps are stated plainly; nothing is claimed that was not run.
 
 ---
 
+## Contract audit remediation (criteria `climateclaim-criteria-2`)
+
+### DONE
+
+Every finding in the contract audit is fixed in `contracts/climateclaim.py`, with
+regression tests that name the finding, and the docs and app updated to match.
+Criteria version bumped to `climateclaim-criteria-2` because the evaluation
+semantics changed.
+
+**Correctness of the evaluated window**
+
+- A claim now stores its **own** `period_start` / `period_end` (new `Claim`
+  fields) and `_run_evaluation` reads those. Previously a short claim window was
+  silently evaluated against the whole policy window.
+- Evidence records are stamped with the claim's window, and coverage is judged
+  against its length.
+
+**Evidence cannot silently change meaning**
+
+- `register_source` is now **final**: re-registering an existing id reverts with
+  `EXPECTED: source already registered`.
+- `create_policy` **snapshots** each selected source's configuration into
+  `Policy.sources_json` (`get_policy().sources`), and evaluation reads the
+  snapshot rather than the live registry, so no later registry activity can move
+  the goalposts for an existing policy.
+- `list_sources` iterates a new `source_ids` DynArray instead of five hardcoded
+  ids, so every registered source (including custom ones) is listed and
+  `get_source_count` reports the real count.
+
+**`data_mode` selects the retrieval path instead of labelling it**
+
+- `historical_simulation` accepts only archive sources (`open_meteo_archive`,
+  `nasa_power`) and requires a window entirely in the past;
+  `live` accepts only `open_meteo_forecast` and requires a window reaching today.
+  A mismatch is rejected at policy creation and re-checked inside `_fetch_source`
+  (`EXTERNAL: source_mode_mismatch`).
+- The README and `docs/sources.md` now state the honest limitation that this is a
+  *fresh retrieval of archived observations*, not a frozen dataset, and the app's
+  data-mode copy no longer claims re-evaluation cannot change the values.
+
+**Finality and disputes**
+
+- `finalize_decision` compares the `LATEST_FINAL` snapshot against the decision,
+  the reason code **and** `eval_round`. Matching only the decision string let a
+  dispute re-evaluation that repeated the old decision be finalized on the
+  previous round's snapshot.
+- Dispute rounds are counted when **opened** (`dispute_rounds`), so a
+  re-evaluation that cannot reach any source can no longer be used to open
+  unlimited rounds; only one dispute can be open at a time.
+- A failed re-evaluation leaves the dispute **open** with its grounds and opener
+  intact (`state = disputed`, `eval_error = EXTERNAL: sources_unreachable`,
+  `eval_round` unchanged, no history entry) so `resolve_dispute` can be retried;
+  `eval_round` now advances only when an outcome is actually recorded.
+- Disputes and re-evaluations are refused once a settlement has started
+  (`EXPECTED: settlement already started`).
+
+**Settlement is two-phase, and emission is not delivery**
+
+- The lifecycle is `not_settled → payout_emitted → settled | settlement_failed`.
+  `settle_claim` emits the payout, records the attempt and claims the single
+  in-flight slot **before** the message goes out, then stops at `payout_emitted`.
+  `confirm_settlement` (owner, after verifying the child transaction's receipt) is
+  the only path to `settled`; `fail_settlement` records a failure and the claim
+  stays retryable.
+- `__on_errored_message__` now records refunds (`get_refunds`) and marks the claim
+  `settlement_failed` when exactly one payout is in flight; with zero or several in
+  flight it records the refund and attributes nothing, because guessing which
+  message failed would be a fabrication. The runtime does not expose the failed
+  message's id.
+- Payouts use the documented external-message path for a chain-layer address
+  (`@gl.evm.contract_interface` + `emit_transfer`), not `gl.get_contract_at`,
+  which is the IC→IC internal-message path. Verified against the GenLayer value
+  transfer docs and by probing both against the direct VM.
+- Success is never inferred from a balance; `get_settlement` exposes `in_flight`
+  and the per-attempt log so the UI cannot render an unverified payout as paid.
+- Payout rule is now explicit: the policy `beneficiary` (defaulting to the policy
+  owner, settable before claims), or the claim's `claimant` when the beneficiary
+  is the zero address.
+
+**Aggregation, units and coverage**
+
+- `consecutive_days` results are in **days** and the policy must set
+  `unit = "days"`; previously a day count was compared against a millimetre
+  threshold.
+- `cumulative` is precipitation-only (summing daily maximum temperatures is not a
+  meaningful weather threshold), `max_single` is allowed for both metrics, and
+  `daily_total` — a duplicate of `cumulative` — is removed.
+- A provider response that repeats a date fails that source with
+  `EXTERNAL: duplicate_dates` instead of inflating coverage or double-counting a
+  total; coverage counts unique calendar days only.
+- A `majority` tie is `inconclusive` / `source_conflict` with
+  `source_agreement = fail`, never a silent `not_confirmed`.
+
+**Location authority**
+
+- The integer coordinate check is authoritative whenever a provider reports
+  coordinates; the model's `location_match` is only consulted when coordinates are
+  absent, and if it reports `fail` the evaluator forces `inconclusive` /
+  `location_mismatch` before writing. `_equivalent` also rejects a definite
+  decision carrying a failing location on either side, and a `location_mismatch`
+  whose location check is not `fail`.
+
+**Tests and docs**
+
+- `tests/direct/test_contract_audit.py` — new, organised as one section per audit
+  finding. `tests/direct/test_settlement.py` — rewritten for the two-phase
+  lifecycle, refunds, retry and the recipient rule. The existing suites were
+  updated for the aggregation, dispute and settlement changes; two further
+  adversarial tests were added to `test_evaluation.py` (majority tie, duplicate
+  dates). Total direct tests: **130 → 180**.
+- Frontend: aggregation union and picker follow the contract (`daily_total` gone,
+  `consecutive_days` shows a `days` unit), the settlement states and copy follow
+  the two-phase lifecycle (`payout_emitted` is labelled "delivery not yet
+  verified"), an explicit confirm/fail payout panel was added for the owner, the
+  timezone field is read-only UTC, and the schema-derived method map gained the
+  new writes and views.
+- `docs/equivalence.md`, `docs/state-diagram.md`, `docs/sources.md`, `README.md`
+  updated; `docs/schema.json` and `artifacts/DEPLOYMENT.md` carry an explicit
+  staleness note (the recorded deployment predates these changes).
+
+### PROOF
+
+```
+$ GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/climateclaim.py --json
+{"ok":true, "lint":{"ok":true,"passed":3},
+ "validate":{"ok":true,"contract":"ClimateClaim","methods":32,
+             "view_methods":19,"write_methods":13,"ctor_params":1,
+             "warnings":[{"code":"I200","msg":"py-genlayer: a newer runner is available"}]}}
+
+$ python3.12 -m pytest tests/direct -q
+180 passed in 7.0s
+
+$ cd frontend && npm test && npx tsc --noEmit && npm run build
+Tests  45 passed (45)
+(tsc: clean)
+✓ built in 3.04s
+```
+
+`GENVM_VERSION` must be set: the linter otherwise picks the newest cached GenVM
+bundle in `~/.cache/genvm-linter` (a `genvm-manager` bundle with a different
+archive layout) and fails to load the pinned SDK. The same failure reproduces on
+the pre-change contract, so it is an environment/tooling quirk, not a contract
+problem.
+
+### NEXT
+
+- Redeploy on StudioNet and re-capture `docs/schema.json`,
+  `docs/schema.genlayer-cli.txt` and `artifacts/DEPLOYMENT.md` against the new
+  contract; then exercise `finalize_decision → settle_claim →
+  confirm_settlement` on chain to show the two-phase payout end to end.
+- Run the integration suite (`tests/integration/` does not exist yet) against
+  StudioNet.
+
+### BLOCKED
+
+- No deployment in this session (none was requested): the recorded addresses,
+  hashes and schemas therefore describe the pre-fix contract. `genvm-lint
+  validate` needs network access on first use to fetch the GenVM bundle; the
+  cached manager bundle wins version resolution unless `GENVM_VERSION` is pinned.
+
+---
+
 ## Remove the constructor-seeded source registry
 
 ### DONE
@@ -222,6 +384,24 @@ transparently upgrades to live data, labelling which is on screen at every momen
 **Wrote the eight demo scenarios**, each with real recorded source data and the
 direct test that pins its outcome, badged either *real on-chain claim* or *replay of
 recorded data*.
+
+## 2026-10-14 — ClimateClaim contract review fixes
+
+DONE
+- Updated `contracts/climateclaim.py` from the pasted review: added per-outcome `evaluation_id`, strengthened finality comparison, rejected ordinary reevaluation after finalization, aligned equivalence checks with the selected source-agreement rule, validated leader/validator result invariants, added date year bounds and antimeridian-aware longitude distance, removed wall-clock data-mode gating, and simplified transfer-emission failure handling.
+- Reduced `contracts/climateclaim.py` to 1388 lines.
+
+PROOF
+- `python3 -m py_compile contracts/climateclaim.py` passed.
+- `genvm-lint check contracts/climateclaim.py --json` returned `lint.ok: true`, `passed: 3`.
+
+NEXT
+- Restore or fetch the pinned GenVM SDK artifact, then rerun `genvm-lint check contracts/climateclaim.py --json` and the direct tests.
+
+BLOCKED
+- GenVM validation could not load the pinned SDK artifact: `filename 'runners/py-genlayer/1j/b45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6.tar' not found`.
+
+---
 
 **Repaired the false-completed items:** `README.md` written, `artifacts/DEPLOYMENT.md`
 evidence pack written, `docs/schema.json` replaced with the real strict-JSON schema

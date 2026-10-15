@@ -1,5 +1,6 @@
 {
   "_note": "Saved from: genlayer schema 0xE16032420e3155C0822e9150a98c6B1163869F0c (StudioNet). Raw CLI output kept at docs/schema.genlayer-cli.txt.",
+  "_stale": "STALE RELATIVE TO THE SOURCE. This is a real capture of a real deployment, but contracts/climateclaim.py has changed since (criteria climateclaim-criteria-2): claim-scoped observation windows, per-policy frozen source snapshots, enforced data_mode, round-specific finality, two-phase settlement (confirm_settlement/fail_settlement/get_in_flight/get_refunds/get_payouts/get_source_count) and the aggregation/unit rules. Redeploy and re-capture before wiring anything to this schema. See CHANGELOG.md.",
   "contract": "0xE16032420e3155C0822e9150a98c6B1163869F0c",
   "network": "studionet",
   "capturedAt": "2026-10-13T14:45:18.785Z",

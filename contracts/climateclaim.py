@@ -1,87 +1,25 @@
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
-
-"""
-ClimateClaim — evidence-based parametric weather claims on GenLayer.
-
-PURPOSE
-    A user registers a claim *policy*: an explicit location, an observation
-    period, a measurable threshold, an aggregation rule and a bounded list of
-    documented weather sources. A claim on that policy is then evaluated by
-    fetching weather records from those sources and deciding whether the records
-    meet the policy's condition.
-
-WHY GENLAYER
-    Weather evidence is non-deterministic. Sources can be unreachable, can
-    return partial periods, and — most importantly — can *disagree* on whether a
-    threshold was crossed. A normal deterministic chain cannot adjudicate that.
-    GenLayer validators independently re-fetch the same sources and agree on the
-    *meaning* of the evidence under the policy's stated rules (see
-    docs/equivalence.md). Where the data is simply ambiguous, the honest outcome
-    is `inconclusive`, which this contract treats as a first-class result rather
-    than an error.
-
-WHAT THIS CONTRACT DOES NOT DO
-    - It never invents, interpolates, or "fills in" a missing reading.
-    - It never lets the model do threshold arithmetic: aggregation, unit
-      conversion and the comparator are plain integer code.
-    - It never settles on a merely *accepted* decision: settlement requires an
-      explicit finality read of this contract's own state at `LATEST_FINAL`.
-
-The four responsibilities live in one deployed contract because GenVM allows a
-single `gl.Contract` per module and cross-contract deployment would add moving
-parts without improving testability. They are clearly sectioned below:
-    A. Policy Registry          (immutable once a claim references a policy)
-    B. Weather Evidence Evaluator (the single non-deterministic call)
-    C. Claim State Machine      (documented, exhaustively tested transitions)
-    D. Settlement Controller    (idempotent, finality-aware, no balance inference)
-"""
-
 from dataclasses import dataclass
 import json
-
 from genlayer import *
-
-
-# ---------------------------------------------------------------------------
-# Address coercion
-# ---------------------------------------------------------------------------
-
 ADDRESS_SIZE = 20
 ADDRESS_MAX = 1 << (ADDRESS_SIZE * 8)  # 2**160
-
-
+ZERO_ADDRESS_BYTES = b"\x00" * ADDRESS_SIZE
 def _coerce_address(value) -> Address:
-    """Normalise whatever the caller supplied into an `Address`.
-
-    The SDK's `Address(...)` accepts a "0x"-prefixed hex string, a base64
-    string, or a 20-byte buffer. Any other object falls through to
-    `bytes(val)`, which is why a plain integer blows up: GenLayer Studio
-    encodes an `address` constructor input as a decimal uint160, and
-    `bytes(520730917470933887511827341466861109641848507529)` tries to
-    allocate a buffer of that many bytes and raises OverflowError.
-
-    An address is a 160-bit quantity, so an integer is converted to its
-    20-byte big-endian form here instead. Out-of-range values are rejected
-    rather than silently truncated.
-    """
     if isinstance(value, Address):
         return value
     if isinstance(value, bool):
-        # bool is an int subclass; it is never a valid address.
         raise gl.vm.UserError("EXPECTED: invalid address")
     if isinstance(value, int):
         if value < 0 or value >= ADDRESS_MAX:
             raise gl.vm.UserError("EXPECTED: address out of range")
         return Address(value.to_bytes(ADDRESS_SIZE, "big"))
     return Address(value)
-
-
-# ---------------------------------------------------------------------------
-# Constants (module-level, not storage)
-# ---------------------------------------------------------------------------
-
-CRITERIA_VERSION = "climateclaim-criteria-1"
-
+@gl.evm.contract_interface
+class _NativeRecipient:
+    class View: pass
+    class Write: pass
+CRITERIA_VERSION = "climateclaim-criteria-2"
 SCALE = 100               # fixed precision: native value * 100, as an integer
 MAX_DISPUTE_ROUNDS = 3
 MAX_SOURCES_PER_POLICY = 4
@@ -89,11 +27,10 @@ MAX_PERIOD_DAYS = 366
 MAX_SCALED_VALUE = 100000 * SCALE  # plausibility bound for any extracted reading
 MAX_TOLERANCE_M = 200000          # 200 km
 MAX_PAYOUT = 10**30               # sane upper bound for a payout amount
-
+MAX_PAYOUT_LOG = 8                # bounded payout-attempt history per claim
 DECISION_CONFIRMED = "confirmed"
 DECISION_NOT_CONFIRMED = "not_confirmed"
 DECISION_INCONCLUSIVE = "inconclusive"
-
 REASON_THRESHOLD_CROSSED = "threshold_crossed"
 REASON_THRESHOLD_NOT_CROSSED = "threshold_not_crossed"
 REASON_SOURCE_CONFLICT = "source_conflict"
@@ -101,31 +38,15 @@ REASON_MISSING_OBSERVATIONS = "missing_observations"
 REASON_LOCATION_MISMATCH = "location_mismatch"
 REASON_UNREACHABLE = "sources_unreachable"
 REASON_NONE = "none"
-
-# Documented equivalence groups: a reason_code on the left is equivalent to any
-# member of its group for consensus purposes (see docs/equivalence.md).
-REASON_GROUPS = (
-    (REASON_SOURCE_CONFLICT,),
-    (REASON_MISSING_OBSERVATIONS,),
-    (REASON_LOCATION_MISMATCH,),
-    (REASON_THRESHOLD_CROSSED,),
-    (REASON_THRESHOLD_NOT_CROSSED,),
-    (REASON_UNREACHABLE,),
-)
-
-CHECK_NAMES = (
-    "threshold_crossed",
-    "period_covered",
-    "location_match",
-    "source_agreement",
-    "data_completeness",
-)
+REASON_GROUPS = ((REASON_SOURCE_CONFLICT,), (REASON_MISSING_OBSERVATIONS,),
+                 (REASON_LOCATION_MISMATCH,), (REASON_THRESHOLD_CROSSED,),
+                 (REASON_THRESHOLD_NOT_CROSSED,), (REASON_UNREACHABLE,))
+CHECK_NAMES = ("threshold_crossed", "period_covered", "location_match",
+               "source_agreement", "data_completeness")
 REQUIRED_CHECKS = ("threshold_crossed", "period_covered", "data_completeness")
-
 CHECK_PASS = "pass"
 CHECK_FAIL = "fail"
 CHECK_UNCLEAR = "unclear"
-
 STATE_CREATED = "created"
 STATE_PENDING = "pending_evaluation"
 STATE_EVIDENCE = "evidence_collected"
@@ -134,140 +55,77 @@ STATE_NOT_CONFIRMED = "decided_not_confirmed"
 STATE_INCONCLUSIVE = "inconclusive"
 STATE_DISPUTED = "disputed"
 STATE_SETTLED = "settled"
-
 SETTLE_NOT = "not_settled"
-SETTLE_IN_PROGRESS = "settling"
+SETTLE_EMITTED = "payout_emitted"
 SETTLE_DONE = "settled"
 SETTLE_FAILED = "settlement_failed"
-
+PAYOUT_EMITTED = "emitted"
+PAYOUT_CONFIRMED = "confirmed"
+PAYOUT_FAILED = "failed"
 AGG_MAX_SINGLE = "max_single"
-AGG_DAILY_TOTAL = "daily_total"
 AGG_CUMULATIVE = "cumulative"
 AGG_CONSECUTIVE_DAYS = "consecutive_days"
-AGGREGATIONS = (AGG_MAX_SINGLE, AGG_DAILY_TOTAL, AGG_CUMULATIVE, AGG_CONSECUTIVE_DAYS)
-
+AGGREGATIONS = (AGG_MAX_SINGLE, AGG_CUMULATIVE, AGG_CONSECUTIVE_DAYS)
+UNIT_DAYS = "days"
 COMPARATOR_GT = "gt"
 COMPARATOR_GTE = "gte"
 COMPARATOR_LT = "lt"
 COMPARATOR_LTE = "lte"
 COMPARATORS = (COMPARATOR_GT, COMPARATOR_GTE, COMPARATOR_LT, COMPARATOR_LTE)
-
 AGREE_UNANIMOUS = "unanimous"
 AGREE_MAJORITY = "majority"
 AGREE_ANY = "any"
 AGREEMENT_RULES = (AGREE_UNANIMOUS, AGREE_MAJORITY, AGREE_ANY)
-
 MODE_SIM = "historical_simulation"
 MODE_LIVE = "live"
 DATA_MODES = (MODE_SIM, MODE_LIVE)
-
+KIND_ARCHIVE = "open_meteo_archive"
+KIND_FORECAST = "open_meteo_forecast"
+KIND_NASA = "nasa_power"
+SOURCE_KINDS = (KIND_ARCHIVE, KIND_FORECAST, KIND_NASA)
+MODE_KINDS = {MODE_SIM: (KIND_ARCHIVE, KIND_NASA), MODE_LIVE: (KIND_FORECAST,)}
 METRIC_PRECIP = "precipitation"
 METRIC_TEMP = "temperature"
 METRICS = (METRIC_PRECIP, METRIC_TEMP)
 CANONICAL_UNIT = {METRIC_PRECIP: "mm", METRIC_TEMP: "celsius"}
-
-
-# ---------------------------------------------------------------------------
-# Storage records
-# ---------------------------------------------------------------------------
-
-
+ALLOWED_AGGREGATIONS = {METRIC_PRECIP: (AGG_MAX_SINGLE, AGG_CUMULATIVE,
+                                        AGG_CONSECUTIVE_DAYS),
+                        METRIC_TEMP: (AGG_MAX_SINGLE,)}
+def _result_unit(aggregation: str, metric: str) -> str:
+    return UNIT_DAYS if aggregation == AGG_CONSECUTIVE_DAYS else CANONICAL_UNIT[metric]
 @allow_storage
 @dataclass
 class Source:
-    """A documented weather-data endpoint (see docs/sources.md)."""
-
-    id: str
-    name: str
-    kind: str          # "archive" | "forecast"
-    metric: str        # precipitation | temperature
-    param: str         # provider-specific field name
-    url_template: str  # placeholders: {lat} {lon} {start} {end} {param} {days}
-    unit: str          # provider native unit
-    attribution: str
-
-
+    id: str; name: str; kind: str; metric: str; param: str; url_template: str
+    unit: str; attribution: str
 @allow_storage
 @dataclass
 class Policy:
-    """An immutable claim policy. Immutable once any claim references it."""
-
-    id: str
-    owner: Address
-    location_name: str
-    lat_scaled: i256          # latitude * 1e6
-    lon_scaled: i256          # longitude * 1e6
-    tolerance_m: u32
-    source_ids_csv: str       # bounded, comma-separated source ids
-    agreement_rule: str
-    min_sources: u8
-    data_mode: str
-    period_start: str         # YYYY-MM-DD
-    period_end: str           # YYYY-MM-DD
-    timezone: str
-    metric: str
-    unit: str
-    comparator: str
-    threshold_scaled: i256
-    aggregation: str
-    condition_text: str
-    payout_amount: u256
-    beneficiary: Address
-    status: str               # active | retired
-    claim_count: u256
-
-
+    id: str; owner: Address; location_name: str; lat_scaled: i256
+    lon_scaled: i256; tolerance_m: u32; source_ids_csv: str; sources_json: str
+    agreement_rule: str; min_sources: u8; data_mode: str; period_start: str
+    period_end: str; timezone: str; metric: str; unit: str; comparator: str
+    threshold_scaled: i256; aggregation: str; condition_text: str
+    payout_amount: u256; beneficiary: Address; status: str; claim_count: u256
 @allow_storage
 @dataclass
 class Claim:
-    """A claim and its full decision record."""
-
-    id: str
-    policy_id: str
-    claimant: Address
-    state: str
-    decision: str
-    reason_code: str
-    summary: str
-    observed_scaled: i256
-    eval_round: u256
-    criteria_version: str
-    eval_error: str
-    finalized: bool
-    settlement_state: str
-    # Collection fields are stored as bounded JSON strings: GenVM forbids
-    # constructing a DynArray inside a user record, and this keeps every field a
-    # plain storage scalar.
-    evidence_json: str
-    checks_json: str
-    disputes_json: str
-    # Grounds of the currently-open dispute. Written by `open_dispute`, consumed
-    # (with `pending_opener`) by `_write_outcome` when the re-evaluation records
-    # the round, so the history keeps what the disputant actually wrote instead
-    # of a placeholder.
-    pending_grounds: str
-    pending_opener: Address
-
-
-# ---------------------------------------------------------------------------
-# Deterministic helpers (module-level so they are picklable into the validator)
-# ---------------------------------------------------------------------------
-
-
-def _is_leap(y: int) -> bool:
-    return (y % 4 == 0 and y % 100 != 0) or y % 400 == 0
-
-
+    id: str; policy_id: str; claimant: Address; period_start: str; period_end: str
+    state: str; decision: str; reason_code: str; summary: str; observed_scaled: i256
+    evaluation_id: u256; eval_round: u256; dispute_rounds: u256
+    criteria_version: str; eval_error: str; finalized: bool; settlement_state: str
+    payout_round: u256; evidence_json: str; checks_json: str; disputes_json: str
+    payouts_json: str; pending_grounds: str; pending_opener: Address
+def _is_leap(y: int) -> bool: return (y % 4 == 0 and y % 100 != 0) or y % 400 == 0
 _MDAYS = (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
-
-
 def _parse_date(s: str) -> tuple:
-    """Parse YYYY-MM-DD into (y, m, d). Raises ValueError when malformed."""
     if len(s) != 10 or s[4] != "-" or s[7] != "-":
         raise ValueError("bad date")
     y = int(s[0:4])
     m = int(s[5:7])
     d = int(s[8:10])
+    if y < 1900 or y > 9999:
+        raise ValueError("bad year")
     if m < 1 or m > 12:
         raise ValueError("bad month")
     md = _MDAYS[m - 1]
@@ -276,18 +134,12 @@ def _parse_date(s: str) -> tuple:
     if d < 1 or d > md:
         raise ValueError("bad day")
     return (y, m, d)
-
-
 def _ordinal(y: int, m: int, d: int) -> int:
-    """Days since 0000-03-01 (proleptic Gregorian), pure integer math."""
     a = (14 - m) // 12
     yy = y + 4800 - a
     mm = m + 12 * a - 3
     return d + (153 * mm + 2) // 5 + 365 * yy + yy // 4 - yy // 100 + yy // 400 - 32045
-
-
 def _date_range(start: str, end: str) -> list:
-    """Return every calendar date from start..end inclusive as ISO strings."""
     sy, sm, sd = _parse_date(start)
     ey, em, ed = _parse_date(end)
     o0 = _ordinal(sy, sm, sd)
@@ -296,8 +148,6 @@ def _date_range(start: str, end: str) -> list:
     for o in range(o0, o1 + 1):
         out.append(_ordinal_to_iso(o))
     return out
-
-
 def _ordinal_to_iso(o: int) -> str:
     a = o + 32044
     b = (4 * a + 3) // 146097
@@ -309,11 +159,7 @@ def _ordinal_to_iso(o: int) -> str:
     month = m + 3 - 12 * (m // 10)
     year = 100 * b + dd - 4800 + (m // 10)
     return f"{year:04d}-{month:02d}-{day:02d}"
-
-
 def _compare(comparator: str, value_scaled: int, threshold_scaled: int) -> bool:
-    """Plain integer comparator. This is the ONLY place the threshold is
-    evaluated — never the model."""
     if comparator == COMPARATOR_GT:
         return value_scaled > threshold_scaled
     if comparator == COMPARATOR_GTE:
@@ -323,16 +169,8 @@ def _compare(comparator: str, value_scaled: int, threshold_scaled: int) -> bool:
     if comparator == COMPARATOR_LTE:
         return value_scaled <= threshold_scaled
     return False
-
-
 def _to_native_unit(value: float, metric: str, unit: str) -> float:
-    """Normalize a provider value to the metric's canonical unit.
-
-    Only the two units we actually register are supported; anything else is
-    rejected by the caller (never guessed).
-    """
     if metric == METRIC_PRECIP:
-        # providers report precipitation in mm (or mm/day) or inches
         if unit in ("mm", "mm/day", "mmd", "millimetre", "millimeter"):
             return value
         if unit in ("inch", "in", "inches", "inch/day"):
@@ -345,28 +183,17 @@ def _to_native_unit(value: float, metric: str, unit: str) -> float:
             return (value - 32.0) * 5.0 / 9.0
         raise ValueError("unsupported temp unit")
     raise ValueError("unsupported metric")
-
-
 def _scaled(value: float) -> int:
-    """Round a native value to the fixed-precision integer scale."""
     if value >= 0:
         return int(value * SCALE + 0.5)
     return -int(-value * SCALE + 0.5)
-
-
 def _plausible(v: int) -> bool:
     return -MAX_SCALED_VALUE <= v <= MAX_SCALED_VALUE
-
-
 def _split_csv(s: str) -> list:
-    """Split a bounded comma-separated id list, dropping empties."""
     if not isinstance(s, str) or s == "":
         return []
     return [p for p in (x.strip() for x in s.split(",")) if p != ""]
-
-
 def _json_list(s: str) -> list:
-    """Parse a stored JSON list defensively; never raises."""
     try:
         v = json.loads(s)
         if isinstance(v, list):
@@ -374,17 +201,9 @@ def _json_list(s: str) -> list:
     except Exception:
         pass
     return []
-
-
-def _json_len(s: str) -> int:
-    return len(_json_list(s))
-
-
 def _strip_json(text: str) -> str:
-    """Remove markdown fences / leading commentary that models sometimes add."""
     t = text.strip()
     if t.startswith("```"):
-        # drop the first fence line and the trailing fence
         nl = t.find("\n")
         if nl != -1:
             t = t[nl + 1:]
@@ -395,13 +214,7 @@ def _strip_json(text: str) -> str:
     if i != -1 and j != -1 and j > i:
         return t[i:j + 1]
     return t
-
-
 def _extract_open_meteo(obj, param: str):
-    """Return (list of (date, native_value), reported_lat_micro, lon_micro, unit).
-
-    Strict field access: a changed layout yields None, never a guessed value.
-    """
     daily = obj.get("daily")
     if not isinstance(daily, dict):
         return None
@@ -425,10 +238,7 @@ def _extract_open_meteo(obj, param: str):
             continue
         out.append((t, float(v)))
     return out, lat_micro, lon_micro, unit
-
-
 def _extract_nasa(obj, param: str):
-    """Return (list of (date, native_value), reported_lat_micro, lon_micro, unit)."""
     props = obj.get("properties")
     if not isinstance(props, dict):
         return None
@@ -468,27 +278,16 @@ def _extract_nasa(obj, param: str):
             continue
         out.append((iso, float(v)))
     return out, lat_micro, lon_micro, unit
-
-
-def _aggregate(agg: str, series: list, period: list):
-    """Deterministic aggregation.
-
-    `series` is a list of (ISO date, scaled_value) already filtered to the
-    period and sorted by date. Returns (value_scaled, days_covered).
-    Never interpolates: a missing day is simply absent.
-    """
+def _aggregate(agg: str, series: list):
     values = [v for _, v in series]
     days = len(values)
     if days == 0:
         return (0, 0)
     if agg == AGG_MAX_SINGLE:
         return (max(values), days)
-    if agg == AGG_DAILY_TOTAL:
-        return (sum(values), days)
     if agg == AGG_CUMULATIVE:
         return (sum(values), days)
     if agg == AGG_CONSECUTIVE_DAYS:
-        # longest run of consecutive dates where the value is non-zero
         best = 0
         run = 0
         prev_ord = None
@@ -504,75 +303,43 @@ def _aggregate(agg: str, series: list, period: list):
             else:
                 run = 0
             prev_ord = o
-        return (best * SCALE, days)  # count of consecutive days, scaled
+        return (best * SCALE, days)
     raise ValueError("unknown aggregation")
-
-
-# cos(latitude) * 1000, by 5-degree band 0..90. Used for the equirectangular
-# distance approximation so longitude is not over-weighted at high latitudes.
 _COS_MILLI = (1000, 996, 985, 966, 940, 906, 866, 819, 766, 707, 643, 574,
               500, 423, 342, 259, 174, 87, 0)
-
-
 def _cos_milli(lat_micro: int) -> int:
     band = abs(int(lat_micro)) // (5 * 1000000)
     if band > 18:
         band = 18
     return _COS_MILLI[band]
-
-
 def _location_close(lat_micro, lon_micro, pol_lat_micro, pol_lon_micro, tol_m: int) -> bool:
-    """Deterministic coordinate proximity check.
-
-    Equirectangular approximation in integer metres: ~111.32 km per degree of
-    latitude, scaled by cos(latitude) for longitude. Compares squared distances
-    to avoid a square root. Good enough to reject a wrong station; it is not a
-    geodesic precision tool.
-    """
     if lat_micro is None or lon_micro is None:
         return False
     dlat = abs(int(lat_micro) - int(pol_lat_micro))
     dlon = abs(int(lon_micro) - int(pol_lon_micro))
-    # metres = microdeg * 111320 / 1e6, with longitude scaled by cos(lat)
+    wrap = 360 * 1000000 - dlon
+    if wrap < dlon:
+        dlon = wrap
     dlat_m = dlat * 111320 // 1000000
     dlon_m = dlon * 111320 * _cos_milli(pol_lat_micro) // (1000000 * 1000)
     return (dlat_m * dlat_m + dlon_m * dlon_m) <= tol_m * tol_m
-
-
 def _norm_enum(value, allowed, fallback):
-    """Coerce a model-produced enum into an allowed value or the fallback."""
     if isinstance(value, str):
         v = value.strip().lower()
         if v in allowed:
             return v
     return fallback
-
-
-def _norm_check(value) -> str:
-    return _norm_enum(value, (CHECK_PASS, CHECK_FAIL, CHECK_UNCLEAR), CHECK_UNCLEAR)
-
-
+def _norm_check(value) -> str: return _norm_enum(value, (CHECK_PASS, CHECK_FAIL, CHECK_UNCLEAR), CHECK_UNCLEAR)
 def _fetch_source(src: dict, start: str, end: str) -> dict:
-    """Fetch and normalize one source. Returns an EvidenceRecord-shaped dict.
-
-    Web access is the non-deterministic part; everything after it is plain code.
-    Fetched content is DATA: we only ever read named JSON fields from it.
-    """
-    rec = {
-        "source_id": src["id"],
-        "station": "",
-        "period_start": start,
-        "period_end": end,
-        "unit": src["unit"],
-        "days_covered": 0,
-        "value_scaled": 0,
-        "crossed": False,
-        "ok": False,
-        "error": "",
-        "series": [],
-        "lat_micro": None,
-        "lon_micro": None,
-    }
+    aggregation = src["aggregation"]
+    unit = _result_unit(aggregation, src["metric"])
+    rec = {"source_id": src["id"], "station": "", "period_start": start,
+           "period_end": end, "unit": unit, "days_covered": 0,
+           "value_scaled": 0, "crossed": False, "ok": False, "error": "",
+           "series": [], "lat_micro": None, "lon_micro": None}
+    if src["kind"] not in MODE_KINDS.get(src["data_mode"], ()):
+        rec["error"] = "EXTERNAL: source_mode_mismatch"
+        return rec
     try:
         url = src["url_template"].format(
             lat=src["lat"], lon=src["lon"], start=start, end=end,
@@ -587,9 +354,8 @@ def _fetch_source(src: dict, start: str, end: str) -> dict:
     except Exception:
         rec["error"] = "EXTERNAL: fetch_failed"
         return rec
-
     try:
-        if src["kind"] == "nasa_power":
+        if src["kind"] == KIND_NASA:
             parsed = _extract_nasa(obj, src["param"])
         else:
             parsed = _extract_open_meteo(obj, src["param"])
@@ -599,22 +365,23 @@ def _fetch_source(src: dict, start: str, end: str) -> dict:
     if parsed is None:
         rec["error"] = "EXTERNAL: parse_failed"
         return rec
-
-    rows, lat_micro, lon_micro, unit = parsed
+    rows, lat_micro, lon_micro, reported_unit = parsed
     rec["lat_micro"] = lat_micro
     rec["lon_micro"] = lon_micro
-    if unit:
-        rec["unit"] = unit
     if lat_micro is not None and lon_micro is not None:
         rec["station"] = f"{lat_micro / 1000000:.4f},{lon_micro / 1000000:.4f}"
-
     wanted = set(_date_range(start, end))
+    seen = set()
     series = []
     for d, raw in rows:
         if d not in wanted:
             continue  # out-of-period readings are ignored
+        if d in seen:
+            rec["error"] = "EXTERNAL: duplicate_dates"
+            return rec
+        seen.add(d)
         try:
-            native = _to_native_unit(raw, src["metric"], unit or src["unit"])
+            native = _to_native_unit(raw, src["metric"], reported_unit or src["unit"])
         except Exception:
             rec["error"] = "EXTERNAL: unit_mismatch"
             return rec
@@ -624,33 +391,21 @@ def _fetch_source(src: dict, start: str, end: str) -> dict:
             return rec
         series.append((d, sv))
     series.sort(key=lambda p: p[0])
-
-    agg = _aggregate(src["aggregation"], series, list(wanted))
+    agg = _aggregate(aggregation, series)
     rec["series"] = series
     rec["days_covered"] = agg[1]
     rec["value_scaled"] = agg[0]
     rec["ok"] = True
     return rec
-
-
 def _source_facts(records: list) -> list:
-    """Compact per-source facts carried across the nondet boundary (bounded by
-    MAX_SOURCES_PER_POLICY) so the on-chain audit record matches the evaluation."""
     out = []
     for r in records:
-        out.append({
-            "source_id": r["source_id"],
-            "ok": r["ok"],
-            "days_covered": int(r["days_covered"]),
-            "value_scaled": int(r["value_scaled"]),
-            "crossed": bool(r["crossed"]),
-            "unit": r["unit"],
-            "error": r["error"],
-            "station": r["station"],
-        })
+        out.append({"source_id": r["source_id"], "ok": r["ok"],
+                    "days_covered": int(r["days_covered"]),
+                    "value_scaled": int(r["value_scaled"]),
+                    "crossed": bool(r["crossed"]), "unit": r["unit"],
+                    "error": r["error"], "station": r["station"]})
     return out
-
-
 def _median(values: list) -> int:
     s = sorted(values)
     n = len(s)
@@ -659,17 +414,16 @@ def _median(values: list) -> int:
     if n % 2 == 1:
         return s[n // 2]
     return (s[n // 2 - 1] + s[n // 2]) // 2
-
-
+def _force_inconclusive(result: dict, checks: dict, reason: str,
+                        keep_agreement: bool = False) -> None:
+    result["decision"] = DECISION_INCONCLUSIVE
+    result["reason_code"] = reason
+    checks["threshold_crossed"] = CHECK_UNCLEAR
+    if not keep_agreement:
+        checks["source_agreement"] = CHECK_UNCLEAR
 def _evaluate_once(policy: dict, sources: list, start: str, end: str) -> dict:
-    """One full evaluation: fetch every eligible source, then decide.
-
-    This runs inside the non-deterministic block. It returns a JSON-encodable
-    structured result whose consensus-critical fields are all code-derived.
-    """
     period = _date_range(start, end)
     expected_days = len(period)
-
     records = [_fetch_source(s, start, end) for s in sources]
     for r in records:
         if r["ok"]:
@@ -678,26 +432,16 @@ def _evaluate_once(policy: dict, sources: list, start: str, end: str) -> dict:
             )
     used = [r["source_id"] for r in records if r["ok"]]
     missing = [r["source_id"] for r in records if not r["ok"]]
-
     checks = {name: CHECK_UNCLEAR for name in CHECK_NAMES}
-    result = {
-        "decision": DECISION_INCONCLUSIVE,
-        "reason_code": REASON_MISSING_OBSERVATIONS,
-        "observed_value_scaled": 0,
-        "checks": checks,
-        "sources_used": used,
-        "sources_missing": missing,
-        "sources": _source_facts(records),
-        "summary": "",
-    }
-
-    # Nothing reachable at all -> deterministic external failure (no decision).
+    result = {"decision": DECISION_INCONCLUSIVE,
+              "reason_code": REASON_MISSING_OBSERVATIONS,
+              "observed_value_scaled": 0, "checks": checks, "sources_used": used,
+              "sources_missing": missing, "sources": _source_facts(records),
+              "summary": ""}
     if not used:
         result["reason_code"] = REASON_UNREACHABLE
         result["summary"] = "No eligible data source could be reached."
         return result
-
-    # Location: a source that reports a location outside tolerance is a mismatch.
     loc_ok = None
     for r in records:
         if not r["ok"]:
@@ -710,71 +454,63 @@ def _evaluate_once(policy: dict, sources: list, start: str, end: str) -> dict:
             loc_ok = close
         else:
             loc_ok = loc_ok and close
-    # If providers do not report coordinates we cannot judge -> unclear, and the
-    # LLM (below) may refine this from textual evidence.
     if loc_ok is None:
         checks["location_match"] = CHECK_UNCLEAR
     else:
         checks["location_match"] = CHECK_PASS if loc_ok else CHECK_FAIL
-
     min_src = policy["min_sources"]
     full_coverage = all(r["days_covered"] == expected_days for r in records if r["ok"])
     checks["period_covered"] = CHECK_PASS if full_coverage else CHECK_FAIL
     checks["data_completeness"] = CHECK_PASS if len(used) >= min_src and full_coverage else CHECK_FAIL
-
     crossing = [r["crossed"] for r in records if r["ok"]]
-
     observed = _median([r["value_scaled"] for r in records if r["ok"]])
     result["observed_value_scaled"] = observed
-
-    # Deterministic precedence for reason_code/decision.
     if checks["location_match"] == CHECK_FAIL:
-        result["decision"] = DECISION_INCONCLUSIVE
-        result["reason_code"] = REASON_LOCATION_MISMATCH
-        checks["source_agreement"] = CHECK_UNCLEAR
+        _force_inconclusive(result, checks, REASON_LOCATION_MISMATCH)
     elif len(used) < min_src or not full_coverage:
-        result["decision"] = DECISION_INCONCLUSIVE
-        result["reason_code"] = REASON_MISSING_OBSERVATIONS
-        checks["source_agreement"] = CHECK_UNCLEAR
+        _force_inconclusive(result, checks, REASON_MISSING_OBSERVATIONS)
     else:
         rule = policy["agreement_rule"]
         n = len(crossing)
         n_true = sum(1 for c in crossing if c)
+        split = False
         if rule == AGREE_ANY:
             decisive = n_true > 0
             agree = True
         elif rule == AGREE_MAJORITY:
-            decisive = n_true * 2 > n
-            agree = True
+            if n_true * 2 > n:
+                decisive, agree = True, True
+            elif n_true * 2 == n:
+                decisive, agree, split = False, False, True
+            else:
+                decisive, agree = False, True
         else:  # unanimous
             decisive = n_true == n and n > 0
             agree = (n_true == 0 or n_true == n)
         checks["source_agreement"] = CHECK_PASS if agree else CHECK_FAIL
-        if not agree:
-            result["decision"] = DECISION_INCONCLUSIVE
-            result["reason_code"] = REASON_SOURCE_CONFLICT
+        if split:
+            _force_inconclusive(result, checks, REASON_SOURCE_CONFLICT,
+                                keep_agreement=True)
+        elif not agree:
+            _force_inconclusive(result, checks, REASON_SOURCE_CONFLICT,
+                                keep_agreement=True)
         else:
             checks["threshold_crossed"] = CHECK_PASS if decisive else CHECK_FAIL
             result["decision"] = DECISION_CONFIRMED if decisive else DECISION_NOT_CONFIRMED
             result["reason_code"] = (
                 REASON_THRESHOLD_CROSSED if decisive else REASON_THRESHOLD_NOT_CROSSED
             )
-
-    # LLM: interpretation only — the human summary and a semantic location view.
-    # It never computes the threshold and never invents a reading.
     summary, llm_loc = _interpret(policy, records, result)
     if summary:
         result["summary"] = summary
     if checks["location_match"] == CHECK_UNCLEAR and llm_loc in (CHECK_PASS, CHECK_FAIL):
         checks["location_match"] = llm_loc
-
+    if checks["location_match"] == CHECK_FAIL:
+        _force_inconclusive(result, checks, REASON_LOCATION_MISMATCH)
     if not result["summary"]:
         result["summary"] = _fallback_summary(result)
     return result
-
-
 def _interpret(policy: dict, records: list, result: dict):
-    """Ask the model to interpret (not compute). Returns (summary, location)."""
     facts = []
     for r in records:
         facts.append({
@@ -819,8 +555,6 @@ def _interpret(policy: dict, records: list, result: dict):
     summary = summary.strip()[:280]
     loc = _norm_check(obj.get("location_match"))
     return (summary, loc)
-
-
 def _fallback_summary(result: dict) -> str:
     code = result["reason_code"]
     if code == REASON_THRESHOLD_CROSSED:
@@ -836,8 +570,6 @@ def _fallback_summary(result: dict) -> str:
     if code == REASON_UNREACHABLE:
         return "No eligible data source could be reached."
     return "The evidence was not sufficient to decide."
-
-
 def _reason_equivalent(a: str, b: str) -> bool:
     if a == b:
         return True
@@ -845,14 +577,9 @@ def _reason_equivalent(a: str, b: str) -> bool:
         if a in group and b in group:
             return True
     return False
-
-
 def _same_side(comparator: str, value_scaled: int, threshold_scaled: int) -> bool:
     return _compare(comparator, value_scaled, threshold_scaled)
-
-
 def _sources_map(raw) -> dict:
-    """Index a leader/validator `sources` list by id, defensively."""
     out = {}
     if not isinstance(raw, list):
         return out
@@ -862,35 +589,87 @@ def _sources_map(raw) -> dict:
         sid = item.get("source_id")
         if not isinstance(sid, str):
             continue
-        out[sid] = {
-            "ok": bool(item.get("ok")),
-            "value_scaled": int(item.get("value_scaled", 0))
-            if isinstance(item.get("value_scaled"), int) else 0,
-        }
+        value = int(item.get("value_scaled", 0)) if isinstance(item.get("value_scaled"), int) else 0
+        crossed = item.get("crossed")
+        if not isinstance(crossed, bool):
+            crossed = _compare("gt", value, 0)
+        out[sid] = {"ok": bool(item.get("ok")), "crossed": crossed, "value_scaled": value}
     return out
-
-
+def _agreement_decision(policy: dict, sources: dict):
+    ok = [v["crossed"] for v in sources.values() if v["ok"]]
+    if len(ok) < int(policy.get("min_sources", 1)):
+        return (False, False)
+    n = len(ok)
+    n_true = sum(1 for c in ok if c)
+    rule = policy.get("agreement_rule", AGREE_UNANIMOUS)
+    if rule == AGREE_ANY:
+        return (True, n_true > 0)
+    if rule == AGREE_MAJORITY:
+        if n_true * 2 == n:
+            return (False, False)
+        return (True, n_true * 2 > n)
+    return (n_true == 0 or n_true == n, n_true == n)
+def _valid_result(result: dict, policy: dict) -> bool:
+    if result.get("decision") not in (DECISION_CONFIRMED, DECISION_NOT_CONFIRMED,
+                                      DECISION_INCONCLUSIVE):
+        return False
+    reason = result.get("reason_code")
+    if reason not in (REASON_THRESHOLD_CROSSED, REASON_THRESHOLD_NOT_CROSSED,
+                      REASON_SOURCE_CONFLICT, REASON_MISSING_OBSERVATIONS,
+                      REASON_LOCATION_MISMATCH, REASON_UNREACHABLE, REASON_NONE):
+        return False
+    checks = result.get("checks", {})
+    if not isinstance(checks, dict):
+        return False
+    for name in CHECK_NAMES:
+        if checks.get(name) not in (CHECK_PASS, CHECK_FAIL, CHECK_UNCLEAR):
+            return False
+    sources = _sources_map(result.get("sources"))
+    expected = set(policy.get("source_ids", []))
+    if expected and set(sources.keys()) != expected:
+        return False
+    used = {sid for sid, v in sources.items() if v["ok"]}
+    missing = set(sources.keys()) - used
+    if set(result.get("sources_used", [])) != used:
+        return False
+    if set(result.get("sources_missing", [])) != missing:
+        return False
+    if reason == REASON_UNREACHABLE and used:
+        return False
+    decision = result.get("decision")
+    if decision in (DECISION_CONFIRMED, DECISION_NOT_CONFIRMED):
+        for name in REQUIRED_CHECKS:
+            if checks.get(name) != CHECK_PASS:
+                return False
+        agree, crossed = _agreement_decision(policy, sources)
+        observed_crossed = _compare(policy["comparator"], result["observed_value_scaled"],
+                                    policy["threshold_scaled"])
+        if "agreement_rule" not in policy and observed_crossed != crossed:
+            crossed = observed_crossed
+        if not agree:
+            return False
+        if decision == DECISION_CONFIRMED and not crossed:
+            return False
+        if decision == DECISION_NOT_CONFIRMED and crossed:
+            return False
+    observed = result.get("observed_value_scaled")
+    return isinstance(observed, int) and _plausible(observed)
 def _equivalent(leader: dict, mine: dict, policy: dict) -> bool:
-    """The equivalence rule from docs/equivalence.md. Pure code, picklable."""
     if not isinstance(leader, dict) or not isinstance(mine, dict):
         return False
-
+    if not _valid_result(leader, policy) or not _valid_result(mine, policy):
+        return False
     if leader.get("decision") != mine.get("decision"):
         return False
     if not _reason_equivalent(leader.get("reason_code", ""), mine.get("reason_code", "")):
         return False
-
     lc = leader.get("checks", {})
     mc = mine.get("checks", {})
     if not isinstance(lc, dict) or not isinstance(mc, dict):
         return False
-
-    # Required checks must match exactly.
     for name in REQUIRED_CHECKS:
         if lc.get(name) != mc.get(name):
             return False
-    # Non-required checks must match, except leader `unclear` vs a definite
-    # validator value is tolerated.
     for name in CHECK_NAMES:
         if name in REQUIRED_CHECKS:
             continue
@@ -900,17 +679,19 @@ def _equivalent(leader: dict, mine: dict, policy: dict) -> bool:
         if lv == CHECK_UNCLEAR and mv in (CHECK_PASS, CHECK_FAIL):
             continue
         return False
-
-    # Observed value: within absolute tolerance and on the same side.
+    decision = leader.get("decision")
+    if decision in (DECISION_CONFIRMED, DECISION_NOT_CONFIRMED):
+        if lc.get("location_match") == CHECK_FAIL or mc.get("location_match") == CHECK_FAIL:
+            return False
+    if leader.get("reason_code") == REASON_LOCATION_MISMATCH:
+        if lc.get("location_match") != CHECK_FAIL or mc.get("location_match") != CHECK_FAIL:
+            return False
     lo = leader.get("observed_value_scaled")
     mo = mine.get("observed_value_scaled")
     if not isinstance(lo, int) or not isinstance(mo, int):
         return False
     if abs(lo - mo) > SCALE:
         return False
-
-    # Per-source values must also agree within tolerance (prevents agreeing on
-    # a decision while the underlying evidence silently diverged).
     lsm = _sources_map(leader.get("sources"))
     msm = _sources_map(mine.get("sources"))
     if set(lsm.keys()) != set(msm.keys()):
@@ -919,79 +700,55 @@ def _equivalent(leader: dict, mine: dict, policy: dict) -> bool:
         mv = msm[sid]
         if lv["ok"] != mv["ok"]:
             return False
+        if lv["crossed"] != mv["crossed"]:
+            return False
         if lv["ok"] and abs(int(lv["value_scaled"]) - int(mv["value_scaled"])) > SCALE:
             return False
     if _same_side(policy["comparator"], lo, policy["threshold_scaled"]) != _same_side(
         policy["comparator"], mo, policy["threshold_scaled"]
     ):
         return False
-
-    # Threshold-side invariant: never let validators agree on a contradiction.
-    decision = leader.get("decision")
-    crossed = _same_side(policy["comparator"], lo, policy["threshold_scaled"])
-    if decision == DECISION_CONFIRMED and not crossed:
+    agree, crossed = _agreement_decision(policy, lsm)
+    if decision == DECISION_CONFIRMED and (not agree or not crossed):
         return False
-    if decision == DECISION_NOT_CONFIRMED and crossed:
+    if decision == DECISION_NOT_CONFIRMED and (not agree or crossed):
         return False
-
-    # Definite decisions must cite the same source sets.
     if decision in (DECISION_CONFIRMED, DECISION_NOT_CONFIRMED):
         if set(leader.get("sources_used", [])) != set(mine.get("sources_used", [])):
             return False
         if set(leader.get("sources_missing", [])) != set(mine.get("sources_missing", [])):
             return False
     return True
-
-
-# ---------------------------------------------------------------------------
-# Contract
-# ---------------------------------------------------------------------------
-
-
 class ClimateClaim(gl.Contract):
     owner: Address
     criteria_version: str
     source_registry: TreeMap[str, Source]
+    source_ids: DynArray[str]
     policies: TreeMap[str, Policy]
     claims: TreeMap[str, Claim]
     claim_index: TreeMap[str, str]   # "policy|start|end" -> claim_id
     policy_ids: DynArray[str]
     claim_ids: DynArray[str]
+    in_flight: DynArray[str]
+    refund_count: u256
+    refund_total: u256
     policy_counter: u256
     claim_counter: u256
-
     def __init__(self, owner: Address) -> None:
-        """Deploy with the settlement/evaluation owner and seed the source
-        registry with the documented endpoints from docs/sources.md."""
-        # Accepts an Address, a hex/base64 string, a 20-byte buffer, or a
-        # uint160 integer. Studio sends the integer form for an `address`
-        # constructor input, which the SDK's Address() cannot take directly.
         self.owner = _coerce_address(owner)
         self.criteria_version = CRITERIA_VERSION
+        self.refund_count = u256(0)
+        self.refund_total = u256(0)
         self.policy_counter = u256(0)
         self.claim_counter = u256(0)
-        # The source registry is deliberately NOT seeded here. It starts empty
-        # and only ever contains what an owner registers through
-        # `register_source`, so the contract carries no hardcoded knowledge of
-        # any weather provider. Seed a deployment with
-        # scripts/seed-sources.sh, which reads the catalogue at
-        # docs/sources.json.
-        #
-        # Consequence: until a deployment is seeded, every create_policy
-        # reverts with "EXPECTED: unknown source".
-
-    # -- A. Policy Registry -------------------------------------------------
-
     @gl.public.write
     def register_source(self, source_id: str, name: str, kind: str, metric: str,
                         param: str, url_template: str, unit: str, attribution: str) -> None:
-        """Register or replace a documented source. Owner only.
-
-        Errors: EXPECTED: not owner; EXPECTED: bad source field.
-        """
         self._require_owner()
         sid = self._require_text(source_id, "source_id", 64)
-        if kind not in ("open_meteo_archive", "open_meteo_forecast", "nasa_power"):
+        if sid in self.source_registry:
+            self._revert("EXPECTED: source already registered")
+        if kind not in SOURCE_KINDS:
             self._revert("EXPECTED: bad source kind")
         if metric not in METRICS:
             self._revert("EXPECTED: bad source metric")
@@ -1005,7 +762,7 @@ class ClimateClaim(gl.Contract):
             unit=self._require_text(unit, "unit", 32),
             attribution=self._require_text(attribution, "attribution", 200),
         )
-
+        self.source_ids.append(sid)
     @gl.public.write
     def create_policy(self, location_name: str, lat_scaled: int, lon_scaled: int,
                       tolerance_m: int, source_ids: list, agreement_rule: str,
@@ -1013,15 +770,11 @@ class ClimateClaim(gl.Contract):
                       period_end: str, timezone: str, metric: str, unit: str,
                       comparator: str, threshold_scaled: int, aggregation: str,
                       condition_text: str, payout_amount: int) -> str:
-        """Register a policy. Returns the new policy id.
-
-        Validates every field deterministically; a policy is immutable once a
-        claim references it (see `retire_policy` / `start_claim`).
-        Errors: EXPECTED: <field reason>.
-        """
         self._require_owner()
         if metric not in METRICS:
             self._revert("EXPECTED: bad metric")
+        if data_mode not in DATA_MODES:
+            self._revert("EXPECTED: bad data mode")
         if (not isinstance(source_ids, list) or len(source_ids) == 0
                 or len(source_ids) > MAX_SOURCES_PER_POLICY):
             self._revert("EXPECTED: bad source count")
@@ -1033,11 +786,11 @@ class ClimateClaim(gl.Contract):
             if s not in self.source_registry:
                 self._revert("EXPECTED: unknown source")
             ids.append(s)
-        # all sources must share the policy metric
         for s in ids:
             if self.source_registry[s].metric != metric:
                 self._revert("EXPECTED: source metric mismatch")
-
+            if self.source_registry[s].kind not in MODE_KINDS[data_mode]:
+                self._revert("EXPECTED: source not eligible for data mode")
         self._validate_location(lat_scaled, lon_scaled, tolerance_m)
         if agreement_rule not in AGREEMENT_RULES:
             self._revert("EXPECTED: bad agreement rule")
@@ -1045,29 +798,31 @@ class ClimateClaim(gl.Contract):
             self._revert("EXPECTED: bad min_sources")
         if min_sources > len(ids):
             self._revert("EXPECTED: min_sources exceeds sources")
-        if data_mode not in DATA_MODES:
-            self._revert("EXPECTED: bad data mode")
         self._validate_period(period_start, period_end)
-        self._require_text(timezone, "timezone", 64)
-        if unit != CANONICAL_UNIT[metric]:
-            self._revert("EXPECTED: unit must be canonical for metric")
+        tz = self._require_text(timezone, "timezone", 64)
+        if tz.upper() not in ("UTC", "GMT"):
+            self._revert("EXPECTED: only UTC observation windows are supported")
+        if aggregation not in AGGREGATIONS:
+            self._revert("EXPECTED: bad aggregation")
+        if aggregation not in ALLOWED_AGGREGATIONS[metric]:
+            if aggregation == AGG_CONSECUTIVE_DAYS:
+                self._revert("EXPECTED: consecutive_days requires precipitation")
+            self._revert("EXPECTED: aggregation not valid for metric")
+        expected_unit = _result_unit(aggregation, metric)
+        if unit != expected_unit:
+            self._revert("EXPECTED: unit must be the canonical unit for this aggregation")
         if comparator not in COMPARATORS:
             self._revert("EXPECTED: bad comparator")
         if not isinstance(threshold_scaled, int) or not _plausible(threshold_scaled):
             self._revert("EXPECTED: threshold out of range")
-        if aggregation not in AGGREGATIONS:
-            self._revert("EXPECTED: bad aggregation")
-        if aggregation == AGG_CONSECUTIVE_DAYS and metric != METRIC_PRECIP:
-            self._revert("EXPECTED: consecutive_days requires precipitation")
         self._require_text(condition_text, "condition_text", 300)
         if not isinstance(payout_amount, int) or payout_amount < 0 or payout_amount > MAX_PAYOUT:
             self._revert("EXPECTED: payout out of range")
-        # Archive policies must be fully in the past.
-        if data_mode == MODE_SIM:
-            today = self._today_iso()
-            if period_end > today:
-                self._revert("EXPECTED: period not in the past for archive mode")
-
+        today = self._today_iso()
+        if data_mode == MODE_SIM and period_end >= today:
+            self._revert("EXPECTED: period not in the past for archive mode")
+        if data_mode == MODE_LIVE and period_end < today:
+            self._revert("EXPECTED: live window must reach the present")
         pid = f"policy-{int(self.policy_counter) + 1}"
         p = Policy(
             id=pid,
@@ -1077,12 +832,13 @@ class ClimateClaim(gl.Contract):
             lon_scaled=i256(lon_scaled),
             tolerance_m=u32(tolerance_m),
             source_ids_csv=",".join(ids),
+            sources_json=self._freeze_sources(ids),
             agreement_rule=agreement_rule,
             min_sources=u8(min_sources),
             data_mode=data_mode,
             period_start=period_start,
             period_end=period_end,
-            timezone=self._require_text(timezone, "timezone", 64),
+            timezone="UTC",
             metric=metric,
             unit=unit,
             comparator=comparator,
@@ -1098,69 +854,57 @@ class ClimateClaim(gl.Contract):
         self.policy_ids.append(pid)
         self.policy_counter = u256(int(self.policy_counter) + 1)
         return pid
-
     @gl.public.write
     def set_beneficiary(self, policy_id: str, beneficiary: Address) -> None:
-        """Set the payout beneficiary. Owner only, and only before any claim
-        references the policy (immutability). Errors: EXPECTED: not owner;
-        EXPECTED: policy locked."""
         self._require_owner()
         p = self._get_policy(policy_id)
         if int(p.claim_count) > 0:
             self._revert("EXPECTED: policy locked")
         p.beneficiary = _coerce_address(beneficiary)
         self.policies[policy_id] = p
-
     @gl.public.write
     def retire_policy(self, policy_id: str) -> None:
-        """Retire a policy so no new claims can be started. Owner only."""
         self._require_owner()
         p = self._get_policy(policy_id)
         p.status = "retired"
         self.policies[policy_id] = p
-
-    # -- C. Claim State Machine --------------------------------------------
-
     @gl.public.write
     def start_claim(self, policy_id: str, period_start: str, period_end: str) -> str:
-        """Create a claim for (policy, period). Returns the new claim id.
-
-        Enforces the duplicate rule on (policy, period).
-        Errors: EXPECTED: unknown policy; EXPECTED: policy retired;
-        EXPECTED: bad period; EXPECTED: duplicate claim.
-        """
         p = self._get_policy(policy_id)
         if p.status != "active":
             self._revert("EXPECTED: policy retired")
         self._validate_period(period_start, period_end)
-        # a claim's period must fall inside the policy's observation period
         if period_start < p.period_start or period_end > p.period_end:
             self._revert("EXPECTED: period outside policy window")
         key = f"{policy_id}|{period_start}|{period_end}"
-        existing = self.claim_index.get(key, "")
-        if existing != "":
+        if self.claim_index.get(key, "") != "":
             self._revert("EXPECTED: duplicate claim")
         if int(p.claim_count) >= 1000000:
             self._revert("EXPECTED: too many claims")
-
         cid = f"claim-{int(self.claim_counter) + 1}"
         claim = Claim(
             id=cid,
             policy_id=policy_id,
             claimant=gl.message.sender_address,
+            period_start=period_start,
+            period_end=period_end,
             state=STATE_CREATED,
             decision="",
             reason_code="",
             summary="",
             observed_scaled=i256(0),
+            evaluation_id=u256(0),
             eval_round=u256(0),
+            dispute_rounds=u256(0),
             criteria_version=self.criteria_version,
             eval_error="",
             finalized=False,
             settlement_state=SETTLE_NOT,
+            payout_round=u256(0),
             evidence_json="[]",
             checks_json="[]",
             disputes_json="[]",
+            payouts_json="[]",
             pending_grounds="",
             pending_opener=gl.message.sender_address,
         )
@@ -1171,103 +915,75 @@ class ClimateClaim(gl.Contract):
         p.claim_count = u256(int(p.claim_count) + 1)
         self.policies[policy_id] = p
         return cid
-
     @gl.public.write
     def request_evaluation(self, claim_id: str) -> None:
-        """Collect evidence and evaluate the claim.
-
-        Allowed from `created`, `inconclusive`, or `evidence_collected` (retry).
-        Errors: EXPECTED: not found; EXPECTED: unauthorized;
-        EXPECTED: claim already decided; EXPECTED: set pending failed.
-        """
         claim = self._get_claim(claim_id)
         self._require_claimant_or_owner(claim)
         if claim.state == STATE_DISPUTED:
             self._revert("EXPECTED: claim disputed")
+        if claim.finalized:
+            self._revert("EXPECTED: claim finalized")
         if claim.state in (STATE_CONFIRMED, STATE_NOT_CONFIRMED, STATE_SETTLED):
             self._revert("EXPECTED: claim already decided")
         if claim.state not in (STATE_CREATED, STATE_INCONCLUSIVE, STATE_EVIDENCE):
             self._revert("EXPECTED: cannot evaluate in this state")
-
+        if claim.settlement_state != SETTLE_NOT:
+            self._revert("EXPECTED: settlement already started")
         claim.state = STATE_PENDING
         self.claims[claim_id] = claim
         self._run_evaluation(claim_id, claim)
-
     @gl.public.write
     def open_dispute(self, claim_id: str, grounds: str) -> None:
-        """Open a dispute on a decided/inconclusive claim.
-
-        Errors: EXPECTED: unauthorized; EXPECTED: cannot dispute;
-        EXPECTED: dispute limit reached; EXPECTED: grounds required.
-        """
         claim = self._get_claim(claim_id)
         self._require_claimant_or_owner(claim)
         if claim.state not in (STATE_CONFIRMED, STATE_NOT_CONFIRMED, STATE_INCONCLUSIVE):
             self._revert("EXPECTED: cannot dispute")
-        if _json_len(claim.disputes_json) >= MAX_DISPUTE_ROUNDS:
+        if claim.settlement_state != SETTLE_NOT:
+            self._revert("EXPECTED: settlement already started")
+        if int(claim.dispute_rounds) >= MAX_DISPUTE_ROUNDS:
             self._revert("EXPECTED: dispute limit reached")
         claim.pending_grounds = self._require_text(grounds, "grounds", 300)
         claim.pending_opener = gl.message.sender_address
+        claim.dispute_rounds = u256(int(claim.dispute_rounds) + 1)
         claim.state = STATE_DISPUTED
         self.claims[claim_id] = claim
-
     @gl.public.write
     def resolve_dispute(self, claim_id: str) -> None:
-        """Re-evaluate a disputed claim. Increments the evaluation round and
-        records the dispute outcome. Errors: EXPECTED: not disputed;
-        EXPECTED: unauthorized."""
         claim = self._get_claim(claim_id)
         self._require_claimant_or_owner(claim)
         if claim.state != STATE_DISPUTED:
             self._revert("EXPECTED: not disputed")
         prev = claim.decision
-        claim.eval_round = u256(int(claim.eval_round) + 1)
         claim.state = STATE_PENDING
         self.claims[claim_id] = claim
         self._run_evaluation(claim_id, claim, dispute_prev=prev)
-
     @gl.public.write
     def finalize_decision(self, claim_id: str) -> None:
-        """Mark a decided claim final after verifying finality on-chain.
-
-        Reads this contract's own claim state at `LATEST_FINAL`; the recorded
-        decision must match. This is how settlement avoids acting on a merely
-        accepted result. Errors: EXPECTED: not owner; EXPECTED: not decided;
-        EXTERNAL: finality check unavailable; EXPECTED: decision not final.
-        """
         self._require_owner()
         claim = self._get_claim(claim_id)
         if claim.state not in (STATE_CONFIRMED, STATE_NOT_CONFIRMED, STATE_INCONCLUSIVE):
             self._revert("EXPECTED: not decided")
-        final_decision = self._read_final_decision(claim_id)
-        if final_decision is None:
+        snap = self._read_final_claim(claim_id)
+        if snap is None:
             self._revert("EXTERNAL: finality check unavailable")
-        if final_decision != claim.decision:
+        if (snap.get("decision") != claim.decision
+                or snap.get("reason_code") != claim.reason_code
+                or ("evaluation_id" in snap and snap.get("evaluation_id") != int(claim.evaluation_id))
+                or snap.get("eval_round") != int(claim.eval_round)):
             self._revert("EXPECTED: decision not final")
         claim.finalized = True
         self.claims[claim_id] = claim
-
-    # -- D. Settlement Controller ------------------------------------------
-
     @gl.public.write.payable
     def fund(self) -> None:
-        """Accept native-token deposits so the contract can pay confirmed claims."""
         pass
-
     @gl.public.write
     def settle_claim(self, claim_id: str) -> None:
-        """Emit the payout for a finalized, confirmed claim. Owner only.
-
-        Idempotent: the settlement state is checked and moved to `settling`
-        *before* any transfer, and only reaches `settled` if the transfer call
-        succeeds. Errors: EXPECTED: not owner; EXPECTED: claim not confirmed;
-        EXPECTED: decision not final; EXPECTED: already settled;
-        EXPECTED: insufficient contract balance; EXTERNAL: transfer failed.
-        """
         self._require_owner()
         claim = self._get_claim(claim_id)
         if claim.state == STATE_SETTLED or claim.settlement_state == SETTLE_DONE:
             self._revert("EXPECTED: already settled")
+        if claim.settlement_state == SETTLE_EMITTED:
+            self._revert("EXPECTED: payout already in flight")
         if claim.decision != DECISION_CONFIRMED:
             self._revert("EXPECTED: claim not confirmed")
         if not claim.finalized:
@@ -1278,142 +994,124 @@ class ClimateClaim(gl.Contract):
             self._revert("EXPECTED: payout amount is zero")
         if amount > int(self.balance):
             self._revert("EXPECTED: insufficient contract balance")
-
-        # Idempotency guard: flip to `settling` before touching funds.
-        claim.settlement_state = SETTLE_IN_PROGRESS
+        recipient = self._recipient_for(policy, claim)
+        claim.settlement_state = SETTLE_EMITTED
+        claim.payout_round = u256(int(claim.payout_round) + 1)
+        claim.payouts_json = json.dumps(
+            self._append_payout(claim, recipient, amount), separators=(",", ":"))
         self.claims[claim_id] = claim
-
+        self.in_flight.append(claim_id)
         try:
-            # Cross-contract payout, finalized. We never infer success from a
-            # balance; success is the absence of an error on this call.
-            gl.get_contract_at(policy.beneficiary).emit_transfer(value=u256(amount))
+            _NativeRecipient(recipient).emit_transfer(value=u256(amount))
         except Exception:
-            claim.settlement_state = SETTLE_FAILED
-            self.claims[claim_id] = claim
+            failed = self._get_claim(claim_id)
+            failed.settlement_state = SETTLE_NOT
+            self.claims[claim_id] = failed
+            self._clear_in_flight(claim_id)
             self._revert("EXTERNAL: transfer failed")
-
+    @gl.public.write
+    def confirm_settlement(self, claim_id: str) -> None:
+        self._require_owner()
+        claim = self._get_claim(claim_id)
+        if claim.settlement_state == SETTLE_DONE:
+            self._revert("EXPECTED: already settled")
+        if claim.settlement_state != SETTLE_EMITTED:
+            self._revert("EXPECTED: no payout in flight")
         claim.settlement_state = SETTLE_DONE
         claim.state = STATE_SETTLED
+        claim.payouts_json = json.dumps(
+            self._set_last_payout(claim, PAYOUT_CONFIRMED, ""), separators=(",", ":"))
         self.claims[claim_id] = claim
-
+        self._clear_in_flight(claim_id)
+    @gl.public.write
+    def fail_settlement(self, claim_id: str, reason: str) -> None:
+        self._require_owner()
+        claim = self._get_claim(claim_id)
+        if claim.settlement_state != SETTLE_EMITTED:
+            self._revert("EXPECTED: no payout in flight")
+        note = self._require_text(reason, "reason", 120)
+        claim.settlement_state = SETTLE_FAILED
+        claim.payouts_json = json.dumps(
+            self._set_last_payout(claim, PAYOUT_FAILED, note), separators=(",", ":"))
+        self.claims[claim_id] = claim
+        self._clear_in_flight(claim_id)
     @gl.public.write.payable
     def __on_errored_message__(self) -> None:
-        """GenVM calls this when an emitted message with value fails. We record
-        the failure rather than silently assuming settlement succeeded."""
-        # Nothing to map back to a specific claim here beyond the value refund;
-        # the settle path already flips state to settlement_failed on error.
-        pass
-
-    # -- Views --------------------------------------------------------------
-
+        value = int(gl.message.value)
+        self.refund_count = u256(int(self.refund_count) + 1)
+        self.refund_total = u256(int(self.refund_total) + value)
+        if len(self.in_flight) == 1:
+            cid = self.in_flight[0]
+            claim = self.claims.get(cid, None)
+            if claim is not None:
+                claim.settlement_state = SETTLE_FAILED
+                claim.payouts_json = json.dumps(
+                    self._set_last_payout(claim, PAYOUT_FAILED,
+                                          "EXTERNAL: payout message errored"),
+                    separators=(",", ":"))
+                self.claims[cid] = claim
+            del self.in_flight[0]
     @gl.public.view
-    def get_owner(self) -> str:
-        return self.owner.as_hex
-
+    def get_owner(self) -> str: return self.owner.as_hex
     @gl.public.view
-    def get_criteria_version(self) -> str:
-        return self.criteria_version
-
+    def get_criteria_version(self) -> str: return self.criteria_version
     @gl.public.view
     def get_source(self, source_id: str) -> dict:
         if source_id not in self.source_registry:
             return {}
         s = self.source_registry[source_id]
-        return {
-            "id": s.id, "name": s.name, "kind": s.kind, "metric": s.metric,
-            "param": s.param, "url_template": s.url_template, "unit": s.unit,
-            "attribution": s.attribution,
-        }
-
+        return {"id": s.id, "name": s.name, "kind": s.kind, "metric": s.metric,
+                "param": s.param, "url_template": s.url_template, "unit": s.unit,
+                "attribution": s.attribution}
     @gl.public.view
     def list_sources(self) -> list:
         out = []
-        for sid in ("om_archive_precip", "om_archive_tmax", "om_forecast_precip",
-                    "nasa_precip", "nasa_tmax"):
+        for sid in self.source_ids:
             if sid in self.source_registry:
                 out.append(self.get_source(sid))
         return out
-
+    @gl.public.view
+    def get_source_count(self) -> int: return len(self.source_ids)
+    @gl.public.view
+    def get_refunds(self) -> dict: return {"count": int(self.refund_count), "total": int(self.refund_total)}
+    @gl.public.view
+    def get_in_flight(self) -> list: return [cid for cid in self.in_flight]
     @gl.public.view
     def get_policy(self, policy_id: str) -> dict:
         if policy_id not in self.policies:
             return {}
-        p = self.policies[policy_id]
-        return self._policy_dict(p)
-
+        return self._policy_dict(self.policies[policy_id])
     @gl.public.view
     def list_policies(self) -> list:
         out = []
         for pid in self.policy_ids:
             out.append(self._policy_dict(self.policies[pid]))
         return out
-
     @gl.public.view
-    def get_policy_count(self) -> int:
-        return len(self.policy_ids)
-
+    def get_policy_count(self) -> int: return len(self.policy_ids)
     @gl.public.view
-    def get_claim_count(self) -> int:
-        return len(self.claim_ids)
-
+    def get_claim_count(self) -> int: return len(self.claim_ids)
     @gl.public.view
-    def find_claim(self, policy_id: str, period_start: str, period_end: str) -> str:
-        return self.claim_index.get(f"{policy_id}|{period_start}|{period_end}", "")
-
+    def find_claim(self, policy_id: str, period_start: str, period_end: str) -> str: return self.claim_index.get(f"{policy_id}|{period_start}|{period_end}", "")
     @gl.public.view
     def get_claim(self, claim_id: str) -> dict:
         if claim_id not in self.claims:
             return {}
         return self._claim_dict(self.claims[claim_id])
-
     @gl.public.view
     def list_claims(self) -> list:
-        """All claims as dicts (same shape as get_claim).
-
-        One read instead of get_claim_count + N get_claim round trips, which
-        matters against the public RPC's 30 requests/minute limit.
-        """
         out = []
         for cid in self.claim_ids:
             out.append(self._claim_dict(self.claims[cid]))
         return out
-
-    def _claim_dict(self, c: Claim) -> dict:
-        return {
-            "id": c.id,
-            "policy_id": c.policy_id,
-            "claimant": c.claimant.as_hex,
-            "state": c.state,
-            "decision": c.decision,
-            "reason_code": c.reason_code,
-            "summary": c.summary,
-            "observed_value_scaled": int(c.observed_scaled),
-            "eval_round": int(c.eval_round),
-            "criteria_version": c.criteria_version,
-            "eval_error": c.eval_error,
-            "finalized": c.finalized,
-            "settlement_state": c.settlement_state,
-            "pending_grounds": c.pending_grounds,
-        }
-
     @gl.public.view
-    def get_evidence(self, claim_id: str) -> list:
-        if claim_id not in self.claims:
-            return []
-        return _json_list(self.claims[claim_id].evidence_json)
-
+    def get_evidence(self, claim_id: str) -> list: return [] if claim_id not in self.claims else _json_list(self.claims[claim_id].evidence_json)
     @gl.public.view
-    def get_checks(self, claim_id: str) -> list:
-        if claim_id not in self.claims:
-            return []
-        return _json_list(self.claims[claim_id].checks_json)
-
+    def get_checks(self, claim_id: str) -> list: return [] if claim_id not in self.claims else _json_list(self.claims[claim_id].checks_json)
     @gl.public.view
-    def get_disputes(self, claim_id: str) -> list:
-        if claim_id not in self.claims:
-            return []
-        return _json_list(self.claims[claim_id].disputes_json)
-
+    def get_disputes(self, claim_id: str) -> list: return [] if claim_id not in self.claims else _json_list(self.claims[claim_id].disputes_json)
+    @gl.public.view
+    def get_payouts(self, claim_id: str) -> list: return [] if claim_id not in self.claims else _json_list(self.claims[claim_id].payouts_json)
     @gl.public.view
     def get_settlement(self, claim_id: str) -> dict:
         if claim_id not in self.claims:
@@ -1421,38 +1119,57 @@ class ClimateClaim(gl.Contract):
         c = self.claims[claim_id]
         p = self.policies.get(c.policy_id, None)
         amount = int(p.payout_amount) if p is not None else 0
-        return {
-            "claim_id": claim_id,
-            "state": c.settlement_state,
-            "amount": amount,
-            "beneficiary": p.beneficiary.as_hex if p is not None else "",
-            "finalized": c.finalized,
-        }
-
-    # -- Internal helpers ---------------------------------------------------
-
+        recipient = self._recipient_for(p, c).as_hex if p is not None else ""
+        return {"claim_id": claim_id, "state": c.settlement_state, "amount": amount,
+                "in_flight": c.settlement_state == SETTLE_EMITTED,
+                "finalized": c.finalized,
+                "beneficiary": p.beneficiary.as_hex if p is not None else "",
+                "recipient": recipient, "payout_round": int(c.payout_round),
+                "payouts": _json_list(c.payouts_json)}
+    def _recipient_for(self, policy: Policy, claim: Claim) -> Address:
+        return claim.claimant if policy.beneficiary.as_bytes == ZERO_ADDRESS_BYTES else policy.beneficiary
+    def _freeze_sources(self, ids: list) -> str:
+        rows = []
+        for sid in ids:
+            s = self.source_registry[sid]
+            rows.append({"id": s.id, "name": s.name, "kind": s.kind,
+                         "metric": s.metric, "param": s.param,
+                         "url_template": s.url_template, "unit": s.unit})
+        return json.dumps(rows, separators=(",", ":"))
+    def _append_payout(self, claim: Claim, recipient: Address, amount: int) -> list:
+        rows = _json_list(claim.payouts_json)
+        rows.append({"round": int(claim.payout_round), "recipient": recipient.as_hex,
+                     "amount": int(amount), "outcome": PAYOUT_EMITTED})
+        return rows[-MAX_PAYOUT_LOG:]
+    def _set_last_payout(self, claim: Claim, outcome: str, reason: str) -> list:
+        rows = _json_list(claim.payouts_json)
+        if rows and isinstance(rows[-1], dict):
+            rows[-1]["outcome"] = outcome
+            if reason:
+                rows[-1]["reason"] = reason
+        return rows[-MAX_PAYOUT_LOG:]
+    def _clear_in_flight(self, claim_id: str) -> None:
+        for i in range(len(self.in_flight)):
+            if self.in_flight[i] == claim_id:
+                del self.in_flight[i]
+                return
     def _require_owner(self) -> None:
         if gl.message.sender_address != self.owner:
             self._revert("EXPECTED: not owner")
-
     def _require_claimant_or_owner(self, claim: Claim) -> None:
         sender = gl.message.sender_address
         if sender != claim.claimant and sender != self.owner:
             self._revert("EXPECTED: unauthorized")
-
     def _revert(self, message: str) -> None:
         raise gl.vm.UserError(message)
-
     def _get_policy(self, policy_id: str) -> Policy:
         if policy_id not in self.policies:
             self._revert("EXPECTED: unknown policy")
         return self.policies[policy_id]
-
     def _get_claim(self, claim_id: str) -> Claim:
         if claim_id not in self.claims:
             self._revert("EXPECTED: unknown claim")
         return self.claims[claim_id]
-
     def _require_text(self, value: str, field: str, max_len: int) -> str:
         if not isinstance(value, str):
             self._revert(f"EXPECTED: {field} must be text")
@@ -1460,7 +1177,6 @@ class ClimateClaim(gl.Contract):
         if len(v) == 0 or len(v) > max_len:
             self._revert(f"EXPECTED: bad {field}")
         return v
-
     def _validate_location(self, lat_scaled: int, lon_scaled: int, tolerance_m: int) -> None:
         if not isinstance(lat_scaled, int) or not isinstance(lon_scaled, int):
             self._revert("EXPECTED: bad coordinates")
@@ -1470,7 +1186,6 @@ class ClimateClaim(gl.Contract):
             self._revert("EXPECTED: bad longitude")
         if not isinstance(tolerance_m, int) or tolerance_m < 0 or tolerance_m > MAX_TOLERANCE_M:
             self._revert("EXPECTED: bad tolerance")
-
     def _validate_period(self, start: str, end: str) -> None:
         try:
             _parse_date(start)
@@ -1482,117 +1197,94 @@ class ClimateClaim(gl.Contract):
         days = _ordinal(*_parse_date(end)) - _ordinal(*_parse_date(start)) + 1
         if days > MAX_PERIOD_DAYS:
             self._revert("EXPECTED: period too long")
-
     def _today_iso(self) -> str:
-        """Current UTC date. Used only to reject future-dated archive periods."""
         try:
             import datetime as _dt
             now = _dt.datetime.now(_dt.timezone.utc)
             return f"{now.year:04d}-{now.month:02d}-{now.day:02d}"
         except Exception:
-            # If the runtime cannot supply a clock, do not block policy creation.
             return "9999-12-31"
-
-    def _read_final_decision(self, claim_id: str):
-        """Read our own claim's decision at finalized state.
-
-        Returns the decision string, or None when the finalized read is
-        unavailable. Never guesses.
-        """
+    def _read_final_claim(self, claim_id: str):
         try:
             from genlayer.py.public_abi import StorageType
             proxy = gl.get_contract_at(gl.message.contract_address)
             d = proxy.view(state=StorageType.LATEST_FINAL).get_claim(claim_id)
             if not isinstance(d, dict):
                 return None
-            dec = d.get("decision", "")
-            if not isinstance(dec, str) or dec == "":
-                return None
-            return dec
+            return d
         except Exception:
             return None
-
     def _policy_dict(self, p: Policy) -> dict:
-        return {
-            "id": p.id,
-            "owner": p.owner.as_hex,
-            "location_name": p.location_name,
-            "lat_scaled": int(p.lat_scaled),
-            "lon_scaled": int(p.lon_scaled),
-            "tolerance_m": int(p.tolerance_m),
-            "source_ids": _split_csv(p.source_ids_csv),
-            "agreement_rule": p.agreement_rule,
-            "min_sources": int(p.min_sources),
-            "data_mode": p.data_mode,
-            "period_start": p.period_start,
-            "period_end": p.period_end,
-            "timezone": p.timezone,
-            "metric": p.metric,
-            "unit": p.unit,
-            "comparator": p.comparator,
-            "threshold_scaled": int(p.threshold_scaled),
-            "aggregation": p.aggregation,
-            "condition_text": p.condition_text,
-            "payout_amount": int(p.payout_amount),
-            "beneficiary": p.beneficiary.as_hex,
-            "status": p.status,
-            "claim_count": int(p.claim_count),
-        }
-
-    # -- Evaluation wiring --------------------------------------------------
-
+        return {"id": p.id, "owner": p.owner.as_hex, "location_name": p.location_name,
+                "lat_scaled": int(p.lat_scaled), "lon_scaled": int(p.lon_scaled),
+                "tolerance_m": int(p.tolerance_m),
+                "source_ids": _split_csv(p.source_ids_csv),
+                "sources": _json_list(p.sources_json),
+                "agreement_rule": p.agreement_rule, "min_sources": int(p.min_sources),
+                "data_mode": p.data_mode, "period_start": p.period_start,
+                "period_end": p.period_end, "timezone": p.timezone, "metric": p.metric,
+                "unit": p.unit, "comparator": p.comparator,
+                "threshold_scaled": int(p.threshold_scaled),
+                "aggregation": p.aggregation, "condition_text": p.condition_text,
+                "payout_amount": int(p.payout_amount), "beneficiary": p.beneficiary.as_hex,
+                "status": p.status, "claim_count": int(p.claim_count)}
+    def _claim_dict(self, c: Claim) -> dict:
+        p = self.policies.get(c.policy_id, None)
+        return {"id": c.id, "policy_id": c.policy_id, "claimant": c.claimant.as_hex,
+                "period_start": c.period_start, "period_end": c.period_end,
+                "state": c.state, "decision": c.decision, "reason_code": c.reason_code,
+                "summary": c.summary, "observed_value_scaled": int(c.observed_scaled),
+                "evaluation_id": int(c.evaluation_id), "eval_round": int(c.eval_round),
+                "dispute_rounds": int(c.dispute_rounds),
+                "criteria_version": c.criteria_version, "eval_error": c.eval_error,
+                "finalized": c.finalized, "settlement_state": c.settlement_state,
+                "payout_round": int(c.payout_round),
+                "recipient": self._recipient_for(p, c).as_hex if p is not None else "",
+                "pending_grounds": c.pending_grounds}
     def _run_evaluation(self, claim_id: str, claim: Claim, dispute_prev: str = "") -> None:
-        """Build the nondet inputs, run the consensus call, write the result."""
+        claim = self._get_claim(claim_id)
         policy = self._get_policy(claim.policy_id)
-        start = policy.period_start
-        end = policy.period_end
-        # Read storage into plain memory BEFORE the nondet block.
-        policy_data = {
-            "comparator": policy.comparator,
-            "threshold_scaled": int(policy.threshold_scaled),
-            "aggregation": policy.aggregation,
-            "agreement_rule": policy.agreement_rule,
-            "min_sources": int(policy.min_sources),
-            "lat_scaled": int(policy.lat_scaled),
-            "lon_scaled": int(policy.lon_scaled),
-            "tolerance_m": int(policy.tolerance_m),
-            "metric": policy.metric,
-            "unit": policy.unit,
-            "location_name": policy.location_name,
-            "condition_text": policy.condition_text,
-        }
+        start = claim.period_start
+        end = claim.period_end
+        policy_data = {"comparator": policy.comparator,
+                       "threshold_scaled": int(policy.threshold_scaled),
+                       "aggregation": policy.aggregation,
+                       "agreement_rule": policy.agreement_rule,
+                       "min_sources": int(policy.min_sources),
+                       "lat_scaled": int(policy.lat_scaled),
+                       "lon_scaled": int(policy.lon_scaled),
+                       "tolerance_m": int(policy.tolerance_m), "metric": policy.metric,
+                       "unit": policy.unit, "location_name": policy.location_name,
+                       "condition_text": policy.condition_text, "data_mode": policy.data_mode,
+                       "source_ids": _split_csv(policy.source_ids_csv)}
+        days = self._period_days(start, end)
         source_plan = []
-        for sid in _split_csv(policy.source_ids_csv):
-            s = self.source_registry[sid]
-            source_plan.append({
-                "id": s.id,
-                "kind": s.kind,
-                "metric": s.metric,
-                "param": s.param,
-                "unit": s.unit,
-                "url_template": s.url_template,
-                "lat": self._fmt_coord(int(policy.lat_scaled)),
-                "lon": self._fmt_coord(int(policy.lon_scaled)),
-                "aggregation": policy.aggregation,
-                "days": self._period_days(start, end),
-            })
-
+        for snap in _json_list(policy.sources_json):
+            if not isinstance(snap, dict):
+                continue
+            source_plan.append({"id": str(snap.get("id", "")),
+                                "kind": str(snap.get("kind", "")),
+                                "metric": str(snap.get("metric", policy.metric)),
+                                "param": str(snap.get("param", "")),
+                                "unit": str(snap.get("unit", policy.unit)),
+                                "url_template": str(snap.get("url_template", "")),
+                                "lat": self._fmt_coord(int(policy.lat_scaled)),
+                                "lon": self._fmt_coord(int(policy.lon_scaled)),
+                                "aggregation": policy.aggregation,
+                                "data_mode": policy.data_mode, "days": days})
+        if not source_plan:
+            self._revert("EXTERNAL: policy has no frozen sources")
         def leader_fn() -> dict:
             return _evaluate_once(policy_data, source_plan, start, end)
-
         def validator_fn(leaders_res) -> bool:
             if not isinstance(leaders_res, gl.vm.Return):
                 return False
             mine = _evaluate_once(policy_data, source_plan, start, end)
             return _equivalent(leaders_res.calldata, mine, policy_data)
-
         outcome = gl.vm.run_nondet(leader_fn, validator_fn)
-        # `outcome` is the leader's structured dict.
         if not isinstance(outcome, dict):
             self._revert("LLM_ERROR: malformed evaluation result")
         if outcome.get("reason_code") == REASON_UNREACHABLE:
-            # No decision is recorded (retryable), but we still persist the
-            # per-source failure records so the failure is auditable.
             raw_sources = outcome.get("sources", [])
             if not isinstance(raw_sources, list):
                 raw_sources = []
@@ -1603,30 +1295,26 @@ class ClimateClaim(gl.Contract):
                 sid = str(item.get("source_id", ""))
                 if sid == "":
                     continue
-                ev.append({
-                    "source_id": sid,
-                    "station": str(item.get("station", "")) or policy_data.get("location_name", ""),
-                    "period_start": start,
-                    "period_end": end,
-                    "unit": str(item.get("unit", policy_data.get("unit", ""))),
-                    "days_covered": 0,
-                    "value_scaled": 0,
-                    "crossed": False,
-                    "ok": False,
-                    "error": str(item.get("error", "")) or "EXTERNAL: fetch_failed",
-                })
+                ev.append({"source_id": sid,
+                           "station": str(item.get("station", "")) or policy_data.get("location_name", ""),
+                           "period_start": start, "period_end": end,
+                           "unit": str(item.get("unit", policy_data.get("unit", ""))),
+                           "days_covered": 0, "value_scaled": 0, "crossed": False,
+                           "ok": False,
+                           "error": str(item.get("error", "")) or "EXTERNAL: fetch_failed"})
             c = self._get_claim(claim_id)
-            c.state = STATE_EVIDENCE
-            c.eval_error = "EXTERNAL: sources_unreachable"
             c.evidence_json = json.dumps(ev, separators=(",", ":"))
             c.checks_json = "[]"
+            c.eval_error = "EXTERNAL: sources_unreachable"
+            if dispute_prev != "":
+                c.state = STATE_DISPUTED
+            else:
+                c.state = STATE_EVIDENCE
             self.claims[claim_id] = c
             return
-
-        self._write_outcome(claim_id, claim, policy_data, source_plan, outcome,
-                            start, end, dispute_prev)
-
-    def _write_outcome(self, claim_id, claim, policy_data, source_plan, outcome,
+        self._write_outcome(claim_id, claim, policy_data, outcome, start, end,
+                            dispute_prev)
+    def _write_outcome(self, claim_id, claim, policy_data, outcome,
                        start, end, dispute_prev) -> None:
         claim = self._get_claim(claim_id)
         decision = _norm_enum(
@@ -1644,9 +1332,6 @@ class ClimateClaim(gl.Contract):
         if not isinstance(summary, str) or summary.strip() == "":
             summary = _fallback_summary(outcome)
         summary = summary.strip()[:280]
-
-        # Persist the per-source normalized facts the leader decided on so the
-        # on-chain audit record matches the evaluation.
         checks_in = outcome.get("checks", {})
         if not isinstance(checks_in, dict):
             checks_in = {}
@@ -1655,7 +1340,6 @@ class ClimateClaim(gl.Contract):
             status = _norm_check(checks_in.get(name))
             chk.append({"name": name, "status": status,
                         "detail": self._check_detail(name, status)})
-
         raw_sources = outcome.get("sources", [])
         if not isinstance(raw_sources, list):
             raw_sources = []
@@ -1669,19 +1353,14 @@ class ClimateClaim(gl.Contract):
             ok = bool(item.get("ok", False))
             dc = item.get("days_covered", 0)
             vs = item.get("value_scaled", 0)
-            ev.append({
-                "source_id": sid,
-                "station": str(item.get("station", "")) or policy_data.get("location_name", ""),
-                "period_start": start,
-                "period_end": end,
-                "unit": str(item.get("unit", policy_data.get("unit", ""))),
-                "days_covered": dc if isinstance(dc, int) and dc >= 0 else 0,
-                "value_scaled": vs if isinstance(vs, int) else 0,
-                "crossed": bool(item.get("crossed", False)),
-                "ok": ok,
-                "error": str(item.get("error", "")) if not ok else "",
-            })
-
+            ev.append({"source_id": sid,
+                       "station": str(item.get("station", "")) or policy_data.get("location_name", ""),
+                       "period_start": start, "period_end": end,
+                       "unit": str(item.get("unit", policy_data.get("unit", ""))),
+                       "days_covered": dc if isinstance(dc, int) and dc >= 0 else 0,
+                       "value_scaled": vs if isinstance(vs, int) else 0,
+                       "crossed": bool(item.get("crossed", False)), "ok": ok,
+                       "error": str(item.get("error", "")) if not ok else ""})
         if decision == DECISION_CONFIRMED:
             claim.state = STATE_CONFIRMED
         elif decision == DECISION_NOT_CONFIRMED:
@@ -1692,38 +1371,30 @@ class ClimateClaim(gl.Contract):
         claim.reason_code = reason
         claim.summary = summary
         claim.observed_scaled = i256(observed)
+        claim.evaluation_id = u256(int(claim.evaluation_id) + 1)
         claim.eval_error = ""
         claim.finalized = False
         claim.settlement_state = SETTLE_NOT
         claim.evidence_json = json.dumps(ev, separators=(",", ":"))
         claim.checks_json = json.dumps(chk, separators=(",", ":"))
         if dispute_prev != "":
+            claim.eval_round = u256(int(claim.eval_round) + 1)
             disputes = _json_list(claim.disputes_json)
-            disputes.append({
-                "round": len(disputes) + 1,
-                "opener": claim.pending_opener.as_hex,
-                "grounds": claim.pending_grounds,
-                "prev_decision": dispute_prev,
-                "new_decision": decision,
-            })
+            disputes.append({"round": int(claim.eval_round),
+                             "opener": claim.pending_opener.as_hex,
+                             "grounds": claim.pending_grounds,
+                             "prev_decision": dispute_prev,
+                             "new_decision": decision})
             claim.disputes_json = json.dumps(disputes, separators=(",", ":"))
             claim.pending_grounds = ""
         self.claims[claim_id] = claim
-
     def _check_detail(self, name: str, status: str) -> str:
-        labels = {
-            "threshold_crossed": "the threshold comparison",
-            "period_covered": "coverage of the observation period",
-            "location_match": "the reported location",
-            "source_agreement": "agreement between sources",
-            "data_completeness": "completeness of the evidence",
-        }
+        labels = {"threshold_crossed": "the threshold comparison", "period_covered": "coverage of the observation period", "location_match": "the reported location", "source_agreement": "agreement between sources", "data_completeness": "completeness of the evidence"}
         if status == CHECK_PASS:
             return f"passed: {labels.get(name, name)}"
         if status == CHECK_FAIL:
             return f"failed: {labels.get(name, name)}"
         return f"unclear: {labels.get(name, name)}"
-
     def _fmt_coord(self, scaled: int) -> str:
         neg = scaled < 0
         a = -scaled if neg else scaled
@@ -1731,6 +1402,5 @@ class ClimateClaim(gl.Contract):
         frac = a % 1000000
         s = f"{whole}.{frac:06d}"
         return "-" + s if neg else s
-
     def _period_days(self, start: str, end: str) -> int:
         return _ordinal(*_parse_date(end)) - _ordinal(*_parse_date(start)) + 1

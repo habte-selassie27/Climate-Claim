@@ -81,14 +81,6 @@ def test_lt_comparator(cc, direct_vm):
 # --- aggregation -----------------------------------------------------------
 
 
-def test_daily_total_aggregation(cc, direct_vm):
-    pid = make_policy(cc, aggregation="daily_total", threshold_scaled=100)
-    cid = cc.start_claim(pid, "2024-06-01", "2024-06-05")
-    c = evaluate(cc, direct_vm, cid, om=om_body("precipitation_sum", DATES, [0.1, 0, 0.2, 1.1, 0]))
-    assert c["observed_value_scaled"] == 140  # sum
-    assert c["decision"] == "confirmed"
-
-
 def test_cumulative_aggregation(cc, direct_vm):
     pid = make_policy(cc, aggregation="cumulative", threshold_scaled=100)
     cid = cc.start_claim(pid, "2024-06-01", "2024-06-05")
@@ -98,15 +90,17 @@ def test_cumulative_aggregation(cc, direct_vm):
 
 
 def test_consecutive_days_pass(cc, direct_vm):
-    pid = make_policy(cc, aggregation="consecutive_days", threshold_scaled=200)
+    pid = make_policy(cc, aggregation="consecutive_days", unit="days", threshold_scaled=200)
     cid = cc.start_claim(pid, "2024-06-01", "2024-06-05")
     c = evaluate(cc, direct_vm, cid, om=om_body("precipitation_sum", DATES, [0.1, 0.2, 0.3, 0, 0.5]))
     assert c["observed_value_scaled"] == 300  # 3 consecutive wet days
     assert c["decision"] == "confirmed"
+    ev = cc.get_evidence(cid)
+    assert ev[0]["unit"] == "days"  # threshold is a count of days, not mm
 
 
 def test_consecutive_days_fail(cc, direct_vm):
-    pid = make_policy(cc, aggregation="consecutive_days", threshold_scaled=200)
+    pid = make_policy(cc, aggregation="consecutive_days", unit="days", threshold_scaled=200)
     cid = cc.start_claim(pid, "2024-06-01", "2024-06-05")
     c = evaluate(cc, direct_vm, cid, om=om_body("precipitation_sum", DATES, [0.1, 0, 0.2, 0.9, 0]))
     # days 3 and 4 (06-03, 06-04) are consecutive -> run of 2
@@ -188,7 +182,7 @@ def test_empty_body_source_missing(cc, direct_vm):
 
 def test_no_interpolation(cc, direct_vm):
     """A gap must never be filled with a fabricated average."""
-    pid = make_policy(cc, aggregation="daily_total", threshold_scaled=10)
+    pid = make_policy(cc, aggregation="cumulative", threshold_scaled=10)
     cid = cc.start_claim(pid, "2024-06-01", "2024-06-05")
     c = evaluate(cc, direct_vm, cid,
                  om=om_body("precipitation_sum", DATES[:4], [0.1, 0, 0.2, 1.1]))

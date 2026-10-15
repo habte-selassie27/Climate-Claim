@@ -45,14 +45,33 @@ magnitude, which is exactly the real-world situation ClimateClaim's
 - NASA POWER: `PRECTOTCORR` = 2.03 mm
 
 Both agree 2024-06-04 was the wettest day in 2024-06-01..05; they disagree on
-the magnitude. A daily-total threshold of 1.5 mm therefore produces a genuine
-**source conflict** — a first-class `inconclusive` outcome, not an error.
+the magnitude. A `max_single` threshold of 1.5 mm therefore produces a genuine
+**source conflict** — a first-class `inconclusive` outcome, not an error. A tie
+under the `majority` rule is treated the same way: ambiguity, never a silent
+`not_confirmed`.
+
+## Sources are frozen per policy
+
+`register_source` is final: re-registering an existing id is rejected with
+`EXPECTED: source already registered`, and `create_policy` **snapshots** the
+configuration of every source it selects into the policy (`Policy.sources_json`,
+exposed as `sources` on `get_policy`). Evaluation reads that snapshot, so no
+later registry activity can change what an existing policy measures.
 
 ## Normalization
 
 - **Units:** every value is converted to the metric's canonical unit
   (`precipitation` → mm, `temperature` → °C) and stored as a **fixed-precision
   integer scaled by 100** (`SCALE = 100`). No floats are ever stored.
+- **Result units per aggregation.** `max_single` and `cumulative` are reported in
+  the metric's canonical unit; `consecutive_days` **counts calendar days**, so a
+  policy using it must set `unit = "days"` and its threshold is a number of days
+  (scaled by 100). `cumulative` is precipitation-only, because summing daily
+  maximum temperatures is not a meaningful weather threshold.
+- **Duplicate dates are rejected.** A provider response that repeats a date
+  fails that source with `EXTERNAL: duplicate_dates` instead of inflating
+  coverage or double-counting a total — picking one of two disagreeing values
+  would be a guess.
 - **Time:** all requests pin `timezone=UTC` where the provider supports it;
   NASA POWER reports `time_standard: LST` but its daily fields are keyed by
   `YYYYMMDD`, which we read as the UTC calendar date. Period comparison is
@@ -67,12 +86,27 @@ the magnitude. A daily-total threshold of 1.5 mm therefore produces a genuine
 | all eligible sources unreachable | `EXTERNAL: sources_unreachable`, no decision recorded, retryable |
 | source reachable but returns no readings in the period | `ok=true` with zero days → contributes to `missing_observations` |
 | provider changes its JSON layout | our strict field extraction yields `EXTERNAL: parse_failed` for that source, never a guessed value |
+| provider repeats a date in the period | `EXTERNAL: duplicate_dates`; the source is not used for coverage or totals |
+| a source is not eligible for the policy's `data_mode` | `EXTERNAL: source_mode_mismatch` (and `create_policy` rejects such a policy outright) |
 
-## Historical vs live labeling
+## Historical vs live: the mode selects the retrieval path
 
-- Sources of kind `archive` are used by policies whose `data_mode` is
-  **`historical_simulation`**. Their period is in the past and results are
-  reproducible.
-- `om_forecast_precip` is the only **`live`** source. A policy may only use it
-  when its `data_mode` is `live`, and the label travels with the policy and the
-  claim into the UI.
+`data_mode` is enforced, not just labelled. `create_policy` refuses a policy
+whose sources do not match its mode, and the evaluation path re-checks the kind
+before fetching anything:
+
+| `data_mode` | Eligible kinds | Window rule | Label shown in the UI |
+|---|---|---|---|
+| `historical_simulation` | `open_meteo_archive`, `nasa_power` | must end strictly before today | **Historical simulation** |
+| `live` | `open_meteo_forecast` | must reach today | **Live** |
+
+**Honest caveat.** `historical_simulation` is a *fresh retrieval of archived
+observations* for a closed past window, not a frozen dataset: the contract
+re-fetches the archive whenever a claim is evaluated, so a provider that later
+revises its own history would be reflected. ClimateClaim therefore never claims
+byte-for-byte reproducibility for it, and never presents these records as live
+readings. The recorded fixtures under `fixtures/historical/` are used by tests
+and by the demo, and are labelled as such.
+
+Whichever mode is used, the label travels with the policy and the claim into
+the UI.

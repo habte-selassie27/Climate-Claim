@@ -215,3 +215,14 @@ def evaluate(cc, direct_vm, cid, *, om=None, nasa=None, location_match="pass"):
 
 def checks_of(cc, cid):
     return {c["name"]: c["status"] for c in cc.get_checks(cid)}
+
+
+def final_snapshot(claim):
+    """The fields the LATEST_FINAL self-read compares against (the contract
+    requires the decision, reason code AND evaluation round to match, so the
+    finality hook must return all three)."""
+    return {
+        "decision": claim["decision"],
+        "reason_code": claim["reason_code"],
+        "eval_round": claim["eval_round"],
+    }

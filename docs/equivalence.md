@@ -12,8 +12,10 @@ call. Everything it can decide with plain code, it decides with plain code.
 condition, using the eligible documented sources.
 
 **INPUTS** — a normalized `policy_data` dict (scalars only, read from storage
-*before* the nondet block) and a bounded `source_plan` list (source id, kind,
-URL, parameter name, metric, unit). The observation period `start`/`end`.
+*before* the nondet block) and a bounded `source_plan` list built from the
+policy's **frozen source snapshot** (source id, kind, URL, parameter name,
+metric, unit, and the policy's `data_mode`). The observation window is the
+**claim's own** `period_start`/`period_end`, never the policy's.
 
 **NON-DETERMINISTIC SOURCE** — `gl.nondet.web.get(...)` HTTP fetch **plus**
 `gl.nondet.exec_prompt(...)` LLM interpretation.
@@ -56,10 +58,14 @@ validator also enforces the threshold-side invariant, so validators can never
    exists so two semantically-equivalent codes could be tolerated without
    loosening the rule; no such pair is currently defined.
 3. **Required** checks must be equal: `threshold_crossed`, `period_covered`,
-   `data_completeness`.
-4. **Non-required** checks (`location_match`, `source_agreement`) must be equal,
-   *except* that leader `unclear` may be tolerated when the validator is
-   definite.
+   `data_completeness`.4. **Non-required** checks (`location_match`, `source_agreement`) must be equal,
+   *except* that leader `unclear` may be tolerated when the validator is definite.
+4a. **Location authority.** A definite decision may not carry a failing
+   `location_match` on either side, and a `location_mismatch` result must
+   actually carry a failing location check on both. This is what stops a
+   `confirmed`/`not_confirmed` outcome from coexisting with a location failure
+   (the evaluator reconciles this before the result is ever written, and the
+   rule enforces it again at consensus time).
 5. `observed_value_scaled` must be within an **absolute tolerance of `SCALE`
    (=1.00 in native units)** and on the **same side of the threshold** as the
    decision.
@@ -87,10 +93,13 @@ make validators disagree on cosmetic differences. We therefore use a custom
 leader/validator pair and compare *meaning*.
 
 **WHERE THE LLM IS USED (and where it is not)** — the LLM produces only the
-human `summary` and a *semantic* `location_match` judgement when the providers'
-reported coordinates are ambiguous. **Threshold arithmetic, aggregation, unit
-conversion, and the final `decision` are plain integer code.** The LLM never
-invents a reading and never computes the threshold comparison.
+human `summary` and a *semantic* `location_match` judgement **when the providers
+reported no coordinates at all**. When coordinates are present the integer
+proximity check is authoritative and the model's verdict is ignored; if the
+model's verdict is `fail`, the evaluator forces `inconclusive` /
+`location_mismatch` before the result is written. **Threshold arithmetic,
+aggregation, unit conversion, and the final `decision` are plain integer code.**
+The LLM never invents a reading and never computes the threshold comparison.
 
 ---
 
@@ -103,7 +112,10 @@ invents a reading and never computes the threshold comparison.
 | Source reachable, zero readings in period | `inconclusive` / `missing_observations` |
 | Partial coverage where the aggregation needs every day | `inconclusive` / `missing_observations` |
 | Sources contradict on threshold crossing | `inconclusive` / `source_conflict` (unless the policy's explicit `agreement_rule` resolves it) |
+| `majority` rule with an equal split (a tie) | `inconclusive` / `source_conflict`: a tie is ambiguity, never a silent `not_confirmed` |
+| Provider repeats a date inside the window | that source fails with `EXTERNAL: duplicate_dates`; it contributes neither readings nor coverage |
 | Reported location outside the policy tolerance | `inconclusive` / `location_mismatch` |
+| Model says the location does not match, coordinates absent | `inconclusive` / `location_mismatch` — the model can never leave a definite decision standing on top of a failing location |
 | LLM output unusable | summary falls back to a deterministic sentence; `location_match` falls back to the deterministic coordinate check → never `LLM_ERROR` for a non-critical field. `LLM_ERROR` only if the LLM is required and returns nothing usable |
 | Value outside plausible bounds (`|value| > 100000` scaled) | `EXTERNAL: implausible_value`; source record marked failed |
 | Validators disagree materially | handled by GenLayer consensus/appeal; never overridden locally |
@@ -125,7 +137,7 @@ files. The scenario coverage that the equivalence rule depends on lives mostly i
   `test_invariant_not_confirmed_above_threshold_rejected`).
 - `test_evaluation.py` (26) — threshold boundary cases (clearly above / below /
   exactly-at for `gt` and `gte` / crossing only on the first or last day);
-  aggregation rules (daily_total, cumulative, consecutive_days pass and fail);
+  aggregation rules (cumulative, consecutive_days pass and fail);
   conflicting sources under `unanimous` vs `any`
   (`test_unanimous_conflict_is_inconclusive`, `test_any_rule_resolves_conflict`);
   missing observations and no-interpolation (`test_gap_in_period_is_inconclusive`,
@@ -141,9 +153,18 @@ files. The scenario coverage that the equivalence rule depends on lives mostly i
   (`test_dispute_flow_records_history`, `test_dispute_grounds_round_two`) and the
   dispute limit; duplicate-claim rejection; retry after inconclusive and after
   `EXTERNAL`; unauthorized evaluation.
-- `test_settlement.py` (12) — finality gate (available / mismatched / missing),
-  double-settle rejected, non-confirmed rejected, non-owner rejected, insufficient
-  balance, zero payout, and transfer failure marking `settlement_failed`.
+- `test_settlement.py` — the two-phase lifecycle: emission is not delivery
+  (`test_settle_emits_the_payout_without_claiming_delivery`), verified
+  confirmation, double-settle and second-in-flight rejection, the finality gate
+  (available / mismatched / missing), non-owner rejection, insufficient balance,
+  zero payout, operator-recorded failure with retry, `__on_errored_message__`
+  refunding a failed message (single in-flight vs ambiguous), and the payout
+  recipient rule (beneficiary, override, zero-address-means-claimant).
+- `test_contract_audit.py` — one section per contract-audit finding: claim-scoped
+  windows, frozen sources and final registrations, data-mode enforcement,
+  dispute counting and failed-reevaluation recovery, round-specific finality,
+  majority ties, duplicate dates, the aggregation/unit rules, location
+  authority, and the source listing.
 - `test_policy_registry.py` (20) — field validation (period order/length, source
   count/duplicates/metric, consecutive-days-requires-precipitation), owner-only
   guards, retire and beneficiary locks.
