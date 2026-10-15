@@ -40,23 +40,18 @@ export function toScaled(text: string, decimals = SCALE_DECIMALS): number | null
 
 /** "48.85" -> 48850000. Degrees to the contract's microdegrees. */
 export function toMicroDegrees(text: string): number | null {
-  const n = Number(text);
+  const t = text.trim();
+  // Number("") is 0, which would silently turn an empty field into 0°,0°
+  // instead of reporting a missing coordinate. Guard it, as toScaled does.
+  if (t === "") return null;
+  const n = Number(t);
   if (!Number.isFinite(n)) return null;
   return Math.round(n * 1_000_000);
 }
 
-/** 120 -> "1.20 mm" */
-export function scaledWithUnit(value: unknown, unit: string): string {
-  return `${fromScaled(value)} ${unit}`;
-}
-
-/** Microdegrees -> "48.8928" (5 dp, matching the contract's _fmt_coord). */
+/** Microdegrees -> "48.8928" (4 dp). */
 export function microDegrees(value: unknown): string {
   return (toNumber(value) / 1_000_000).toFixed(4);
-}
-
-export function coordLabel(lat: unknown, lon: unknown): string {
-  return `${microDegrees(lat)}, ${microDegrees(lon)}`;
 }
 
 /** 0x1234...abcd */

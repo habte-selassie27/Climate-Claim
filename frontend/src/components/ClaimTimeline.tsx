@@ -136,7 +136,10 @@ export function ClaimTimeline({ claim, disputes, settlement }: Props) {
         <p className="small muted" style={{ marginTop: "var(--space-3)" }}>
           Settlement: {settlementCopy(settlement)}.
           {settlement === "not_settled"
-            ? " A payout only happens once the decision is final, never on an merely accepted one."
+            ? " A payout only happens once the decision is final, never on a merely accepted one."
+            : ""}
+          {settlement === "payout_emitted"
+            ? " The message is out; delivery is verified separately, never inferred from a balance."
             : ""}
         </p>
       ) : null}

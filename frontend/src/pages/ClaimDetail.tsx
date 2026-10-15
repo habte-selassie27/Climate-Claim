@@ -10,7 +10,7 @@ import {
   snapshotPolicies,
   snapshotSources,
 } from "../services/claimService";
-import { runWrite, walletAvailable } from "../services/evaluationService";
+import { runWrite } from "../services/evaluationService";
 import { IDLE, type TxState } from "../services/txStatus";
 import { AuditPanel } from "../components/AuditPanel";
 import { CheckList } from "../components/CheckList";
@@ -24,6 +24,7 @@ import { TxStatusPanel } from "../components/TxStatusPanel";
 import { DEMO_SCENARIOS } from "../fixtures/demoScenarios";
 import { policySentence } from "../domain/copy";
 import { activeNetwork } from "../config/network";
+import { DEPLOYER_ADDRESS } from "../config/contracts";
 import type { SourceDef } from "../domain/types";
 
 const net = activeNetwork();
@@ -63,11 +64,26 @@ export function ClaimDetail() {
   const scenario = DEMO_SCENARIOS.find((s) => s.onChainClaimId === id);
 
   const doWrite = useCallback(
-    async (kind: "request_evaluation" | "open_dispute" | "settle_claim", args: unknown[]) => {
+    async (
+      kind:
+        | "request_evaluation"
+        | "open_dispute"
+        | "resolve_dispute"
+        | "finalize_decision"
+        | "settle_claim"
+        | "confirm_settlement"
+        | "fail_settlement",
+      args: unknown[],
+    ) => {
       setTx(IDLE);
-      await runWrite(kind, args, { onPhase: setTx });
+      const result = await runWrite(kind, args, { onPhase: setTx });
+      // Any write can move the claim (state, round, finalized, settlement), so
+      // re-read once it lands rather than leaving stale data on screen.
+      if (result.phase === "accepted" || result.phase === "finalized") {
+        bundle.refresh();
+      }
     },
-    [],
+    [bundle],
   );
 
   /**
@@ -138,14 +154,34 @@ export function ClaimDetail() {
   const { claim, policy, evidence, checks, disputes, settlement } = value;
   const hasWallet = typeof window !== "undefined" && "ethereum" in window;
   const decided = Boolean(claim.decision);
+  // Emitting the payout is gated on a *finalized* decision; it is not the same
+  // as being paid (see canConfirm below).
   const canSettle = claim.finalized && settlement.state === "not_settled" && settlement.amount > 0;
+  const isOwner =
+    Boolean(wallet.address) &&
+    wallet.address!.toLowerCase() === (DEPLOYER_ADDRESS ?? "").toLowerCase();
+  // Resolving an emitted payout: delivery is verified out of band (the child
+  // transaction's receipt), never inferred from a balance.
+  const canConfirm = settlement.state === "payout_emitted" && isOwner;
+  const inFlight = settlement.state === "payout_emitted" || settlement.in_flight === true;
+  const isClaimant =
+    Boolean(wallet.address) && wallet.address!.toLowerCase() === claim.claimant.toLowerCase();
+  const gate = { disabled: tx.phase !== "idle" || wallet.wrongNetwork || !wallet.connected };
+  // Re-evaluate an open dispute (the contract's resolve_dispute). Either party
+  // may do this; the contract re-checks, so the UI only gates on wallet presence.
+  const canResolve = claim.state === "disputed" && (isOwner || isClaimant);
+  // Mark a decided claim final. Owner only, per the contract's _require_owner.
+  const canFinalize = decided && !claim.finalized && isOwner && claim.settlement_state === "not_settled";
 
   return (
     <div className="stack">
       <header>
         <div className="tag-row" style={{ marginBottom: "var(--space-2)" }}>
           <h1 style={{ margin: 0 }}>Claim {claim.id}</h1>
-          <DataModeBadge mode={policy.data_mode} origin={bundle.origin === "snapshot" ? "recorded" : "live"} />
+          <DataModeBadge
+            mode={policy.data_mode}
+            origin={bundle.origin === "snapshot" ? "recorded" : bundle.origin}
+          />
           <OriginBadge
             mode={bundle.origin}
             capturedAt={bundle.capturedAt}
@@ -286,9 +322,53 @@ export function ClaimDetail() {
                 disabled={tx.phase !== "idle" || !canSettle || wallet.wrongNetwork || !wallet.connected}
                 onClick={() => void doWrite("settle_claim", [claim.id])}
               >
-                Settle claim
+                Emit payout
               </button>
             </div>
+
+            {/* Finality and dispute-resolution are separate owner/party actions,
+                gated exactly as the contract gates them (_require_owner, and
+                claimant-or-owner for resolve_dispute). */}
+            {canFinalize ? (
+              <div className="btn-row" style={{ marginTop: "var(--space-3)" }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={gate.disabled}
+                  onClick={() => void doWrite("finalize_decision", [claim.id])}
+                >
+                  Mark decision final
+                </button>
+                <span className="small muted">
+                  Re-reads the decision at finality; refuses if it changed. Owner only.
+                </span>
+              </div>
+            ) : null}
+            {canResolve ? (
+              <div className="btn-row" style={{ marginTop: "var(--space-3)" }}>
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={gate.disabled}
+                  onClick={() => void doWrite("resolve_dispute", [claim.id])}
+                >
+                  Re-evaluate disputed claim
+                </button>
+                <span className="small muted">
+                  Runs a new evaluation round. The open grounds are kept in the history.
+                </span>
+              </div>
+            ) : null}
+            {claim.state === "disputed" && claim.pending_grounds ? (
+              <div className="alert alert-info" style={{ marginTop: "var(--space-3)" }}>
+                <strong>Dispute open</strong>
+                <p>“{claim.pending_grounds}”</p>
+                <p className="small muted">
+                  These grounds are stored on chain and move into the dispute history once the
+                  re-evaluation lands.
+                </p>
+              </div>
+            ) : null}
 
             {disputeOpen ? (
               <div className="field" style={{ marginTop: "var(--space-3)" }}>
@@ -352,10 +432,56 @@ export function ClaimDetail() {
                 This policy has no payout amount, so there is nothing to settle.
               </p>
             ) : null}
-            {!canSettle && settlement.amount > 0 ? (
+            {!canSettle && settlement.amount > 0 && !inFlight ? (
               <p className="small muted" style={{ marginTop: "var(--space-3)" }}>
-                Settlement is only enabled once the decision is final. An accepted decision can
-                still be appealed.
+                Emitting the payout is only enabled once the decision is final. An accepted
+                decision can still be appealed.
+              </p>
+            ) : null}
+
+            {/* A payout message is deducted from the contract immediately but is
+                credited to the recipient only when its child transaction activates.
+                So the UI must show an unverified payout as unverified. */}
+            {inFlight ? (
+              <div className="alert alert-warn" role="status" style={{ marginTop: "var(--space-3)" }}>
+                <strong>Payout emitted - delivery not yet verified</strong>
+                <p>
+                  The payout message is out, so the claim is <em>not</em> settled yet. On GenLayer
+                  the value leaves this contract immediately but reaches the recipient only when
+                  the message's child transaction activates, and that transaction can still fail.
+                  Check the receipt for attempt {settlement.payout_round} in the explorer, then
+                  record the outcome. Never infer delivery from a recipient's balance.
+                </p>
+                <div className="btn-row">
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={gate.disabled || !canConfirm}
+                    onClick={() => void doWrite("confirm_settlement", [claim.id])}
+                  >
+                    Confirm payout delivered
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={gate.disabled || !canConfirm}
+                    onClick={() =>
+                      void doWrite("fail_settlement", [
+                        claim.id,
+                        "EXTERNAL: payout child transaction failed",
+                      ])
+                    }
+                  >
+                    Mark payout failed (retryable)
+                  </button>
+                  <span className="small muted">Owner only.</span>
+                </div>
+              </div>
+            ) : null}
+            {settlement.state === "settlement_failed" ? (
+              <p className="small muted" style={{ marginTop: "var(--space-3)" }}>
+                The last payout attempt failed, so nothing was paid. The claim is retryable:
+                emit the payout again once the cause is fixed.
               </p>
             ) : null}
 
@@ -400,5 +526,3 @@ export function ClaimDetail() {
     </div>
   );
 }
-
-export { walletAvailable };

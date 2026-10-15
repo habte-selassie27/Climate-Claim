@@ -83,7 +83,7 @@ export async function liveRead(functionName: string, args?: unknown[]): Promise<
     for (let attempt = 0; attempt < 2; attempt += 1) {
       await throttle();
       try {
-        const client = getClient();
+        const client = await getClient();
         return await client.readContract({
           address: CONTRACT_FOR_READS,
           functionName,

@@ -1,15 +1,42 @@
+import { Suspense, lazy } from "react";
 import { NavLink, Route, Routes, Link } from "react-router-dom";
 import { activeNetwork } from "./config/network";
 import { useWallet } from "./hooks/useWallet";
 import { CONTRACT_ADDRESS } from "./config/contracts";
 import { WalletPanel } from "./components/WalletPanel";
-import { Landing } from "./pages/Landing";
-import { Claims } from "./pages/Claims";
-import { ClaimDetail } from "./pages/ClaimDetail";
-import { Demo } from "./pages/Demo";
-import { Policies, PolicyDetail } from "./pages/Policies";
-import { PolicyNew } from "./pages/PolicyNew";
-import { HowItWorks } from "./pages/HowItWorks";
+
+/**
+ * Route-level code splitting. Every page pulls the genlayer-js SDK (the bulk of
+ * the bundle) through services/claimService, so loading routes lazily keeps the
+ * app shell and first paint small and defers the SDK until it is needed.
+ */
+const Landing = lazy(() => import("./pages/Landing").then((m) => ({ default: m.Landing })));
+const Claims = lazy(() => import("./pages/Claims").then((m) => ({ default: m.Claims })));
+const ClaimDetail = lazy(() =>
+  import("./pages/ClaimDetail").then((m) => ({ default: m.ClaimDetail })),
+);
+const Demo = lazy(() => import("./pages/Demo").then((m) => ({ default: m.Demo })));
+const Policies = lazy(() => import("./pages/Policies").then((m) => ({ default: m.Policies })));
+const PolicyDetail = lazy(() =>
+  import("./pages/Policies").then((m) => ({ default: m.PolicyDetail })),
+);
+const PolicyNew = lazy(() => import("./pages/PolicyNew").then((m) => ({ default: m.PolicyNew })));
+const HowItWorks = lazy(() =>
+  import("./pages/HowItWorks").then((m) => ({ default: m.HowItWorks })),
+);
+
+/** Shown while a route chunk (and the SDK it carries) loads. */
+function RouteFallback() {
+  return (
+    <div className="stack" aria-busy="true" style={{ padding: "var(--space-6) 0" }}>
+      <div className="skeleton" style={{ width: "40%", height: 28 }} />
+      <div className="panel">
+        <div className="skeleton" style={{ width: "70%" }} />
+        <div className="skeleton" style={{ width: "55%", marginTop: 12 }} />
+      </div>
+    </div>
+  );
+}
 
 const net = activeNetwork();
 
@@ -108,28 +135,30 @@ export default function App() {
       <Chrome />
       <main id="main">
         <div className="container">
-          <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/demo" element={<Demo />} />
-            <Route path="/claims" element={<Claims />} />
-            <Route path="/claims/:id" element={<ClaimDetail />} />
-            <Route path="/policies" element={<Policies />} />
-            <Route path="/policies/new" element={<PolicyNew />} />
-            <Route path="/policies/:id" element={<PolicyDetail />} />
-            <Route path="/how-it-works" element={<HowItWorks />} />
-            <Route
-              path="*"
-              element={
-                <div className="alert alert-warn">
-                  <strong>Page not found</strong>
-                  <p>That address does not match a page in this app.</p>
-                  <Link className="btn btn-secondary" to="/">
-                    Back to the start
-                  </Link>
-                </div>
-              }
-            />
-          </Routes>
+          <Suspense fallback={<RouteFallback />}>
+            <Routes>
+              <Route path="/" element={<Landing />} />
+              <Route path="/demo" element={<Demo />} />
+              <Route path="/claims" element={<Claims />} />
+              <Route path="/claims/:id" element={<ClaimDetail />} />
+              <Route path="/policies" element={<Policies />} />
+              <Route path="/policies/new" element={<PolicyNew />} />
+              <Route path="/policies/:id" element={<PolicyDetail />} />
+              <Route path="/how-it-works" element={<HowItWorks />} />
+              <Route
+                path="*"
+                element={
+                  <div className="alert alert-warn">
+                    <strong>Page not found</strong>
+                    <p>That address does not match a page in this app.</p>
+                    <Link className="btn btn-secondary" to="/">
+                      Back to the start
+                    </Link>
+                  </div>
+                }
+              />
+            </Routes>
+          </Suspense>
         </div>
       </main>
       <Footer />

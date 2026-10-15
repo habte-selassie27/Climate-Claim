@@ -3,8 +3,8 @@ import { dataModeCopy, dataModeIcon } from "../domain/copy";
 
 interface Props {
   mode: DataMode | "";
-  /** Where the values shown actually came from (chain read vs replay). */
-  origin?: "live" | "snapshot" | "recorded";
+  /** Where the values shown actually came from (chain read vs replay vs both). */
+  origin?: "live" | "snapshot" | "recorded" | "mixed";
 }
 
 /**
@@ -26,6 +26,14 @@ export function DataModeBadge({ mode, origin }: Props) {
       {origin === "snapshot" ? (
         <span className="badge-origin" title="Read from a captured snapshot, not the live chain.">
           · recorded
+        </span>
+      ) : null}
+      {origin === "mixed" ? (
+        <span
+          className="badge-origin"
+          title="Some of this was read live; some came from the captured snapshot."
+        >
+          · mixed
         </span>
       ) : null}
     </span>

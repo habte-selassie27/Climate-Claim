@@ -2,8 +2,8 @@
  * Write path. Wraps verified genlayer-js calls and the tx lifecycle.
  *
  * Requires a wallet. When no wallet is connected the UI must not pretend to
- * write: `request_evaluation` and friends throw a typed error the caller maps
- * to "connect a wallet", and the demo falls back to "replay recorded result".
+ * write: `runWrite` fails fast with a stable error the caller maps to
+ * "connect a wallet", and the demo falls back to "replay recorded result".
  */
 
 import { getClient } from "./client";
@@ -11,33 +11,7 @@ import { CONTRACT_ADDRESS, METHODS } from "../config/contracts";
 import { phaseForStatus, type TxState } from "./txStatus";
 import { mapError } from "../domain/copy";
 
-export class NoWalletError extends Error {
-  constructor() {
-    super("No wallet connected");
-    this.name = "NoWalletError";
-  }
-}
-
-interface EthereumProvider {
-  request(args: { method: string; params?: unknown[] }): Promise<unknown>;
-}
-
-function getProvider(): EthereumProvider {
-  if (typeof window === "undefined" || !("ethereum" in window)) throw new NoWalletError();
-  return (window as unknown as { ethereum: EthereumProvider }).ethereum;
-}
-
-export async function connectedAddress(): Promise<string | null> {
-  try {
-    const raw = await getProvider().request({ method: "eth_requestAccounts" });
-    const list = Array.isArray(raw) ? raw : [];
-    return typeof list[0] === "string" ? list[0] : null;
-  } catch {
-    return null;
-  }
-}
-
-export async function walletAvailable(): Promise<boolean> {
+async function walletAvailable(): Promise<boolean> {
   return typeof window !== "undefined" && "ethereum" in window;
 }
 
@@ -45,7 +19,11 @@ export async function walletAvailable(): Promise<boolean> {
 export type WriteKind =
   | "request_evaluation"
   | "open_dispute"
+  | "resolve_dispute"
+  | "finalize_decision"
   | "settle_claim"
+  | "confirm_settlement"
+  | "fail_settlement"
   | "start_claim"
   | "create_policy";
 
@@ -85,7 +63,7 @@ export async function runWrite(
 
   try {
     emit({ phase: "submitted" });
-    const client = getClient();
+    const client = await getClient();
     const hash = (await client.writeContract({
       address: CONTRACT_ADDRESS as `0x${string}`,
       functionName: METHODS[kind],

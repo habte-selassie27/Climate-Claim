@@ -322,12 +322,3 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
       "The first decision stays in the dispute history. Re-evaluation runs the same evidence rules, and the evaluation round number increases.",
   },
 ];
-
-export function scenarioById(id: string): DemoScenario | undefined {
-  return DEMO_SCENARIOS.find((s) => s.id === id);
-}
-
-/** Scenarios that are real on-chain claims, for the "run on network" toggle. */
-export function onChainScenarios(): DemoScenario[] {
-  return DEMO_SCENARIOS.filter((s) => s.provenance === "on_chain" && s.onChainClaimId);
-}

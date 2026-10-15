@@ -41,13 +41,19 @@ const METRIC_UNITS = { precipitation: "mm", temperature: "celsius" } as const;
 const METRICS = Object.keys(METRIC_UNITS) as (keyof typeof METRIC_UNITS)[];
 const COMPARATORS = ["gt", "gte", "lt", "lte"];
 const AGREEMENT_RULES = ["unanimous", "majority", "any"];
-const AGGREGATIONS = ["max_single", "daily_total", "cumulative", "consecutive_days"];
+// Only the aggregations the contract accepts, and only the ones that are
+// meaningful for the chosen metric (temperature supports peaks only; summing
+// daily maximum temperatures is not a weather threshold).
+const AGGREGATIONS = ["max_single", "cumulative", "consecutive_days"] as const;
 const AGGREGATION_LABEL: Record<string, string> = {
   max_single: "highest single reading on any day",
-  daily_total: "total for each day",
-  cumulative: "total across the whole period",
-  consecutive_days: "longest run of consecutive days over the threshold",
+  cumulative: "total across the whole period (precipitation only)",
+  consecutive_days: "longest run of consecutive wet days (threshold in days)",
 };
+/** The unit each aggregation's result is measured in, mirroring the contract. */
+function resultUnit(aggregation: string, metric: keyof typeof METRIC_UNITS): string {
+  return aggregation === "consecutive_days" ? "days" : METRIC_UNITS[metric];
+}
 const COMPARATOR_LABEL: Record<string, string> = {
   gt: "more than (>)",
   gte: "at least (≥)",
@@ -100,7 +106,7 @@ const INITIAL: FormState = {
   timezone: "UTC",
   comparator: "gt",
   threshold: "",
-  aggregation: "daily_total",
+  aggregation: "max_single",
   condition_text: "",
   payout_amount: "0",
 };
@@ -157,13 +163,17 @@ function validate(form: FormState): Record<string, string> {
       errors.period = "The start date is after the end date.";
     } else if (inclusiveDays(form.period_start, form.period_end) > MAX_PERIOD_DAYS) {
       errors.period = `The period may not exceed ${MAX_PERIOD_DAYS} days.`;
-    } else if (form.data_mode === "historical_simulation" && form.period_end > todayIso()) {
+    } else if (form.data_mode === "historical_simulation" && form.period_end >= todayIso()) {
       errors.period =
-        "A historical simulation must observe a period entirely in the past. Switch to Live for a future period.";
+        "A historical simulation must observe a period entirely in the past. Switch to Live for a window that reaches today.";
+    } else if (form.data_mode === "live" && form.period_end < todayIso()) {
+      errors.period =
+        "A live policy's window must reach the present day, because it reads a live source.";
     }
   }
-  if (form.timezone.trim().length === 0 || form.timezone.trim().length > 64) {
-    errors.timezone = "Enter the timezone name (1 to 64 characters), e.g. UTC or Europe/Paris.";
+  if (!["UTC", "GMT"].includes(form.timezone.trim().toUpperCase())) {
+    errors.timezone =
+      "The contract only evaluates UTC observation windows: every date is a UTC calendar day.";
   }
   const scaled = toScaled(form.threshold);
   if (scaled === null || Math.abs(scaled) > MAX_SCALED) {
@@ -172,6 +182,10 @@ function validate(form: FormState): Record<string, string> {
   if (form.aggregation === "consecutive_days" && form.metric !== "precipitation") {
     errors.aggregation =
       "Consecutive days is only available for precipitation, per the contract's rule.";
+  }
+  if (form.aggregation === "cumulative" && form.metric !== "precipitation") {
+    errors.aggregation =
+      "Cumulative totals are only defined for precipitation; temperature policies use a peak reading.";
   }
   if (form.condition_text.trim().length === 0 || form.condition_text.length > MAX_CONDITION_CHARS) {
     errors.condition_text = `Enter the condition in 1 to ${MAX_CONDITION_CHARS} characters.`;
@@ -201,7 +215,7 @@ export function PolicyNew() {
 
   const sources = (sourcesRead.data ?? []) as SourceDef[];
   const metricSources = sources.filter((s) => s.metric === form.metric);
-  const unit = METRIC_UNITS[form.metric];
+  const unit = resultUnit(form.aggregation, form.metric);
 
   // The summary sentence updates with every field (UI.md 4.2); the user
   // confirms the sentence, not just the individual fields.
@@ -387,12 +401,13 @@ export function PolicyNew() {
               id="timezone"
               type="text"
               value={form.timezone}
-              onChange={(e) => set("timezone", e.target.value)}
+              readOnly
               aria-invalid={Boolean(errors.timezone)}
             />
             {errors.timezone ? <span className="field-error">{errors.timezone}</span> : null}
             <span className="field-hint">
-              Shown with every date on the claim. The contract stores it verbatim.
+              Observation windows are UTC calendar days, and the contract rejects any other
+              timezone, so this is not editable.
             </span>
           </div>
 

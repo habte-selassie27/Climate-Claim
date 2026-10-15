@@ -5,8 +5,8 @@
  * from the live chain or from the committed snapshot.
  */
 
-import { CONTRACT_ADDRESS, METHODS } from "../config/contracts";
-import { readWithFallback, SNAPSHOT, liveRead, type ReadResult } from "./rpc";
+import { METHODS } from "../config/contracts";
+import { readWithFallback, SNAPSHOT, type ReadResult } from "./rpc";
 import type {
   CheckResult,
   Claim,
@@ -22,6 +22,27 @@ import { toNumber } from "../domain/format";
 /** Cast an RPC value to a domain type without lying about its shape. */
 function as<T>(value: unknown): T {
   return value as T;
+}
+
+/**
+ * Fill in the settlement fields a read may omit (older recordings predate the
+ * two-phase settlement fields). `in_flight` is derived from the state so the UI
+ * can never render an emitted-but-unverified payout as settled.
+ */
+function normalizeSettlement(claimId: string, raw: unknown): Settlement {
+  const s = as<Partial<Settlement>>(raw ?? {});
+  const state = (s.state ?? "not_settled") as Settlement["state"];
+  return {
+    claim_id: s.claim_id ?? claimId,
+    state,
+    amount: toNumber(s.amount ?? 0),
+    beneficiary: s.beneficiary ?? "",
+    recipient: s.recipient ?? s.beneficiary ?? "",
+    finalized: Boolean(s.finalized),
+    in_flight: s.in_flight ?? state === "payout_emitted",
+    payout_round: toNumber(s.payout_round ?? 0),
+    payouts: (s.payouts ?? []) as Settlement["payouts"],
+  };
 }
 
 /**
@@ -157,13 +178,7 @@ export async function getClaimBundle(claimId: string): Promise<ReadResult<ClaimB
     evidence: evidenceRes.data ?? [],
     checks: checksRes.data ?? [],
     disputes: disputesRes.data ?? [],
-    settlement: (settlementRes.data ?? {
-      claim_id: claimId,
-      state: "not_settled",
-      amount: 0,
-      beneficiary: "",
-      finalized: false,
-    }) as Settlement,
+    settlement: normalizeSettlement(claimId, settlementRes.data),
   };
 
   return {
@@ -259,13 +274,7 @@ export function snapshotClaimBundle(claimId: string): ClaimBundle | undefined {
     evidence: (entry.evidence ?? []) as EvidenceRecord[],
     checks: (entry.checks ?? []) as CheckResult[],
     disputes: (entry.disputes ?? []) as Dispute[],
-    settlement: (entry.settlement ?? {
-      claim_id: claimId,
-      state: "not_settled",
-      amount: 0,
-      beneficiary: "",
-      finalized: false,
-    }) as Settlement,
+    settlement: normalizeSettlement(claimId, entry.settlement),
   };
 }
 
@@ -281,9 +290,3 @@ export function snapshotPolicies(): Policy[] {
 export function snapshotOwner(): string {
   return SNAPSHOT.owner;
 }
-
-export async function getContractAddressLabel(): Promise<string> {
-  return CONTRACT_ADDRESS;
-}
-
-export { liveRead };

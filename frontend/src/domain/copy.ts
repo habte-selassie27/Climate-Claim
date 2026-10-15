@@ -215,12 +215,14 @@ export function settlementCopy(state: SettlementState | ""): string {
   switch (state) {
     case "not_settled":
       return "Not settled";
-    case "settling":
-      return "Settling";
+    case "payout_emitted":
+      // Deliberately not "settling" or "paid": the message is out, delivery is
+      // not verified. See the contract's confirm_settlement docstring.
+      return "Payout emitted - delivery not yet verified";
     case "settled":
       return "Settled";
     case "settlement_failed":
-      return "Transfer failed - retryable";
+      return "Payout failed - retryable";
     default:
       return "Unknown";
   }
@@ -242,7 +244,7 @@ export function dataModeCopy(mode: DataMode | ""): {
   return {
     label: "Historical simulation",
     blurb:
-      "Values are recorded historical observations, not a live feed. Re-running this claim will not change the underlying data.",
+      "Values come from archived observations for a window that is entirely in the past - not a live feed. The contract re-fetches the archive each time a claim is evaluated, so a provider revising its own history would be reflected: this is not a frozen dataset.",
   };
 }
 
@@ -254,7 +256,6 @@ export function dataModeIcon(mode: DataMode | ""): string {
 
 const AGGREGATION_TEXT: Record<string, string> = {
   max_single: "highest single reading on any day",
-  daily_total: "total for each day",
   cumulative: "total across the whole period",
   consecutive_days: "longest run of consecutive days",
 };

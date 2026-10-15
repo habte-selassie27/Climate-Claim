@@ -37,19 +37,26 @@ export type ClaimState =
   | "disputed"
   | "settled";
 
+/**
+ * Settlement lifecycle (contracts/climateclaim.py). `payout_emitted` is NOT
+ * success: the payout message has been emitted, but the child transaction that
+ * actually credits the recipient has not been verified yet.
+ */
 export type SettlementState =
   | "not_settled"
-  | "settling"
+  | "payout_emitted"
   | "settled"
   | "settlement_failed";
 
 export type DataMode = "historical_simulation" | "live";
 
-export type Aggregation =
-  | "max_single"
-  | "daily_total"
-  | "cumulative"
-  | "consecutive_days";
+/**
+ * Aggregations the contract accepts. `max_single` and `cumulative` are in the
+ * metric's canonical unit (mm / °C); `consecutive_days` counts calendar days,
+ * so a policy using it stores unit "days". `cumulative` is precipitation-only
+ * because summing daily maximum temperatures is not a meaningful threshold.
+ */
+export type Aggregation = "max_single" | "cumulative" | "consecutive_days";
 
 export type Comparator = "gt" | "gte" | "lt" | "lte";
 
@@ -90,15 +97,26 @@ export interface Claim {
   id: string;
   policy_id: string;
   claimant: string;
+  /** The claim's OWN observation window: what evaluation reads, not the policy's. */
+  period_start?: string;
+  period_end?: string;
   state: ClaimState;
   decision: Decision | "";
   reason_code: ReasonCode | "";
   observed_value_scaled: number;
   summary: string;
   criteria_version: string;
+  /** Completed dispute re-evaluations (0 until a dispute records an outcome). */
   eval_round: number;
+  /** Disputes OPENED, which is what the per-claim limit counts. */
+  dispute_rounds?: number;
   finalized: boolean;
   settlement_state: SettlementState;
+  /** Payout attempts so far; each emitted message is its own attempt. */
+  payout_round?: number;
+  /** Where a payout would go: the beneficiary, or the claimant when the
+   *  beneficiary is the zero address (the contract's documented opt-in). */
+  recipient?: string;
   /** Stable error prefix such as "EXTERNAL: sources_unreachable". Empty when ok. */
   eval_error: string;
   /**
@@ -144,12 +162,26 @@ export interface Dispute {
   new_decision: Decision | "";
 }
 
+/** One payout attempt, as recorded by the contract's `get_settlement`. */
+export interface PayoutAttempt {
+  round: number;
+  recipient: string;
+  amount: number;
+  outcome: "emitted" | "confirmed" | "failed";
+  reason?: string;
+}
+
 export interface Settlement {
   claim_id: string;
   state: SettlementState;
   amount: number;
   beneficiary: string;
+  recipient: string;
   finalized: boolean;
+  /** True while a payout message is emitted but delivery is unverified. */
+  in_flight: boolean;
+  payout_round: number;
+  payouts: PayoutAttempt[];
 }
 
 export interface SourceDef {

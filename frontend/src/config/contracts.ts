@@ -9,12 +9,17 @@
  *
  * METHOD NAMES: taken from `genlayer schema 0x6E4B...ea8`, saved verbatim at
  * docs/schema.genlayer-cli.txt. Not from memory.
+ *
+ * STALENESS WARNING: the contract source has changed since that capture. The
+ * audit fixes (claim-scoped windows, frozen per-policy source snapshots,
+ * data-mode enforcement, round-specific finality, two-phase settlement, the
+ * aggregation/unit rules) add `confirm_settlement`, `fail_settlement`,
+ * `get_in_flight`, `get_refunds`, `get_payouts` and `get_source_count`, and
+ * remove nothing. The deployed v2 contract predates them, so it must be
+ * redeployed and re-captured before the write path below is trusted against it.
  */
 
-import { ACTIVE_NETWORK } from "./network";
-
 export const CONTRACT_ADDRESS = "0x6E4BD06bD969E745546A7957d818eDaD47882ea8";
-
 /** Owner / claimant address of the deployed contract (local `rabby` account). */
 export const DEPLOYER_ADDRESS = "0x5B3661C576c7001e6d6279C67F3779705d334c89";
 
@@ -42,6 +47,10 @@ export const METHODS = {
   get_checks: "get_checks",
   get_disputes: "get_disputes",
   get_settlement: "get_settlement",
+  get_source_count: "get_source_count",
+  get_in_flight: "get_in_flight",
+  get_refunds: "get_refunds",
+  get_payouts: "get_payouts",
   // writes
   create_policy: "create_policy",
   register_source: "register_source",
@@ -54,12 +63,6 @@ export const METHODS = {
   finalize_decision: "finalize_decision",
   fund: "fund",
   settle_claim: "settle_claim",
-} as const;
-
-export type MethodName = (typeof METHODS)[keyof typeof METHODS];
-
-export const CONTRACT_META = {
-  address: CONTRACT_ADDRESS,
-  network: ACTIVE_NETWORK,
-  criteriaVersion: "climateclaim-criteria-1",
+  confirm_settlement: "confirm_settlement",
+  fail_settlement: "fail_settlement",
 } as const;

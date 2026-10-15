@@ -4,6 +4,7 @@ import { listClaims, snapshotClaims } from "../services/claimService";
 import { OriginBadge } from "../components/OriginBadge";
 import { decisionCopy, stateCopy } from "../domain/copy";
 import { activeNetwork } from "../config/network";
+import { CONTRACT_ADDRESS } from "../config/contracts";
 import type { Claim } from "../domain/types";
 
 const net = activeNetwork();
@@ -36,7 +37,7 @@ export function Claims() {
         <h1>Claims</h1>
         <p className="lede">
           Every claim below exists on the deployed contract at{" "}
-          <span className="mono">0xE16032420e3155C0822e9150a98c6B1163869F0c</span> on {net.label}.
+          <span className="mono">{CONTRACT_ADDRESS}</span> on {net.label}.
         </p>
         <OriginBadge
           mode={claims.origin}

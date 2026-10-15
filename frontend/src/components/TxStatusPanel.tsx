@@ -1,5 +1,5 @@
 import type { TxState } from "../services/txStatus";
-import { PHASE_ICON, PHASE_TEXT, PHASE_TONE, isTerminal } from "../services/txStatus";
+import { PHASE_ICON, PHASE_TEXT, isTerminal } from "../services/txStatus";
 import { mapError } from "../domain/copy";
 import { CopyField } from "./CopyField";
 
@@ -86,16 +86,5 @@ export function TxStatusPanel({ state, actionLabel, onRetry, onRefresh }: Props)
         </details>
       ) : null}
     </div>
-  );
-}
-
-/** Small inline chip, for lists where a full panel would be too heavy. */
-export function TxChip({ phase }: { phase: TxState["phase"] }) {
-  if (phase === "idle") return null;
-  return (
-    <span className={`finality-chip finality-${PHASE_TONE[phase]}`}>
-      <span aria-hidden="true">{PHASE_ICON[phase]}</span>
-      {PHASE_TEXT[phase]}
-    </span>
   );
 }
