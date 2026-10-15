@@ -389,7 +389,9 @@ Three things worth knowing before you trust the deployed site:
 Every value is optional. `frontend/src/config/network.ts` and `contracts.ts` hold
 typed literals that are always correct for the recorded deployment, and the
 repository-root `.env` (gitignored, copied from [`.env.example`](.env.example))
-can override four of them:
+can override four of them. The example ships with all four public values already
+filled in, so a fresh clone needs no editing — only the deploy key must be
+supplied locally.
 
 | Variable | Overrides | Typed fallback |
 |---|---|---|
@@ -408,9 +410,9 @@ chain id or an unknown network key each fall back to the typed literal, so a bad
 
 ### The deploy key never reaches the browser
 
-`.env` also holds `VITE_DEPLOYER_PRIVATE_KEY`, a funded StudioNet deploy key.
-It is **not** one of the four injected values, and this is enforced structurally
-rather than by convention:
+`.env` holds `VITE_DEPLOYER_PRIVATE_KEY`, a funded StudioNet deploy key. It is
+**not** one of the four injected values, and this is enforced structurally rather
+than by convention:
 
 - `frontend/vite.config.ts` sets `envPrefix: "VITE_PUBLIC_"`, which matches no
   variable in `.env`. Nothing from the root `.env` reaches `import.meta.env`, so
@@ -423,13 +425,20 @@ rather than by convention:
 `tests/direct/test_env_consistency.py` asserts both properties, so widening the
 prefix or adding the key to the list fails the suite rather than leaking quietly.
 
-### Keeping the three sources in sync
+The key is also the one value `.env.example` does **not** ship filled in. That
+file is committed, so a real key there would be published permanently — git
+history keeps it after any later removal and it reaches every clone and remote.
+The four public values are filled in; `test_env_example_carries_no_secret` fails
+if a key-shaped value ever appears there.
 
-The same deployment facts are recorded in three places: `.env`,
+### Keeping the sources in sync
+
+The same deployment facts are recorded in four places: `.env`, `.env.example`,
 `gltest.integration.config.yaml` and the frontend's typed fallbacks. Nothing
 enforces agreement by default, so `test_env_consistency.py` checks it — the suite
-fails if the RPC URL, chain id, address or network key drift apart. `.env`-only
-assertions skip when `.env` is absent, as on CI.
+fails if the RPC URL, chain id, address or network key drift apart. Both env
+files are checked, so a stale committed example is caught too; when `.env` is
+absent (as on CI) only `.env.example` is checked and nothing is skipped.
 
 > `scripts/capture-studionet-readonly.sh` deliberately pins the **v1** address
 > rather than reading `.env`, because the committed evidence pack was captured
@@ -441,7 +450,7 @@ assertions skip when `.env` is absent, as on CI.
 
 ```bash
 GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/climateclaim.py   # 3 lint checks + SDK validation
-python3.12 -m pytest tests/direct/ -q                                 # 190 direct tests
+python3.12 -m pytest tests/direct/ -q                                 # 200 direct tests
 cd frontend && npm test && npx tsc -b --noEmit && npm run build          # unit tests + typecheck + build
 ```
 
