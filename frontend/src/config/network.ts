@@ -1,3 +1,5 @@
+import { ENV_CHAIN_ID, ENV_NETWORK_KEY, ENV_RPC_URL } from "./env";
+
 /**
  * Network configuration.
  *
@@ -7,7 +9,13 @@
  *   genlayer config get  ->  rpc_url: https://studio.genlayer.com/api
  *   chains.studionet    ->  id 61999, explorer https://genlayer-explorer.vercel.app
  *
- * To change networks, edit this file only. No literals anywhere else.
+ * These literals remain the source of truth and the fallback. A deployment may
+ * override three of them from the repository-root `.env` (see `env.ts`):
+ * VITE_GENLAYER_RPC_URL, VITE_GENLAYER_CHAIN_ID and VITE_GLTEST_NETWORK.
+ * Anything unset or malformed falls back to the value below, so the app builds
+ * and runs identically with or without a `.env`. Explorer URLs, labels and
+ * availability flags are deliberately NOT overridable: they encode verified
+ * facts about each chain, not per-deployment settings.
  */
 
 export type NetworkKey = "studionet" | "testnetAsimov" | "testnetBradbury";
@@ -44,8 +52,8 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
   studionet: {
     key: "studionet",
     label: "StudioNet",
-    chainId: 61999,
-    rpcUrl: "https://studio.genlayer.com/api",
+    chainId: ENV_CHAIN_ID ?? 61999,
+    rpcUrl: ENV_RPC_URL || "https://studio.genlayer.com/api",
     explorerUrl: "https://genlayer-explorer.vercel.app",
     explorerAvailable: false,
     explorerNote:
@@ -81,7 +89,17 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
   },
 };
 
-export const ACTIVE_NETWORK: NetworkKey = "studionet";
+/**
+ * Active network: `VITE_GLTEST_NETWORK` when it names a configured network,
+ * otherwise `studionet`.
+ *
+ * An unrecognised value falls back rather than indexing `NETWORKS` with an
+ * unknown key, which would yield `undefined` and crash the app at import time
+ * (the wrong-network banner reads `activeNetwork()` on first render).
+ */
+export const ACTIVE_NETWORK: NetworkKey = (
+  Object.prototype.hasOwnProperty.call(NETWORKS, ENV_NETWORK_KEY) ? ENV_NETWORK_KEY : "studionet"
+) as NetworkKey;
 
 export function activeNetwork(): NetworkConfig {
   return NETWORKS[ACTIVE_NETWORK];

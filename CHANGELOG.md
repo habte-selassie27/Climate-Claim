@@ -5,6 +5,82 @@ gaps are stated plainly; nothing is claimed that was not run.
 
 ---
 
+## `VITE_` env names, wired into the frontend and guarded
+
+### DONE
+
+Renamed all five root `.env` variables to the `VITE_` prefix, then made them
+actually load — while keeping the deploy key out of the browser bundle.
+
+**Rename** (`.env`, `.env.example`, and the comment in
+`gltest.integration.config.yaml`): `DEPLOYER_PRIVATE_KEY` → `VITE_…`,
+`CLIMATECLAIM_ADDRESS` → `VITE_…`, `GLTEST_NETWORK` → `VITE_…`,
+`GENLAYER_RPC_URL` → `VITE_…`, `GENLAYER_CHAIN_ID` → `VITE_…`.
+
+**Frontend wiring** — the app previously read *no* environment variables, so the
+rename alone would have been inert:
+
+- `frontend/vite.config.ts` — `envDir` now points at the repository root, plus an
+  explicit `define` block driven by a `PUBLIC_ENV_VARS` allowlist.
+- `frontend/src/config/env.ts` (new) — typed accessors with `typeof` guards, so
+  nothing throws under `tsc` or `vitest`, where the identifiers are not
+  substituted.
+- `frontend/src/config/network.ts` — `rpcUrl`, `chainId` and `ACTIVE_NETWORK` take
+  env overrides, falling back to the existing typed literals. `ACTIVE_NETWORK`
+  validates against `NETWORKS` instead of indexing with an unknown key.
+- `frontend/src/config/contracts.ts` — `CONTRACT_ADDRESS` overridable.
+
+Every override is optional and validated: a malformed address, non-integer chain
+id or unknown network key falls back rather than producing a blank page.
+
+**The leak guarantee is structural, not conventional.** `envPrefix` is narrowed to
+`VITE_PUBLIC_`, which matches nothing in `.env`, so no value from the root `.env`
+reaches `import.meta.env` at all. Measured first: with the stock `VITE_` prefix,
+a single `JSON.stringify(import.meta.env)` anywhere in source inlines *every*
+prefixed variable, key included. That was verified by probe, not assumed.
+
+**Python side** — `tools/envfile.py` (new) parses the root `.env` with no new
+dependency (`requirements.txt` has no `python-dotenv`). It is consumed by
+`tests/direct/test_env_consistency.py`, which fails if `.env`,
+`gltest.integration.config.yaml` and the frontend's typed fallbacks drift apart,
+and asserts the `envPrefix` / allowlist invariants hold.
+
+`.env.example` was missing the two `VITE_GENLAYER_*` names that `.env` had; the
+new test caught it and both were added.
+
+Deliberately unchanged: `scripts/capture-studionet-readonly.sh` still pins the v1
+address `0xE160…`, because the committed evidence pack was captured against that
+deployment.
+
+### PROOF
+
+- Direct: `python3.12 -m pytest tests/direct/ -q` → **190 passed** (170 pre-existing
+  + 20 new)
+- Frontend: `npx vitest run` → **45 passed** (3 files); `npx tsc -b --noEmit` clean;
+  `npx vite build` → built in 3.42s
+- Override proof: built with a synthetic `.env`
+  (`VITE_CLIMATECLAIM_ADDRESS=0x1111…1111`, `…RPC_URL=https://probe.example.invalid`,
+  `…CHAIN_ID=12345`) → all three values present in `dist/assets/*.js`
+- No-leak proof: built with a synthetic key → key value absent from `dist/`
+  **including sourcemaps**; the variable *name* is also absent after rewording the
+  `env.ts` comment, since `sourcemap: true` ships `sourcesContent`
+- Drift guard verified by deliberately breaking agreement (the missing
+  `.env.example` keys were caught this way)
+
+### NEXT
+
+Consider dropping `sourcemap: true` for production builds — it publishes full
+`sourcesContent` for app source *and* bundled `viem`/`ox`. Pre-existing, not
+introduced here, and useful for debugging.
+
+### BLOCKED
+
+Nothing. Noted but not fixed, as it predates this session:
+`requirements.txt` pins `genlayer-test==0.29.2` while the installed distribution
+reports `0.1.2`; the suite passes on the installed version.
+
+---
+
 ## Contract audit remediation (criteria `climateclaim-criteria-2`)
 
 ### DONE

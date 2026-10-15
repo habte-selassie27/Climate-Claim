@@ -2,7 +2,7 @@
 #
 # Run with: gltest tests/integration/ -v -s
 #
-# Deploys ClimateClaim to the network named by GLTEST_NETWORK (default
+# Deploys ClimateClaim to the network named by VITE_GLTEST_NETWORK (default
 # studionet) and exercises the claim lifecycle against real validators.
 #
 # Reads the deployer key from the environment. Never commit it.

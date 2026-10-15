@@ -364,10 +364,14 @@ here would be ignored).
 
 Three things worth knowing before you trust the deployed site:
 
-1. **No environment variables are needed**, and there are no secrets in the app. The
-   chain, the contract address and the explorer URL are typed config files
-   (`frontend/src/config/`), deliberately not `VITE_*` variables — see
-   [`.env.example`](.env.example) for why.
+1. **Env vars are optional; the typed config is the fallback.** The chain, contract
+   address and explorer URL come from typed config files
+   (`frontend/src/config/`). A deployment *may* override three of them from the
+   repository-root `.env` (`VITE_CLIMATECLAIM_ADDRESS`, `VITE_GENLAYER_RPC_URL`,
+   `VITE_GENLAYER_CHAIN_ID`, `VITE_GLTEST_NETWORK`) — see
+   [Configuration](#configuration) below. Unset or malformed values fall back to
+   the literals, so the app builds and runs identically with no `.env` at all.
+   **There are still no secrets in the app.**
 2. **Reads work immediately; writes need a browser wallet.** The StudioNet RPC was
    checked against a deployment origin and answers with
    `access-control-allow-origin`, so the deployed page can read the chain directly.
@@ -380,11 +384,64 @@ Three things worth knowing before you trust the deployed site:
 
 ---
 
+## Configuration
+
+Every value is optional. `frontend/src/config/network.ts` and `contracts.ts` hold
+typed literals that are always correct for the recorded deployment, and the
+repository-root `.env` (gitignored, copied from [`.env.example`](.env.example))
+can override four of them:
+
+| Variable | Overrides | Typed fallback |
+|---|---|---|
+| `VITE_CLIMATECLAIM_ADDRESS` | `CONTRACT_ADDRESS` | `0x6E4B…ea8` in `contracts.ts` |
+| `VITE_GENLAYER_RPC_URL` | StudioNet `rpcUrl` | `https://studio.genlayer.com/api` |
+| `VITE_GENLAYER_CHAIN_ID` | StudioNet `chainId` | `61999` |
+| `VITE_GLTEST_NETWORK` | `ACTIVE_NETWORK` | `studionet` |
+
+Explorer URLs, network labels and the explorer-availability flags are **not**
+overridable: they encode verified facts about each chain rather than
+per-deployment settings.
+
+Invalid input degrades rather than breaks — a malformed address, a non-integer
+chain id or an unknown network key each fall back to the typed literal, so a bad
+`.env` cannot produce a blank page or an opaque RPC error.
+
+### The deploy key never reaches the browser
+
+`.env` also holds `VITE_DEPLOYER_PRIVATE_KEY`, a funded StudioNet deploy key.
+It is **not** one of the four injected values, and this is enforced structurally
+rather than by convention:
+
+- `frontend/vite.config.ts` sets `envPrefix: "VITE_PUBLIC_"`, which matches no
+  variable in `.env`. Nothing from the root `.env` reaches `import.meta.env`, so
+  even a whole-object reference like `JSON.stringify(import.meta.env)` cannot
+  inline it. (With the stock `VITE_` prefix, that expression inlines *everything*,
+  key included.)
+- Each public value is injected through an explicit `define` entry, listed in
+  `PUBLIC_ENV_VARS`. A value only reaches the browser if added to that list.
+
+`tests/direct/test_env_consistency.py` asserts both properties, so widening the
+prefix or adding the key to the list fails the suite rather than leaking quietly.
+
+### Keeping the three sources in sync
+
+The same deployment facts are recorded in three places: `.env`,
+`gltest.integration.config.yaml` and the frontend's typed fallbacks. Nothing
+enforces agreement by default, so `test_env_consistency.py` checks it — the suite
+fails if the RPC URL, chain id, address or network key drift apart. `.env`-only
+assertions skip when `.env` is absent, as on CI.
+
+> `scripts/capture-studionet-readonly.sh` deliberately pins the **v1** address
+> rather than reading `.env`, because the committed evidence pack was captured
+> against that deployment.
+
+---
+
 ## Testing
 
 ```bash
 GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/climateclaim.py   # 3 lint checks + SDK validation
-python3.12 -m pytest tests/direct/ -q                                 # 170 direct tests
+python3.12 -m pytest tests/direct/ -q                                 # 190 direct tests
 cd frontend && npm test && npx tsc -b --noEmit && npm run build          # unit tests + typecheck + build
 ```
 

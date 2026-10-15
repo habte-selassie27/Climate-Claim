@@ -1,3 +1,5 @@
+import { ENV_CONTRACT_ADDRESS } from "./env";
+
 /**
  * Deployed contract addresses and schema-derived method names.
  *
@@ -19,7 +21,18 @@
  * redeployed and re-captured before the write path below is trusted against it.
  */
 
-export const CONTRACT_ADDRESS = "0x6E4BD06bD969E745546A7957d818eDaD47882ea8";
+/**
+ * Contract address.
+ *
+ * `VITE_CLIMATECLAIM_ADDRESS` in the repository-root `.env` overrides this when
+ * set to a valid 0x-prefixed address (see `env.ts`); otherwise this literal is
+ * used. The override exists so a redeployment can be pointed at without a code
+ * change, but note that METHOD NAMES below are captured from the v2 schema —
+ * a redeployed address with a changed method surface must have this file's
+ * staleness notes revisited too.
+ */
+export const CONTRACT_ADDRESS =
+  ENV_CONTRACT_ADDRESS || "0x6E4BD06bD969E745546A7957d818eDaD47882ea8";
 /** Owner / claimant address of the deployed contract (local `rabby` account). */
 export const DEPLOYER_ADDRESS = "0x5B3661C576c7001e6d6279C67F3779705d334c89";
 
