@@ -26,6 +26,7 @@ import { policySentence } from "../domain/copy";
 import { activeNetwork } from "../config/network";
 import { DEPLOYER_ADDRESS } from "../config/contracts";
 import type { SourceDef } from "../domain/types";
+import { useI18n } from "../i18n/I18nProvider";
 
 const net = activeNetwork();
 
@@ -42,6 +43,7 @@ const DISPUTE_GROUNDS_MAX = 300;
  * history and the settlement state.
  */
 export function ClaimDetail() {
+  const { t } = useI18n();
   const { id = "" } = useParams();
   const wallet = useWallet();
   const [tx, setTx] = useState<TxState>(IDLE);
@@ -136,7 +138,7 @@ export function ClaimDetail() {
   if (!value) {
     return (
       <div className="stack">
-        <h1>Claim not found</h1>
+        <h1>{t("claimDetail.notFound.h")}</h1>
         <div className="alert alert-warn">
           <strong>No claim called “{id}”</strong>
           <p>
@@ -207,7 +209,7 @@ export function ClaimDetail() {
 
       {wallet.wrongNetwork ? (
         <div className="alert alert-error" role="alert">
-          <strong>Wrong network</strong>
+          <strong>{t("claimDetail.wrongNetwork")}</strong>
           <p>
             Your wallet is on chain {wallet.chainId}. This app reads {net.label} (chain{" "}
             {net.chainId}). Reading still works; switch networks to send a transaction.
@@ -249,17 +251,16 @@ export function ClaimDetail() {
             </div>
           ) : (
             <div className="panel">
-              <h2>Evidence chart</h2>
+              <h2>{t("evidence.chart")}</h2>
               <div className="empty">
-                No recorded daily series backs this claim yet. The aggregated evidence the contract
-                evaluated is in the evidence table below.
+                {t("evidence.noSeries")}
               </div>
             </div>
           )}
 
           <div className="panel">
             <div className="panel-head">
-              <h2>Checks</h2>
+              <h2>{t("claimDetail.checks")}</h2>
             </div>
             <CheckList
               checks={checks}
@@ -279,14 +280,14 @@ export function ClaimDetail() {
 
           <div className="panel">
             <div className="panel-head">
-              <h2>Actions</h2>
+              <h2>{t("claimDetail.actions")}</h2>
             </div>
 
             {!hasWallet ? (
               <div className="alert alert-info" style={{ marginBottom: "var(--space-3)" }}>
-                <strong>No wallet detected</strong>
+                <strong>{t("claimDetail.noWallet")}</strong>
                 <p>
-                  Reading claims is open to everyone. Sending a transaction needs a browser wallet
+                  {t("claimDetail.noWalletBody")}
                   on {net.label} (chain {net.chainId}).
                   {net.gasless
                     ? " StudioNet is gasless, so a transaction costs nothing — the expected balance is 0 GEN."
@@ -340,7 +341,7 @@ export function ClaimDetail() {
                   Mark decision final
                 </button>
                 <span className="small muted">
-                  Re-reads the decision at finality; refuses if it changed. Owner only.
+                  {t("claimDetail.finalizeHelp")}
                 </span>
               </div>
             ) : null}
@@ -355,30 +356,29 @@ export function ClaimDetail() {
                   Re-evaluate disputed claim
                 </button>
                 <span className="small muted">
-                  Runs a new evaluation round. The open grounds are kept in the history.
+                  {t("claimDetail.reevaluateHelp")}
                 </span>
               </div>
             ) : null}
             {claim.state === "disputed" && claim.pending_grounds ? (
               <div className="alert alert-info" style={{ marginTop: "var(--space-3)" }}>
-                <strong>Dispute open</strong>
+                <strong>{t("claimDetail.dispute.open")}</strong>
                 <p>“{claim.pending_grounds}”</p>
                 <p className="small muted">
-                  These grounds are stored on chain and move into the dispute history once the
-                  re-evaluation lands.
+                  {t("claimDetail.dispute.helpIntro")}
                 </p>
               </div>
             ) : null}
 
             {disputeOpen ? (
               <div className="field" style={{ marginTop: "var(--space-3)" }}>
-                <label htmlFor="dispute-grounds">Grounds for the dispute</label>
+                <label htmlFor="dispute-grounds">{t("claimDetail.dispute.grounds")}</label>
                 <textarea
                   id="dispute-grounds"
                   rows={4}
                   maxLength={DISPUTE_GROUNDS_MAX}
                   value={grounds}
-                  placeholder="Why should this decision be challenged? Name the source, station or observation period you believe the validators judged incorrectly."
+                  placeholder={t("claimDetail.dispute.placeholder")}
                   aria-describedby="dispute-help"
                   aria-invalid={Boolean(groundsError)}
                   onChange={(e) => {
@@ -387,8 +387,7 @@ export function ClaimDetail() {
                   }}
                 />
                 <p className="field-hint" id="dispute-help">
-                  The contract stores this text with the dispute and requires it to be non-empty, at
-                  most {DISPUTE_GROUNDS_MAX} characters. It is shown in the dispute history.
+                  {t("claimDetail.dispute.help")}
                 </p>
                 {groundsError ? (
                   <p className="field-error" role="alert">
@@ -429,28 +428,23 @@ export function ClaimDetail() {
 
             {!canSettle && settlement.amount === 0 ? (
               <p className="small muted" style={{ marginTop: "var(--space-3)" }}>
-                This policy has no payout amount, so there is nothing to settle.
+                {t("claimDetail.settle.none")}
               </p>
             ) : null}
             {!canSettle && settlement.amount > 0 && !inFlight ? (
               <p className="small muted" style={{ marginTop: "var(--space-3)" }}>
-                Emitting the payout is only enabled once the decision is final. An accepted
-                decision can still be appealed.
+                {t("claimDetail.settle.gate")}
               </p>
             ) : null}
 
             {/* A payout message is deducted from the contract immediately but is
-                credited to the recipient only when its child transaction activates.
+                {t("claimDetail.settle.emittedHelp")}
                 So the UI must show an unverified payout as unverified. */}
             {inFlight ? (
               <div className="alert alert-warn" role="status" style={{ marginTop: "var(--space-3)" }}>
-                <strong>Payout emitted - delivery not yet verified</strong>
+                <strong>{t("claimDetail.settle.emitted")}</strong>
                 <p>
-                  The payout message is out, so the claim is <em>not</em> settled yet. On GenLayer
-                  the value leaves this contract immediately but reaches the recipient only when
-                  the message's child transaction activates, and that transaction can still fail.
-                  Check the receipt for attempt {settlement.payout_round} in the explorer, then
-                  record the outcome. Never infer delivery from a recipient's balance.
+                  {t("claimDetail.settle.emittedFull")}
                 </p>
                 <div className="btn-row">
                   <button
@@ -472,16 +466,15 @@ export function ClaimDetail() {
                       ])
                     }
                   >
-                    Mark payout failed (retryable)
+                    {t("claimDetail.settle.markFailed")}
                   </button>
-                  <span className="small muted">Owner only.</span>
+                  <span className="small muted">{t("claimDetail.settle.ownerOnly")}</span>
                 </div>
               </div>
             ) : null}
             {settlement.state === "settlement_failed" ? (
               <p className="small muted" style={{ marginTop: "var(--space-3)" }}>
-                The last payout attempt failed, so nothing was paid. The claim is retryable:
-                emit the payout again once the cause is fixed.
+                {t("claimDetail.settle.failed")}
               </p>
             ) : null}
 
@@ -499,7 +492,7 @@ export function ClaimDetail() {
 
           <div className="panel">
             <div className="panel-head">
-              <h2>Audit</h2>
+              <h2>{t("audit.heading")}</h2>
               <Link className="small" to="/how-it-works">
                 How this is decided
               </Link>
@@ -513,7 +506,7 @@ export function ClaimDetail() {
           unreadable squeezed into the narrow column above. */}
       <div className="panel panel-flush">
         <div className="panel-head" style={{ padding: "var(--space-4) var(--space-4) 0" }}>
-          <h2>Evidence</h2>
+          <h2>{t("claimDetail.evidence")}</h2>
           <span className="badge">read from the contract</span>
         </div>
         <EvidenceTable evidence={evidence} sources={(sources.data ?? []) as SourceDef[]} />

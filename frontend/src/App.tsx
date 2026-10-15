@@ -4,6 +4,9 @@ import { activeNetwork } from "./config/network";
 import { useWallet } from "./hooks/useWallet";
 import { CONTRACT_ADDRESS } from "./config/contracts";
 import { WalletPanel } from "./components/WalletPanel";
+import { ThemeToggle } from "./components/ThemeToggle";
+import { LanguageSwitcher } from "./components/LanguageSwitcher";
+import { useI18n } from "./i18n/I18nProvider";
 
 /**
  * Route-level code splitting. Every page pulls the genlayer-js SDK (the bulk of
@@ -54,6 +57,7 @@ function BrandMark() {
 
 function Chrome() {
   const wallet = useWallet();
+  const { t } = useI18n();
   return (
     <header className="chrome">
       <div className="chrome-inner">
@@ -62,23 +66,25 @@ function Chrome() {
           ClimateClaim
         </Link>
 
-        <nav className="chrome-nav" aria-label="Main">
-          <NavLink to="/">Home</NavLink>
-          <NavLink to="/demo">Demo</NavLink>
-          <NavLink to="/claims">Claims</NavLink>
-          <NavLink to="/policies">Policies</NavLink>
-          <NavLink to="/how-it-works">How it works</NavLink>
+        <nav className="chrome-nav" aria-label={t("nav.main")}>
+          <NavLink to="/">{t("nav.home")}</NavLink>
+          <NavLink to="/demo">{t("nav.demo")}</NavLink>
+          <NavLink to="/claims">{t("nav.claims")}</NavLink>
+          <NavLink to="/policies">{t("nav.policies")}</NavLink>
+          <NavLink to="/how-it-works">{t("nav.howItWorks")}</NavLink>
         </nav>
 
         <div className="chrome-status">
-          <span className="badge" title={`Chain ${net.chainId}`}>
+          <span className="badge" title={t("common.chain", { id: net.chainId })}>
             <span aria-hidden="true">◈</span> {net.label}
           </span>
           {wallet.wrongNetwork && wallet.connected ? (
             <span className="badge badge-sim" role="alert">
-              Wrong network ({wallet.chainId})
+              {t("nav.wrongNetwork", { id: wallet.chainId ?? "—" })}
             </span>
           ) : null}
+          <LanguageSwitcher />
+          <ThemeToggle />
           {/* One control for the whole wallet lifecycle: discover, choose,
               connect, show address, copy, switch network, disconnect. */}
           <WalletPanel />
@@ -89,36 +95,37 @@ function Chrome() {
 }
 
 function Footer() {
+  const { t } = useI18n();
   return (
     <footer className="footer">
       <div className="footer-inner">
         <div>
           <strong>ClimateClaim</strong>
-          <div className="small">Evidence-based parametric weather claims on GenLayer.</div>
+          <div className="small">{t("footer.tagline")}</div>
         </div>
         <div>
           <div className="small">
-            Contract <span className="mono">{CONTRACT_ADDRESS}</span>
+            {t("audit.contract")} <span className="mono">{CONTRACT_ADDRESS}</span>
           </div>
           <div className="small">
-            {net.label} · chain {net.chainId}
+            {net.label} · {t("common.chain", { id: net.chainId })}
           </div>
           {net.explorerAvailable ? (
             <div className="small">
               <a href={net.explorerUrl} target="_blank" rel="noreferrer noopener">
-                Explorer
+                {t("footer.explorer")}
               </a>
             </div>
           ) : (
-            <div className="small muted">Explorer currently paused</div>
+            <div className="small muted">{t("footer.explorerPaused")}</div>
           )}
         </div>
         <div>
           <div className="small">
-            <Link to="/how-it-works">How it works</Link>
+            <Link to="/how-it-works">{t("nav.howItWorks")}</Link>
           </div>
           <div className="small">
-            <Link to="/demo">Demo mode</Link>
+            <Link to="/demo">{t("footer.demoMode")}</Link>
           </div>
         </div>
       </div>
@@ -127,10 +134,11 @@ function Footer() {
 }
 
 export default function App() {
+  const { t } = useI18n();
   return (
     <div className="shell">
       <a className="skip-link" href="#main">
-        Skip to main content
+        {t("nav.skipToMain")}
       </a>
       <Chrome />
       <main id="main">
@@ -149,10 +157,10 @@ export default function App() {
                 path="*"
                 element={
                   <div className="alert alert-warn">
-                    <strong>Page not found</strong>
-                    <p>That address does not match a page in this app.</p>
+                    <strong>{t("nav.notFound.h")}</strong>
+                    <p>{t("nav.notFound.body")}</p>
                     <Link className="btn btn-secondary" to="/">
-                      Back to the start
+                      {t("nav.home")}
                     </Link>
                   </div>
                 }

@@ -1,3 +1,5 @@
+import { useI18n } from "../i18n/I18nProvider";
+
 interface Props {
   mode: "live" | "snapshot" | "recorded" | "mixed";
   /** When the snapshot was captured on-chain. */
@@ -19,16 +21,20 @@ export function OriginBadge({
   capturedAt,
   liveError,
   pending = false,
-  networkLabel = "the network",
+  networkLabel,
 }: Props) {
+  const { t } = useI18n();
+  const network = networkLabel || t("origin.networkDefault");
+  const when = capturedAt ?? t("common.unknown");
+
   if (mode === "live") {
     return (
       <span
         className="badge badge-live"
         data-testid="origin-badge"
-        title={`Read live from ${networkLabel}.`}
+        title={t("origin.liveTitle", { network })}
       >
-        <span aria-hidden="true">◉</span> Live from {networkLabel}
+        <span aria-hidden="true">◉</span> {t("origin.live", { network })}
       </span>
     );
   }
@@ -38,9 +44,9 @@ export function OriginBadge({
       <span
         className="badge badge-origin"
         data-testid="origin-badge"
-        title={`Some of this was read live from ${networkLabel}; some came from the snapshot captured ${capturedAt ?? "unknown"}.`}
+        title={t("origin.mixedTitle", { network, captured: when })}
       >
-        <span aria-hidden="true">◑</span> Mixed live &amp; recorded
+        <span aria-hidden="true">◑</span> {t("origin.mixed")}
       </span>
     );
   }
@@ -50,23 +56,21 @@ export function OriginBadge({
       <span
         className="badge badge-origin"
         data-testid="origin-badge"
-        title={`Showing the snapshot captured ${capturedAt ?? "unknown"} while the live read completes.`}
+        title={t("origin.checkingTitle", { captured: when })}
       >
-        <span aria-hidden="true">▤</span> Recorded snapshot · checking {networkLabel}
+        <span aria-hidden="true">▤</span> {t("origin.checking", { network })}
       </span>
     );
   }
-  const reason = liveError
-    ? ` The network could not be reached (${liveError}).`
-    : "";
+  const reason = liveError ? t("origin.unreachable", { error: liveError }) : "";
   return (
     <span
       className="badge badge-origin"
       data-testid="origin-badge"
-      title={`Recorded on-chain snapshot captured ${capturedAt ?? "unknown"}.${reason}`}
+      title={`${t("origin.recordedTitle", { captured: when })}${reason}`}
     >
-      <span aria-hidden="true">▤</span> Recorded snapshot
-      {liveError ? " (network unreachable)" : ""}
+      <span aria-hidden="true">▤</span> {t("origin.recorded")}
+      {liveError ? t("origin.recordedUnreachable") : ""}
     </span>
   );
 }

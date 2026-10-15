@@ -81,6 +81,76 @@ reports `0.1.2`; the suite passes on the installed version.
 
 ---
 
+## Multi-language (en/es/fr/de) and light/dark theme
+
+### DONE
+
+The app ships in four languages and two themes. Every user-visible string was
+extracted — nothing was left inline, so no screen mixes languages.
+
+**i18n, no library.** The project already hand-rolled `domain/copy.ts` to map
+contract enums to text, so a context plus a dictionary fits that style and adds no
+dependency. `t()` reads a module-level locale, which keeps `copy.ts` (and its 17
+existing tests) working as plain functions outside React.
+
+**Completeness is enforced by the type system.** `locales/en.ts` is the source of
+truth and `MessageKey` is derived from it; `es`, `fr` and `de` are typed
+`Record<MessageKey, string>`. A missing translation is a **compile error**,
+verified by deleting one French key and watching `tsc` reject it. This is the
+guard against the failure mode that matters — a half-translated screen is worse
+than an English-only one. A test additionally checks that all four locales use the
+same `{placeholder}` set, which the types cannot catch.
+
+**Placeholders, never concatenation.** Word order differs between these four
+languages, so sentences are assembled through `t(key, vars)`. Where a locale
+pluralises differently (the evidence-chart summary) there are explicit
+singular/plural keys selected in code rather than a concatenated suffix.
+
+**Theme.** `System → Light → Dark`, persisted, with a live `matchMedia` listener
+so "system" keeps following the OS. An inline script in `index.html` applies the
+theme before first paint, because without it a dark-theme visitor gets a white
+flash while React boots.
+
+Dark mode is one `[data-theme="dark"]` block: the stylesheet already used `--`
+tokens throughout, so only 20 needed redefining. Accents are *lightened* rather
+than dimmed. Two new tokens, `--on-accent` / `--on-alert`, exist because a
+lightened accent cannot carry white text; both hardcoded `#fff` fills and the
+sheet shadow were moved onto tokens. The evidence chart needed no changes — it is
+class-driven, so it follows the tokens.
+
+Also converted: `PHASE_TEXT`/`PHASE_HINT` became `phaseText()`/`phaseHint()`, since
+a Record of pre-rendered strings would freeze English at module load, before any
+locale was resolved.
+
+### PROOF
+
+- Frontend: `npx vitest run` → **76 passed** (5 files; 45 pre-existing + 31 new)
+- `npx tsc -b --noEmit` clean; `npx vite build` → built in 3.25s
+- Contract unaffected: `genvm-lint` ✓ Lint passed (3 checks) + ✓ Validation passed;
+  `pytest tests/direct/ -q` → **200 passed**
+- Completeness guard proven: removing one key from `fr.ts` → `tsc` TS2741
+- Leftover-English sweep: only the product name and numeric placeholders remain,
+  which are correctly untranslated
+- Contrast computed for both themes against WCAG AA — dark passes every pair
+  (lowest 6.34:1); light passes every pair except the one pre-existing case below
+- Deploy key still absent from `dist/`
+
+### NEXT
+
+- Light theme `--amber-flag` on white measures 3.59:1, under the 4.5:1 AA
+  threshold for body text. Pre-existing and left unchanged as a brand-colour
+  decision; roughly `#9c650a` would pass. Noted in the README.
+- The four locale files ship in the main chunk, which grew 19.7 kB → 152 kB raw
+  (7.2 kB → 46.7 kB gzip). Code-splitting them per locale would recover that but
+  requires an async `t()`, which the pure `copy.ts` callers and their tests assume
+  is synchronous. Deliberate tradeoff for now: no loading flash when switching.
+
+### BLOCKED
+
+Nothing.
+
+---
+
 ## Contract audit remediation (criteria `climateclaim-criteria-2`)
 
 ### DONE

@@ -16,6 +16,7 @@ import { policySentence } from "../domain/copy";
 import { toMicroDegrees, toScaled, truncateAddress } from "../domain/format";
 import { activeNetwork } from "../config/network";
 import type { DataMode, SourceDef } from "../domain/types";
+import { useI18n } from "../i18n/I18nProvider";
 
 const net = activeNetwork();
 
@@ -197,6 +198,7 @@ function validate(form: FormState): Record<string, string> {
 }
 
 export function PolicyNew() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const wallet = useWallet();
   const sourcesRead = useRead(() => listSources(), [], snapshotSources());
@@ -346,17 +348,15 @@ export function PolicyNew() {
   return (
     <div className="stack">
       <header>
-        <h1>Create a policy</h1>
+        <h1>{t("policyNew.h1")}</h1>
         <p className="lede">
-          A policy fixes the location, period, threshold, aggregation rule and eligible sources in
-          advance. Once a claim references it, it can never be changed — that is what makes a later
-          decision auditable.
+          {t("policyNew.lede")}
         </p>
       </header>
 
       {wallet.wrongNetwork ? (
         <div className="alert alert-error" role="alert">
-          <strong>Wrong network</strong>
+          <strong>{t("policyNew.wrongNetwork")}</strong>
           <p>
             Your wallet is on chain {wallet.chainId}. This app writes to {net.label} (chain{" "}
             {net.chainId}). Switch networks to send a transaction.
@@ -366,7 +366,7 @@ export function PolicyNew() {
 
       {notOwner ? (
         <div className="alert alert-warn" role="alert">
-          <strong>This write is owner-only</strong>
+          <strong>{t("policyNew.ownerOnly")}</strong>
           <p>
             The contract registers policies from its owner alone. Connected wallet{" "}
             <span className="mono">{truncateAddress(wallet.address ?? "")}</span> is not the owner (
@@ -379,12 +379,12 @@ export function PolicyNew() {
 
       <div className="panel">
         <div className="panel-head">
-          <h2>Terms</h2>
+          <h2>{t("policyNew.terms.h")}</h2>
         </div>
 
         <div className="form-grid">
           <div className="field">
-            <label htmlFor="location_name">Location name</label>
+            <label htmlFor="location_name">{t("policyNew.f.location")}</label>
             <input
               id="location_name"
               type="text"
@@ -396,7 +396,7 @@ export function PolicyNew() {
           </div>
 
           <div className="field">
-            <label htmlFor="timezone">Timezone</label>
+            <label htmlFor="timezone">{t("policyNew.f.timezone")}</label>
             <input
               id="timezone"
               type="text"
@@ -406,13 +406,12 @@ export function PolicyNew() {
             />
             {errors.timezone ? <span className="field-error">{errors.timezone}</span> : null}
             <span className="field-hint">
-              Observation windows are UTC calendar days, and the contract rejects any other
-              timezone, so this is not editable.
+              {t("policyNew.f.timezoneHelp")}
             </span>
           </div>
 
           <div className="field">
-            <label htmlFor="lat">Latitude (degrees)</label>
+            <label htmlFor="lat">{t("policyNew.f.lat")}</label>
             <input
               id="lat"
               type="text"
@@ -426,7 +425,7 @@ export function PolicyNew() {
           </div>
 
           <div className="field">
-            <label htmlFor="lon">Longitude (degrees)</label>
+            <label htmlFor="lon">{t("policyNew.f.lon")}</label>
             <input
               id="lon"
               type="text"
@@ -440,7 +439,7 @@ export function PolicyNew() {
           </div>
 
           <div className="field">
-            <label htmlFor="tolerance_m">Distance tolerance (metres)</label>
+            <label htmlFor="tolerance_m">{t("policyNew.f.tolerance")}</label>
             <input
               id="tolerance_m"
               type="text"
@@ -453,13 +452,12 @@ export function PolicyNew() {
               <span className="field-error">{errors.tolerance_m}</span>
             ) : null}
             <span className="field-hint">
-              How far an observation's station or grid cell may sit from the coordinates and still
-              count as a match.
+              {t("policyNew.f.toleranceHelp")}
             </span>
           </div>
 
           <div className="field">
-            <label htmlFor="metric">Metric</label>
+            <label htmlFor="metric">{t("policyNew.f.metric")}</label>
             <select
               id="metric"
               value={form.metric}
@@ -472,12 +470,12 @@ export function PolicyNew() {
               ))}
             </select>
             <span className="field-hint">
-              The unit follows the metric — the contract only accepts the canonical unit.
+              {t("policyNew.f.metricHelp")}
             </span>
           </div>
 
           <div className="field">
-            <label htmlFor="period_start">Observation period start</label>
+            <label htmlFor="period_start">{t("policyNew.f.periodStart")}</label>
             <input
               id="period_start"
               type="date"
@@ -488,7 +486,7 @@ export function PolicyNew() {
           </div>
 
           <div className="field">
-            <label htmlFor="period_end">Observation period end</label>
+            <label htmlFor="period_end">{t("policyNew.f.periodEnd")}</label>
             <input
               id="period_end"
               type="date"
@@ -500,7 +498,7 @@ export function PolicyNew() {
           </div>
 
           <div className="field">
-            <label htmlFor="comparator">Threshold comparison</label>
+            <label htmlFor="comparator">{t("policyNew.f.comparator")}</label>
             <select
               id="comparator"
               value={form.comparator}
@@ -527,12 +525,12 @@ export function PolicyNew() {
             />
             {errors.threshold ? <span className="field-error">{errors.threshold}</span> : null}
             <span className="field-hint">
-              Stored as an integer ×100 — never a float.
+              {t("policyNew.f.thresholdHelp")}
             </span>
           </div>
 
           <div className="field">
-            <label htmlFor="aggregation">Aggregation rule</label>
+            <label htmlFor="aggregation">{t("policyNew.f.aggregation")}</label>
             <select
               id="aggregation"
               value={form.aggregation}
@@ -550,7 +548,7 @@ export function PolicyNew() {
           </div>
 
           <div className="field">
-            <label htmlFor="agreement_rule">Source agreement rule</label>
+            <label htmlFor="agreement_rule">{t("policyNew.f.agreement")}</label>
             <select
               id="agreement_rule"
               value={form.agreement_rule}
@@ -565,7 +563,7 @@ export function PolicyNew() {
           </div>
 
           <div className="field">
-            <label htmlFor="min_sources">Minimum agreeing sources</label>
+            <label htmlFor="min_sources">{t("policyNew.f.minSources")}</label>
             <input
               id="min_sources"
               type="text"
@@ -580,7 +578,7 @@ export function PolicyNew() {
           </div>
 
           <div className="field">
-            <label htmlFor="payout_amount">Payout (base units)</label>
+            <label htmlFor="payout_amount">{t("policyNew.f.payout")}</label>
             <input
               id="payout_amount"
               type="text"
@@ -607,7 +605,7 @@ export function PolicyNew() {
                 <div className="alert alert-warn" role="status">
                   <strong>No sources registered for {form.metric}</strong>
                   <p className="small" style={{ margin: 0 }}>
-                    The contract seeds no sources of its own — the registry holds only what the
+                    {t("policyNew.f.dataModeHelp")}
                     owner registers. This deployment has none for {form.metric} yet, so a policy
                     cannot be created until one is added with <code>register_source</code> (or{" "}
                     <code>./scripts/seed-sources.sh &lt;address&gt;</code>).
@@ -650,11 +648,10 @@ export function PolicyNew() {
                   onChange={() => set("data_mode", "historical_simulation")}
                 />
                 <span>
-                  <strong>Historical simulation</strong>
+                  <strong>{t("policyNew.mode.historical")}</strong>
                   <br />
                   <span className="small muted">
-                    Recorded historical observations, not a live feed. The period must be entirely in
-                    the past; re-running the claim cannot change the underlying data.
+                    {t("policyNew.mode.historicalHelp")}
                   </span>
                 </span>
               </label>
@@ -666,11 +663,10 @@ export function PolicyNew() {
                   onChange={() => set("data_mode", "live")}
                 />
                 <span>
-                  <strong>Live</strong>
+                  <strong>{t("policyNew.mode.live")}</strong>
                   <br />
                   <span className="small muted">
-                    Values are fetched from the source at evaluation time. The result reflects the
-                    world now and can differ between evaluations.
+                    {t("policyNew.mode.liveHelp")}
                   </span>
                 </span>
               </label>
@@ -678,7 +674,7 @@ export function PolicyNew() {
           </fieldset>
 
           <div className="field field-wide">
-            <label htmlFor="condition_text">Condition, in plain words</label>
+            <label htmlFor="condition_text">{t("policyNew.f.condition")}</label>
             <textarea
               id="condition_text"
               value={form.condition_text}
@@ -692,7 +688,7 @@ export function PolicyNew() {
               <span className="field-error">{errors.condition_text}</span>
             ) : null}
             <span className="field-hint">
-              Filled from the summary below until you edit it. Stored on chain as the human-readable
+              {t("policyNew.f.conditionHelp")}
               statement of the policy.
             </span>
           </div>
@@ -701,13 +697,13 @@ export function PolicyNew() {
 
       <div className="panel">
         <div className="panel-head">
-          <h2>Confirm the sentence</h2>
+          <h2>{t("policyNew.confirm.h")}</h2>
         </div>
         <p className="sentence-preview" data-testid="policy-sentence-preview">
           {sentence}
         </p>
         <p className="small muted">
-          This is what validators will read. Check it says what you mean — a typo here is a term of
+          {t("policyNew.confirm.help")}
           the policy, not a label.
         </p>
 
@@ -764,7 +760,7 @@ export function PolicyNew() {
               </p>
             ) : tx.phase === "accepted" || tx.phase === "finalized" ? (
               <p className="small muted" style={{ marginTop: "var(--space-3)" }}>
-                The new policy is on chain. <Link to="/policies">Open the policies list</Link> to
+                The new policy is on chain. <Link to="/policies">{t("policyNew.confirm.h") === "" ? "" : t("policies.openList")}</Link> to
                 find it.
               </p>
             ) : null}

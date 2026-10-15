@@ -1,4 +1,5 @@
 import type { SourceDef } from "../domain/types";
+import { useI18n } from "../i18n/I18nProvider";
 
 const KIND_QUIRKS: Record<string, string> = {
   open_meteo_archive:
@@ -18,6 +19,7 @@ interface Props {
  * source provides and why two sources may legitimately disagree.
  */
 export function SourceRegistryCard({ source }: Props) {
+  const { t } = useI18n();
   const example = source.url_template
     .replace("{lat}", "51.505")
     .replace("{lon}", "-0.055")
@@ -33,19 +35,19 @@ export function SourceRegistryCard({ source }: Props) {
         <span className="badge">{source.metric}</span>
       </div>
       <dl className="terms">
-        <dt>Identifier</dt>
+        <dt>{t("source.identifier")}</dt>
         <dd className="mono">{source.id}</dd>
-        <dt>Variable</dt>
+        <dt>{t("source.variable")}</dt>
         <dd className="mono">{source.param}</dd>
-        <dt>Unit</dt>
+        <dt>{t("source.unit")}</dt>
         <dd>{source.unit}</dd>
-        <dt>Attribution</dt>
+        <dt>{t("source.attribution")}</dt>
         <dd>{source.attribution}</dd>
-        <dt>Known quirks</dt>
+        <dt>{t("source.quirks")}</dt>
         <dd>{KIND_QUIRKS[source.kind] ?? source.kind}</dd>
       </dl>
       <details className="disclosure">
-        <summary>Example request</summary>
+        <summary>{t("source.exampleRequest")}</summary>
         <p className="small mono" style={{ overflowWrap: "anywhere" }}>
           {example}
         </p>

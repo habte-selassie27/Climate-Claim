@@ -6,6 +6,15 @@
  * "don't show raw enums". Raw enum values are never rendered to a user; they
  * are only used as lookup keys here.
  *
+ * The English text now lives in `i18n/locales/en.ts` and is reached through
+ * `t()`. The exported API is deliberately UNCHANGED, so the pure-function unit
+ * tests in `copy.test.ts` keep working with the default (English) locale, and
+ * every caller is unaffected by the move.
+ *
+ * `t()` reads a module-level locale, so these stay plain functions usable
+ * outside React. Switching language re-renders the tree, and because the lookup
+ * happens during render the whole UI updates from that one state change.
+ *
  * Copy rules followed: sentence case, active voice, addressed to a policy
  * holder. "Confirmed" means the evidence met the policy's terms - it is not a
  * statement that a legal claim is payable.
@@ -21,6 +30,7 @@ import type {
   SettlementState,
 } from "./types";
 import { fromScaled } from "./format";
+import { t } from "../i18n";
 
 // --- decisions -------------------------------------------------------------
 
@@ -36,28 +46,26 @@ export function decisionCopy(decision: Decision | ""): DecisionCopy {
   switch (decision) {
     case "confirmed":
       return {
-        label: "Condition confirmed",
-        sentence:
-          "The recorded evidence met the terms of this policy.",
+        label: t("decision.confirmed.label"),
+        sentence: t("decision.confirmed.sentence"),
         tone: "confirmed",
       };
     case "not_confirmed":
       return {
-        label: "Condition not confirmed",
-        sentence: "The recorded evidence did not meet the terms of this policy.",
+        label: t("decision.notConfirmed.label"),
+        sentence: t("decision.notConfirmed.sentence"),
         tone: "not-confirmed",
       };
     case "inconclusive":
       return {
-        label: "Inconclusive",
-        sentence:
-          "The evidence does not settle the question either way. This is a result, not an error.",
+        label: t("decision.inconclusive.label"),
+        sentence: t("decision.inconclusive.sentence"),
         tone: "inconclusive",
       };
     default:
       return {
-        label: "Not evaluated yet",
-        sentence: "This claim has no decision yet.",
+        label: t("decision.none.label"),
+        sentence: t("decision.none.sentence"),
         tone: "inconclusive",
       };
   }
@@ -75,77 +83,75 @@ export interface ReasonCopy {
 export function reasonCopy(reason: ReasonCode | ""): ReasonCopy {
   switch (reason) {
     case "threshold_crossed":
-      return {
-        text: "At least one reading in the observation period met the policy's threshold.",
-      };
+      return { text: t("reason.thresholdCrossed") };
     case "threshold_not_crossed":
-      return {
-        text: "No reading in the observation period met the policy's threshold.",
-      };
+      return { text: t("reason.thresholdNotCrossed") };
     case "source_conflict":
       return {
-        text: "The eligible sources disagreed about whether the threshold was crossed, and the policy does not define a tie-break.",
-        resolve:
-          "Dispute the decision with a reason if you believe one source should take precedence.",
+        text: t("reason.sourceConflict"),
+        resolve: t("reason.sourceConflict.resolve"),
       };
     case "missing_observations":
       return {
-        text: "The evidence does not cover the whole observation period, so the threshold cannot be judged.",
-        resolve:
-          "Retry the evaluation later, or dispute with a source that does cover the period.",
+        text: t("reason.missingObservations"),
+        resolve: t("reason.missingObservations.resolve"),
       };
     case "location_mismatch":
       return {
-        text: "The reported station is outside the distance this policy allows from the stated location.",
-        resolve: "Dispute if you believe the station is in fact the right location.",
+        text: t("reason.locationMismatch"),
+        resolve: t("reason.locationMismatch.resolve"),
       };
     case "sources_unreachable":
       return {
-        text: "None of the eligible sources could be reached, so there was nothing to evaluate.",
-        resolve: "Retry the evaluation - this one is usually temporary.",
+        text: t("reason.sourcesUnreachable"),
+        resolve: t("reason.sourcesUnreachable.resolve"),
       };
     default:
-      return { text: "No reason has been recorded yet." };
+      return { text: t("reason.none") };
   }
 }
 
 // --- checks ----------------------------------------------------------------
 
-const CHECK_LABELS: Record<CheckName, string> = {
-  threshold_crossed: "Threshold crossed",
-  period_covered: "Period covered",
-  location_match: "Location match",
-  source_agreement: "Source agreement",
-  data_completeness: "Data completeness",
-};
+const CHECK_LABEL_KEY = {
+  threshold_crossed: "check.thresholdCrossed.label",
+  period_covered: "check.periodCovered.label",
+  location_match: "check.locationMatch.label",
+  source_agreement: "check.sourceAgreement.label",
+  data_completeness: "check.dataCompleteness.label",
+} as const satisfies Record<CheckName, string>;
 
-const CHECK_BLURB: Record<CheckName, string> = {
-  threshold_crossed: "Whether a reading met the policy threshold.",
-  period_covered: "Whether the evidence spans the whole observation period.",
-  location_match: "Whether the reported station matches the policy location.",
-  source_agreement: "Whether the eligible sources agreed with each other.",
-  data_completeness: "Whether any observation is missing from the period.",
-};
+const CHECK_BLURB_KEY = {
+  threshold_crossed: "check.thresholdCrossed.blurb",
+  period_covered: "check.periodCovered.blurb",
+  location_match: "check.locationMatch.blurb",
+  source_agreement: "check.sourceAgreement.blurb",
+  data_completeness: "check.dataCompleteness.blurb",
+} as const satisfies Record<CheckName, string>;
 
 export function checkLabel(name: CheckName): string {
-  return CHECK_LABELS[name] ?? name;
+  const key = CHECK_LABEL_KEY[name];
+  // Falls back to the raw name for an enum value this build does not know.
+  return key ? t(key) : name;
 }
 
 export function checkBlurb(name: CheckName): string {
-  return CHECK_BLURB[name] ?? "";
+  const key = CHECK_BLURB_KEY[name];
+  return key ? t(key) : "";
 }
-
-const STATUS_TEXT: Record<CheckStatus, string> = {
-  pass: "Passed",
-  fail: "Failed",
-  unclear: "Unclear",
-};
 
 export function checkStatusText(status: CheckStatus): string {
-  return STATUS_TEXT[status] ?? "Unclear";
+  switch (status) {
+    case "pass":
+      return t("check.status.pass");
+    case "fail":
+      return t("check.status.fail");
+    default:
+      return t("check.status.unclear");
+  }
 }
 
-/** Icon glyph so status is never conveyed by colour alone. */
+/** Icon glyph so status is never conveyed by colour alone. Not translated. */
 export function checkStatusIcon(status: CheckStatus): string {
   switch (status) {
     case "pass":
@@ -165,48 +171,23 @@ export interface StateCopy {
   blurb: string;
 }
 
+const STATE_KEY = {
+  created: "state.created",
+  pending_evaluation: "state.pendingEvaluation",
+  evidence_collected: "state.evidenceCollected",
+  decided_confirmed: "state.decidedConfirmed",
+  decided_not_confirmed: "state.decidedNotConfirmed",
+  inconclusive: "state.inconclusive",
+  disputed: "state.disputed",
+  settled: "state.settled",
+} as const satisfies Record<Exclude<ClaimState, "">, string>;
+
 export function stateCopy(state: ClaimState | ""): StateCopy {
-  switch (state) {
-    case "created":
-      return {
-        label: "Created",
-        blurb: "The claim exists. Evidence has not been requested yet.",
-      };
-    case "pending_evaluation":
-      return {
-        label: "Evaluating",
-        blurb: "Validators are fetching the evidence and comparing results.",
-      };
-    case "evidence_collected":
-      return {
-        label: "Evidence collected",
-        blurb: "The observations were retrieved. No decision has been reached yet.",
-      };
-    case "decided_confirmed":
-      return {
-        label: "Decision: confirmed",
-        blurb: "A decision has been reached and accepted by validators.",
-      };
-    case "decided_not_confirmed":
-      return {
-        label: "Decision: not confirmed",
-        blurb: "A decision has been reached and accepted by validators.",
-      };
-    case "inconclusive":
-      return {
-        label: "Decision: inconclusive",
-        blurb: "A decision has been reached: the evidence does not settle the question.",
-      };
-    case "disputed":
-      return {
-        label: "Disputed",
-        blurb: "The decision is being challenged and will be re-evaluated.",
-      };
-    case "settled":
-      return { label: "Settled", blurb: "The payout for this claim has been made." };
-    default:
-      return { label: "Unknown", blurb: "This state is not recognised." };
+  const base = state ? STATE_KEY[state] : undefined;
+  if (!base) {
+    return { label: t("state.unknown.label"), blurb: t("state.unknown.blurb") };
   }
+  return { label: t(`${base}.label`), blurb: t(`${base}.blurb`) };
 }
 
 // --- settlement ------------------------------------------------------------
@@ -214,17 +195,17 @@ export function stateCopy(state: ClaimState | ""): StateCopy {
 export function settlementCopy(state: SettlementState | ""): string {
   switch (state) {
     case "not_settled":
-      return "Not settled";
+      return t("settlement.notSettled");
     case "payout_emitted":
       // Deliberately not "settling" or "paid": the message is out, delivery is
       // not verified. See the contract's confirm_settlement docstring.
-      return "Payout emitted - delivery not yet verified";
+      return t("settlement.payoutEmitted");
     case "settled":
-      return "Settled";
+      return t("settlement.settled");
     case "settlement_failed":
-      return "Payout failed - retryable";
+      return t("settlement.failed");
     default:
-      return "Unknown";
+      return t("settlement.unknown");
   }
 }
 
@@ -235,46 +216,45 @@ export function dataModeCopy(mode: DataMode | ""): {
   blurb: string;
 } {
   if (mode === "live") {
-    return {
-      label: "Live",
-      blurb:
-        "Values are fetched from the source at evaluation time. The result reflects the world now, and can change if you re-evaluate.",
-    };
+    return { label: t("datamode.live.label"), blurb: t("datamode.live.blurb") };
   }
   return {
-    label: "Historical simulation",
-    blurb:
-      "Values come from archived observations for a window that is entirely in the past - not a live feed. The contract re-fetches the archive each time a claim is evaluated, so a provider revising its own history would be reflected: this is not a frozen dataset.",
+    label: t("datamode.historical.label"),
+    blurb: t("datamode.historical.blurb"),
   };
 }
 
+/** Glyph only, so it is identical across locales. */
 export function dataModeIcon(mode: DataMode | ""): string {
   return mode === "live" ? "◉" : "▤";
 }
 
 // --- aggregation / comparator ---------------------------------------------
 
-const AGGREGATION_TEXT: Record<string, string> = {
-  max_single: "highest single reading on any day",
-  cumulative: "total across the whole period",
-  consecutive_days: "longest run of consecutive days",
-};
+const AGGREGATION_KEY = {
+  max_single: "agg.maxSingle",
+  cumulative: "agg.cumulative",
+  consecutive_days: "agg.consecutiveDays",
+} as const;
 
 export function aggregationText(agg: string): string {
-  return AGGREGATION_TEXT[agg] ?? agg;
+  const key = AGGREGATION_KEY[agg as keyof typeof AGGREGATION_KEY];
+  return key ? t(key) : agg;
 }
 
-const COMPARATOR_TEXT: Record<string, string> = {
-  gt: "more than",
-  gte: "at least",
-  lt: "less than",
-  lte: "at most",
-};
+const COMPARATOR_KEY = {
+  gt: "cmp.gt",
+  gte: "cmp.gte",
+  lt: "cmp.lt",
+  lte: "cmp.lte",
+} as const;
 
 export function comparatorText(cmp: string): string {
-  return COMPARATOR_TEXT[cmp] ?? cmp;
+  const key = COMPARATOR_KEY[cmp as keyof typeof COMPARATOR_KEY];
+  return key ? t(key) : cmp;
 }
 
+/** Mathematical symbols, identical in every locale. */
 const COMPARATOR_SYMBOL: Record<string, string> = {
   gt: ">",
   gte: "≥",
@@ -289,6 +269,9 @@ export function comparatorSymbol(cmp: string): string {
 /**
  * The one-sentence policy summary the user confirms instead of raw fields.
  * Mirrors the contract's own `condition_text` intent.
+ *
+ * The sentence is assembled through `t()` with named placeholders rather than by
+ * concatenation, because word order differs between the four shipped locales.
  */
 export function policySentence(params: {
   location_name: string;
@@ -300,16 +283,30 @@ export function policySentence(params: {
   period_end: string;
   source_ids: string[];
 }): string {
-  const sources =
-    params.source_ids.length === 0
-      ? "no sources"
-      : params.source_ids.length === 1
-        ? params.source_ids[0]
-        : `${params.source_ids.slice(0, -1).join(", ")} and ${params.source_ids[params.source_ids.length - 1]}`;
+  let sources: string;
+  if (params.source_ids.length === 0) {
+    sources = t("policy.sources.none");
+  } else if (params.source_ids.length === 1) {
+    sources = params.source_ids[0]!;
+  } else {
+    sources = t("policy.sources.two", {
+      first: params.source_ids.slice(0, -1).join(", "),
+      last: params.source_ids[params.source_ids.length - 1]!,
+    });
+  }
   // Use the shared scaled-integer formatter so a 1.00 mm threshold never reads
   // as "1 mm". Threshold is stored scaled by 100.
   const threshold = fromScaled(params.threshold_scaled);
-  return `Confirmed if the ${aggregationText(params.aggregation)} at ${params.location_name} is ${comparatorText(params.comparator)} ${threshold} ${params.unit} on any day between ${params.period_start} and ${params.period_end}, using ${sources}.`;
+  return t("policy.sentence", {
+    aggregation: aggregationText(params.aggregation),
+    location: params.location_name,
+    comparator: comparatorText(params.comparator),
+    threshold,
+    unit: params.unit,
+    start: params.period_start,
+    end: params.period_end,
+    sources,
+  });
 }
 
 // --- errors ----------------------------------------------------------------
@@ -328,40 +325,36 @@ export interface ErrorMapping {
 export function mapError(error: string): ErrorMapping {
   const raw = error.trim();
   if (!raw) {
-    return { message: "Something did not complete.", action: "retry", retryLabel: "Try again" };
+    return { message: t("error.empty"), action: "retry", retryLabel: t("common.retry") };
   }
   const [prefix = "", ...rest] = raw.split(":");
   const reason = rest.join(":").trim();
   const head = prefix.trim().toUpperCase();
 
   if (head === "EXPECTED") {
-    return { message: reason || "That request is not allowed.", action: "fix" };
+    return { message: reason || t("error.expected"), action: "fix" };
   }
   if (head === "EXTERNAL") {
     return {
-      message: "A data source could not be reached, so there was nothing to evaluate.",
+      message: t("error.external"),
       action: "retry",
-      retryLabel: "Try again",
+      retryLabel: t("common.retry"),
     };
   }
   if (head === "TRANSIENT") {
     return {
-      message: "There was a temporary problem on the network.",
+      message: t("error.transient"),
       action: "retry",
-      retryLabel: "Try again",
+      retryLabel: t("common.retry"),
     };
   }
   if (head === "LLM_ERROR") {
-    return {
-      message: "The evaluation could not be completed.",
-      action: "retry",
-      retryLabel: "Try again",
-    };
+    return { message: t("error.llm"), action: "retry", retryLabel: t("common.retry") };
   }
   return {
-    message: "That action could not be completed.",
+    message: t("error.generic"),
     action: "retry",
-    retryLabel: "Try again",
+    retryLabel: t("common.retry"),
   };
 }
 

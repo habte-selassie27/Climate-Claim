@@ -446,12 +446,68 @@ absent (as on CI) only `.env.example` is checked and nothing is skipped.
 
 ---
 
+## Language and theme
+
+The app ships in **English, Spanish, French and German**, with a light and a dark
+theme.
+
+### Language
+
+Pick a language from the control in the header. The choice is remembered in
+`localStorage`; on a first visit the app negotiates from your browser's languages
+(`es-419` resolves to Spanish, and so on). Each language is labelled in **itself**
+— "Español", "Français", "Deutsch" — because a switcher reading "Spanish" is
+useless to someone who only reads Spanish.
+
+Every user-visible string lives in `src/i18n/locales/`. `en.ts` is the source of
+truth and `MessageKey` is derived from it, so every other locale is typed as
+`Record<MessageKey, string>`:
+
+```ts
+export const fr: Dictionary = { /* every key, or this will not compile */ }
+```
+
+That is deliberate. **A missing translation is a compile error**, not a silent
+fall-back to English — which is the failure mode that makes a multi-language app
+worse than an English-only one, namely a screen half in Spanish and half in
+English. `src/i18n/i18n.test.ts` additionally asserts that all four locales use
+the same `{placeholder}` set, which the type system cannot catch.
+
+Contract enums (decisions, reason codes, check statuses, claim states) are mapped
+in `domain/copy.ts`, which now reads through `t()` while keeping its exported API
+unchanged. Raw enum values are still never rendered to a user.
+
+### Theme
+
+The control cycles **System → Light → Dark**. "System" follows your OS setting and
+keeps following it if you change it mid-session; an explicit choice sticks. The
+choice is remembered, and an inline script in `index.html` applies it *before
+first paint* so a dark-theme visitor never gets a white flash.
+
+Theming is a token override, not a second stylesheet. `src/styles/global.css`
+already expressed everything through `--` design tokens, so the dark theme is a
+single `[data-theme="dark"]` block redefining 20 of them. Accents are **lightened**
+rather than dimmed, because a dimmed accent on a dark field loses the contrast it
+has on paper.
+
+Two extra tokens, `--on-accent` and `--on-alert`, exist because dark mode lightens
+the accents: white text on a lightened blue would fail contrast, so the
+text-on-fill colour is a token in both themes. Every colour pair in both themes
+was checked against WCAG AA.
+
+> Known pre-existing issue: in the **light** theme, `--amber-flag` on white
+> measures 3.59:1, below the 4.5:1 AA threshold for body text. It predates this
+> work and was not changed, since it is a brand-colour decision. Darkening the
+> light amber to about `#9c650a` would pass.
+
+---
+
 ## Testing
 
 ```bash
 GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/climateclaim.py   # 3 lint checks + SDK validation
 python3.12 -m pytest tests/direct/ -q                                 # 200 direct tests
-cd frontend && npm test && npx tsc -b --noEmit && npm run build          # unit tests + typecheck + build
+cd frontend && npm test && npx tsc -b --noEmit && npm run build          # 76 unit tests + typecheck + build
 ```
 
 > The contract suite needs **Python 3.12+** (`genlayer_py` imports

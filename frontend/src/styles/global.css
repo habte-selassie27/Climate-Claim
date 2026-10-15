@@ -22,6 +22,12 @@
   --hail: #c7d3db;
   --surface: #ffffff;
 
+  /* Text drawn ON a solid accent fill (buttons, badges). Kept as its own token
+     because the dark palette lightens --isobar and --threshold-ink for contrast
+     against a dark page; white on a lightened accent would fail WCAG AA. */
+  --on-accent: #ffffff;
+  --on-alert: #ffffff;
+
   /* Derived, for borders and washes. Not new hues, just tints. */
   --rain-slate-70: #5b6a77;
   --rain-slate-45: #8b98a3;
@@ -57,6 +63,46 @@
   --focus-offset: 2px;
 
   --shadow-panel: 0 1px 2px rgba(38, 50, 61, 0.06);
+  --shadow-sheet: 0 6px 20px rgba(38, 50, 61, 0.18);
+}
+
+/* ==========================================================================
+   Dark theme.
+
+   The palette is inverted in ROLE, not mechanically: the dark background is a
+   cool near-black so the ink reads as light, while the accents are LIGHTENED
+   rather than dimmed, because a dimmed accent on a dark field loses the
+   contrast it has on paper. Each value below is checked against its actual
+   background, not copied from the light ramp by arithmetic.
+
+   --on-accent / --on-alert flip to dark ink because the accents they sit on
+   are now light. That is the reason those two tokens exist.
+   ========================================================================== */
+
+[data-theme="dark"] {
+  --gauge-paper: #131a21;
+  --rain-slate: #e7eef4;
+  --isobar: #74abd4;
+  --threshold-ink: #e88b72;
+  --lichen: #74b98e;
+  --amber-flag: #dca94c;
+  --hail: #2b3742;
+  --surface: #1a232c;
+
+  --on-accent: #0d1419;
+  --on-alert: #1c0f0b;
+
+  --rain-slate-70: #adbbc8;
+  --rain-slate-45: #93a1af;
+  --hail-soft: #242f39;
+  --lichen-wash: #1c2b23;
+  --amber-wash: #2c2417;
+  --threshold-wash: #2f1f1a;
+  --isobar-wash: #17242f;
+
+  /* Elevation reads as a darker halo on a dark field, not a lighter glow. */
+  --shadow-panel: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-sheet: 0 6px 20px rgba(0, 0, 0, 0.6);
 }
 
 * {
@@ -587,7 +633,7 @@ main {
 .timeline-current .step-marker {
   border-color: var(--isobar);
   background: var(--isobar);
-  color: var(--surface);
+  color: var(--on-accent);
 }
 
 .step-name {
@@ -685,7 +731,7 @@ td.num-col {
   border-radius: var(--radius-sm);
   border: 1px solid var(--isobar);
   background: var(--isobar);
-  color: #fff;
+  color: var(--on-accent);
   cursor: pointer;
 }
 
@@ -1228,7 +1274,7 @@ details.disclosure > summary {
   background: var(--surface);
   border: 1px solid var(--hail);
   border-radius: var(--radius-md);
-  box-shadow: 0 6px 20px rgba(38, 50, 61, 0.18);
+  box-shadow: var(--shadow-sheet);
   padding: var(--space-4);
 }
 
@@ -1360,7 +1406,7 @@ details.disclosure > summary {
 
 .badge-wrongnet:hover:not(:disabled) {
   background: var(--threshold-ink);
-  color: #fff;
+  color: var(--on-alert);
 }
 
 .badge-wrongnet:disabled {
@@ -1421,4 +1467,59 @@ details.disclosure > summary {
   border-left: 4px solid var(--isobar);
   border-radius: var(--radius-sm);
   padding: var(--space-3);
+}
+/* --- language + theme controls ------------------------------------------- */
+
+/* Both controls sit in the status cluster beside the wallet button and are sized
+   to match it. They rely on the existing token set, so they theme for free. */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--hail);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--rain-slate);
+  font-size: var(--step-1);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.theme-toggle:hover {
+  border-color: var(--isobar);
+  color: var(--isobar);
+}
+
+.lang-switch select {
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--hail);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--rain-slate);
+  font-family: var(--font-ui);
+  font-size: var(--step--1);
+  cursor: pointer;
+}
+
+/* A native select renders its arrow with the OS palette, which disappears on a
+   dark background; setting both colour-scheme values makes the popup and the
+   arrow follow the theme. */
+[data-theme="dark"] .lang-switch select {
+  color-scheme: dark;
+}
+
+[data-theme="light"] .lang-switch select {
+  color-scheme: light;
+}
+
+/* The focus ring is defined once for every interactive element, so the new
+   controls match the rest of the app rather than relying on the UA default. */
+.theme-toggle:focus-visible,
+.lang-switch select:focus-visible {
+  outline: var(--focus);
+  outline-offset: var(--focus-offset);
 }

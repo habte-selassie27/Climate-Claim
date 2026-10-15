@@ -2,6 +2,7 @@ import { useId, useMemo, useState } from "react";
 import type { DemoSeries } from "../fixtures/demoScenarios";
 import { comparatorSymbol } from "../domain/copy";
 import { dateRange, fromScaled } from "../domain/format";
+import { useI18n } from "../i18n/I18nProvider";
 
 interface Props {
   series: DemoSeries[];
@@ -66,6 +67,7 @@ export function EvidenceChart({
   unit,
   caption,
 }: Props) {
+  const { t } = useI18n();
   const [showTable, setShowTable] = useState(false);
   const titleId = useId();
 
@@ -123,17 +125,22 @@ export function EvidenceChart({
   const empty = series.length === 0 || dates.length === 0;
 
   const summary = useMemo(() => {
-    if (empty) return "There is no evidence to plot for this claim.";
-    const parts = series.map(
-      (s, i) =>
-        `${s.label} crossed the threshold on ${crossingCount[i]} ${crossingCount[i] === 1 ? "day" : "days"}`,
+    if (empty) return t("evidence.noData");
+    const parts = series.map((s, i) =>
+      t(crossingCount[i] === 1 ? "evidence.summaryCrossedOne" : "evidence.summaryCrossedMany", {
+        label: s.label,
+        days: crossingCount[i],
+      }),
     );
     const gaps = series
       .map((s) => dates.filter((d) => s.daily[d] === null).length)
       .reduce((a, b) => a + b, 0);
-    const tail = gaps > 0 ? ` ${gaps} reading${gaps === 1 ? " is" : "s are"} missing and not estimated.` : "";
+    const tail =
+      gaps > 0
+        ? ` ${t(gaps === 1 ? "evidence.summaryMissingOne" : "evidence.summaryMissingMany", { days: gaps })}`
+        : "";
     const conflict = conflictDays.size
-      ? ` The sources disagree about crossing on ${conflictDays.size} day${conflictDays.size === 1 ? "" : "s"}.`
+      ? ` ${t(conflictDays.size === 1 ? "evidence.summaryConflictOne" : "evidence.summaryConflictMany", { days: conflictDays.size })}`
       : "";
     return `${parts.join("; ")}.${conflict}${tail}`;
   }, [series, dates, crossingCount, conflictDays.size, empty]);
@@ -141,37 +148,40 @@ export function EvidenceChart({
   return (
     <section className="chart-shell" aria-labelledby={titleId}>
       <div className="panel-head">
-        <h3 id={titleId}>Evidence chart</h3>
+        <h3 id={titleId}>{t("evidence.chart")}</h3>
         <button
           type="button"
           className="copy-btn"
           onClick={() => setShowTable((v) => !v)}
           aria-pressed={showTable}
         >
-          {showTable ? "Show chart" : "Show as table"}
+          {showTable ? t("evidence.showChart") : t("evidence.showTable")}
         </button>
       </div>
 
       {empty ? (
         <div className="empty" data-testid="chart-empty">
-          There is no evidence to plot for this claim yet.
+          {t("evidence.noData")}
         </div>
       ) : showTable ? (
         <div className="table-wrap">
           <table data-testid="chart-table">
             <caption>
-              Readings per source, in {unit}, against a threshold of{" "}
-              {comparatorSymbol(comparator)} {threshold} {unit}.
+              {t("evidence.captionTable", {
+                unit,
+                comparator: comparatorSymbol(comparator),
+                threshold,
+              })}
             </caption>
             <thead>
               <tr>
-                <th scope="col">Date</th>
+                <th scope="col">{t("evidence.col.date")}</th>
                 {series.map((s) => (
                   <th scope="col" key={s.sourceId} className="num-col">
                     {s.label}
                   </th>
                 ))}
-                <th scope="col">Note</th>
+                <th scope="col">{t("evidence.col.note")}</th>
               </tr>
             </thead>
             <tbody>

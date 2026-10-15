@@ -16,20 +16,21 @@ import { policySentence } from "../domain/copy";
 import { fromScaled, microDegrees, periodLabel } from "../domain/format";
 import { activeNetwork } from "../config/network";
 import type { Claim, Policy, SourceDef } from "../domain/types";
+import { useI18n } from "../i18n/I18nProvider";
 
 const net = activeNetwork();
 
 export function Policies() {
+  const { t } = useI18n();
   const policies = useRead(() => listPolicies(), [], snapshotPolicies());
   const rows = (policies.data ?? []) as Policy[];
 
   return (
     <div className="stack">
       <header>
-        <h1>Policies</h1>
+        <h1>{t("policies.h1")}</h1>
         <p className="lede">
-          A policy fixes the location, period, threshold, aggregation rule and eligible sources. Once
-          a claim references it, it cannot be changed.
+{t("policies.lede")}
         </p>
         <OriginBadge
           mode={policies.origin}
@@ -42,7 +43,7 @@ export function Policies() {
           <Link className="btn" to="/policies/new">
             Create a policy
           </Link>
-          <span className="small muted">Owner-only: the contract registers policies from its owner.</span>
+          <span className="small muted">{t("policies.ownerOnlyNote")}</span>
         </div>
       </header>
 
@@ -53,9 +54,7 @@ export function Policies() {
           ))}
         </div>
       ) : rows.length === 0 ? (
-        <div className="empty">
-          No policies yet. Open the demo to see what a policy produces.
-        </div>
+        <div className="empty">{t("policies.empty")}</div>
       ) : (
         <div className="panel panel-flush">
           <div className="table-wrap">
@@ -65,14 +64,14 @@ export function Policies() {
               </caption>
               <thead>
                 <tr>
-                  <th scope="col">Policy</th>
-                  <th scope="col">Location</th>
-                  <th scope="col">Condition</th>
-                  <th scope="col">Data mode</th>
+                  <th scope="col">{t("policies.col.policy")}</th>
+                  <th scope="col">{t("policies.col.location")}</th>
+                  <th scope="col">{t("policies.col.condition")}</th>
+                  <th scope="col">{t("policies.col.dataMode")}</th>
                   <th scope="col" className="num-col">
                     Claims
                   </th>
-                  <th scope="col">Status</th>
+                  <th scope="col">{t("policies.col.status")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -109,6 +108,7 @@ export function Policies() {
 }
 
 export function PolicyDetail() {
+  const { t } = useI18n();
   const { id = "" } = useParams();
   const policies = useRead(() => listPolicies(), [], snapshotPolicies());
   const policy = (policies.data ?? []).find((p: Policy) => p.id === id);
@@ -135,9 +135,9 @@ export function PolicyDetail() {
   if (!policy) {
     return (
       <div className="stack">
-        <h1>Policy not found</h1>
+        <h1>{t("policies.notFound.h")}</h1>
         <div className="alert alert-warn">
-          <strong>No policy called “{id}”</strong>
+          <strong>{t("policies.notFound.title", { id })}</strong>
           <p>
             It may not exist, or the network could not be reached.{" "}
             {policies.liveError ? <span className="mono">{policies.liveError}</span> : null}
@@ -154,7 +154,7 @@ export function PolicyDetail() {
     <div className="stack">
       <header>
         <div className="tag-row" style={{ marginBottom: "var(--space-2)" }}>
-          <h1 style={{ margin: 0 }}>Policy {policy.id}</h1>
+          <h1 style={{ margin: 0 }}>{t("policies.detail.h", { id: policy.id })}</h1>
           <DataModeBadge mode={policy.data_mode} />
           <OriginBadge
             mode={policies.origin}
@@ -180,7 +180,7 @@ export function PolicyDetail() {
 
       {policy.claim_count > 0 ? (
         <div className="alert alert-info">
-          <strong>This policy is referenced by a claim, so it can no longer be changed.</strong>
+          <strong>{t("policies.detail.locked")}</strong>
           <p>
             Immutability after first use is what makes a decision auditable later: the terms a
             validator judged against cannot drift.
@@ -192,53 +192,53 @@ export function PolicyDetail() {
         <div className="stack">
           <div className="panel">
             <div className="panel-head">
-              <h2>Terms</h2>
+              <h2>{t("policies.terms.h")}</h2>
               <span className="badge">{policy.status}</span>
             </div>
             <dl className="terms">
-              <dt>Condition</dt>
+              <dt>{t("policies.terms.condition")}</dt>
               <dd>{policy.condition_text}</dd>
-              <dt>Location</dt>
+              <dt>{t("policies.terms.location")}</dt>
               <dd>
                 {policy.location_name}{" "}
                 <span className="mono num">
                   ({microDegrees(policy.lat_scaled)}, {microDegrees(policy.lon_scaled)})
                 </span>
               </dd>
-              <dt>Distance tolerance</dt>
+              <dt>{t("policies.terms.tolerance")}</dt>
               <dd className="num">{policy.tolerance_m} m</dd>
-              <dt>Observation period</dt>
+              <dt>{t("policies.terms.period")}</dt>
               <dd className="num">
                 {periodLabel(policy.period_start, policy.period_end)} {policy.timezone}
               </dd>
-              <dt>Metric</dt>
+              <dt>{t("policies.terms.metric")}</dt>
               <dd>
                 {policy.metric} ({policy.unit})
               </dd>
-              <dt>Aggregation</dt>
+              <dt>{t("policies.terms.aggregation")}</dt>
               <dd>{policy.aggregation.replace("_", " ")}</dd>
-              <dt>Eligible sources</dt>
+              <dt>{t("policies.terms.sources")}</dt>
               <dd>{policy.source_ids.join(", ")}</dd>
-              <dt>Agreement rule</dt>
+              <dt>{t("policies.terms.agreement")}</dt>
               <dd>{policy.agreement_rule}</dd>
-              <dt>Minimum sources</dt>
+              <dt>{t("policies.terms.minSources")}</dt>
               <dd className="num">{policy.min_sources}</dd>
-              <dt>Payout</dt>
+              <dt>{t("policies.terms.payout")}</dt>
               <dd className="num">
                 {policy.payout_amount > 0 ? `${policy.payout_amount} base units` : "none"}
               </dd>
-              <dt>Beneficiary</dt>
+              <dt>{t("policies.terms.beneficiary")}</dt>
               <dd className="mono">{policy.beneficiary}</dd>
             </dl>
           </div>
 
           <div className="panel">
             <div className="panel-head">
-              <h2>Eligible sources</h2>
+              <h2>{t("policies.sources.h")}</h2>
               <span className="small muted">from the contract's registry</span>
             </div>
             {policySources.length === 0 ? (
-              <p className="small muted">No registry entries matched this policy's sources.</p>
+              <p className="small muted">{t("policies.noRegistryMatch")}</p>
             ) : (
               policySources.map((s) => <SourceRegistryCard key={s.id} source={s} />)
             )}
@@ -250,10 +250,10 @@ export function PolicyDetail() {
 
           <div className="panel">
             <div className="panel-head">
-              <h2>Claims on this policy</h2>
+              <h2>{t("policies.claims.h")}</h2>
             </div>
             {onPolicy.length === 0 ? (
-              <div className="empty">No claims yet on this policy.</div>
+              <div className="empty">{t("policies.noClaimsYet")}</div>
             ) : (
               <ul className="checklist">
                 {onPolicy.map((c) => (

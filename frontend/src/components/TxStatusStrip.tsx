@@ -1,5 +1,6 @@
 import type { TxPhase } from "../services/txStatus";
-import { PHASE_ICON, PHASE_TEXT, PHASE_HINT, isTerminal } from "../services/txStatus";
+import { PHASE_ICON, phaseText, phaseHint, isTerminal } from "../services/txStatus";
+import { useI18n } from "../i18n/I18nProvider";
 
 interface Props {
   phase: TxPhase;
@@ -26,12 +27,14 @@ interface Props {
  * vice versa, so both are surfaced rather than inferred from one another.
  */
 export function TxStatusStrip({ phase, finalized, hasDecision, hash }: Props) {
+  const { t } = useI18n();
+
   const chip = finalized
-    ? { text: "Final", icon: "●", cls: "finality-final" }
+    ? { text: t("tx.final.final"), icon: "●", cls: "finality-final" }
     : hasDecision || claimIsDecided(phase)
-      ? { text: "Accepted — can still be appealed", icon: "◕", cls: "finality-accepted" }
+      ? { text: t("tx.final.accepted"), icon: "◕", cls: "finality-accepted" }
       : {
-          text: "Not final yet",
+          text: t("tx.final.notYet"),
           icon: PHASE_ICON[phase],
           cls: phase === "failed" ? "finality-failed" : "finality-pending",
         };
@@ -45,8 +48,8 @@ export function TxStatusStrip({ phase, finalized, hasDecision, hash }: Props) {
       {hash ? <span className="small muted mono">{hash.slice(0, 12)}…</span> : null}
       {phase !== "idle" && !finalized ? (
         <span className="small muted" role="status">
-          {PHASE_TEXT[phase]}
-          {PHASE_HINT[phase] ? ` — ${PHASE_HINT[phase]}` : ""}
+          {phaseText(phase)}
+          {phaseHint(phase) ? ` — ${phaseHint(phase)}` : ""}
           {isTerminal(phase) ? "" : ""}
         </span>
       ) : null}

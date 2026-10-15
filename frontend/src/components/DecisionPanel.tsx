@@ -3,6 +3,7 @@ import { decisionCopy, errorDetail, mapError, reasonCopy, stateCopy } from "../d
 import { fromScaled, periodLabel } from "../domain/format";
 import type { Policy } from "../domain/types";
 import { TxStatusStrip } from "./TxStatusStrip";
+import { useI18n } from "../i18n/I18nProvider";
 
 interface Props {
   claim: Claim;
@@ -30,13 +31,14 @@ const TONE_ICON: Record<string, string> = {
  *    for a policy holder and is part of the auditable record.
  */
 export function DecisionPanel({ claim, policy, txPhase = "idle", evalError = "" }: Props) {
+  const { t } = useI18n();
   const copy = decisionCopy(claim.decision as Decision);
   const reason = reasonCopy(claim.reason_code as ReasonCode);
   const state = stateCopy(claim.state);
 
   return (
     <section className={`decision decision-${copy.tone}`} aria-labelledby="decision-heading">
-      <p className="eyebrow">Decision</p>
+      <p className="eyebrow">{t("decision.eyebrow")}</p>
       <h2 className="decision-label" id="decision-heading">
         <span aria-hidden="true">{TONE_ICON[copy.tone]}</span>
         {copy.label}
@@ -50,45 +52,45 @@ export function DecisionPanel({ claim, policy, txPhase = "idle", evalError = "" 
 
       {claim.summary ? (
         <p className="small" data-testid="decision-summary">
-          <strong>In the validator's words:</strong> {claim.summary}
+          <strong>{t("decision.validatorWords")}</strong> {claim.summary}
         </p>
       ) : null}
 
       {evalError ? (
         <div className="alert alert-warn" role="status" data-testid="eval-error">
-          <strong>This evaluation did not complete</strong>
+          <strong>{t("decision.evalFailed")}</strong>
           <p>{mapError(evalError).message}</p>
           <details className="disclosure">
-            <summary>Details</summary>
-            <p className="small muted">
-              The stable contract error string is{" "}
-              <code>{errorDetail(evalError)}</code>. Retrying usually works when the source was
-              temporarily unavailable.
-            </p>
+            <summary>{t("common.details")}</summary>
+            <p className="small muted">{t("decision.errorDetail", { code: errorDetail(evalError) })}</p>
           </details>
         </div>
       ) : null}
 
       <dl className="terms">
-        <dt>Claim state</dt>
+        <dt>{t("decision.claimState")}</dt>
         <dd>{state.label}</dd>
-        <dt>Highest reading</dt>
+        <dt>{t("decision.highestReading")}</dt>
         <dd className="num">
           {fromScaled(claim.observed_value_scaled)} {policy.unit}
         </dd>
-        <dt>Threshold</dt>
+        <dt>{t("decision.threshold")}</dt>
         <dd className="num">
           {policy.comparator} {fromScaled(policy.threshold_scaled)} {policy.unit}
         </dd>
-        <dt>Observation period</dt>
+        <dt>{t("decision.period")}</dt>
         <dd className="num">
           {periodLabel(policy.period_start, policy.period_end)} {policy.timezone}
         </dd>
-        <dt>Evaluation round</dt>
+        <dt>{t("decision.round")}</dt>
         <dd className="num">{claim.eval_round}</dd>
       </dl>
 
-      <TxStatusStrip phase={txPhase} finalized={claim.finalized} hasDecision={Boolean(claim.decision)} />
+      <TxStatusStrip
+        phase={txPhase}
+        finalized={claim.finalized}
+        hasDecision={Boolean(claim.decision)}
+      />
     </section>
   );
 }

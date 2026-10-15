@@ -7,6 +7,7 @@ import { IDLE, type TxState } from "../services/txStatus";
 import { TxStatusPanel } from "./TxStatusPanel";
 import { activeNetwork } from "../config/network";
 import type { Policy } from "../domain/types";
+import { useI18n } from "../i18n/I18nProvider";
 
 const net = activeNetwork();
 
@@ -28,6 +29,7 @@ interface Props {
  * `find_claim` view performs the duplicate pre-check against live state.
  */
 export function StartClaimPanel({ policy, onChanged }: Props) {
+  const { t } = useI18n();
   const wallet = useWallet();
   const navigate = useNavigate();
   const [periodStart, setPeriodStart] = useState(policy.period_start);
@@ -87,18 +89,18 @@ export function StartClaimPanel({ policy, onChanged }: Props) {
   return (
     <div className="panel">
       <div className="panel-head">
-        <h2>Start a claim</h2>
+        <h2>{t("startClaim.heading")}</h2>
       </div>
 
       {retired ? (
         <p className="small muted">
-          This policy is retired, so no new claims can be started on it.
+          {t("startClaim.retired")}
         </p>
       ) : null}
 
       <div className="form-grid">
         <div className="field">
-          <label htmlFor="claim-period-start">Claim period start</label>
+          <label htmlFor="claim-period-start">{t("startClaim.periodStart")}</label>
           <input
             id="claim-period-start"
             type="date"
@@ -111,7 +113,7 @@ export function StartClaimPanel({ policy, onChanged }: Props) {
           />
         </div>
         <div className="field">
-          <label htmlFor="claim-period-end">Claim period end</label>
+          <label htmlFor="claim-period-end">{t("startClaim.periodEnd")}</label>
           <input
             id="claim-period-end"
             type="date"
@@ -148,7 +150,7 @@ export function StartClaimPanel({ policy, onChanged }: Props) {
           disabled={retired || busy || wallet.wrongNetwork || !wallet.connected}
           onClick={() => void submit()}
         >
-          Start a claim
+          {t("startClaim.heading")}
         </button>
       </div>
 
@@ -165,7 +167,7 @@ export function StartClaimPanel({ policy, onChanged }: Props) {
         <div style={{ marginTop: "var(--space-3)" }}>
           <TxStatusPanel
             state={tx}
-            actionLabel="Start a claim"
+            actionLabel={t("startClaim.heading")}
             onRetry={() => void submit()}
             onRefresh={onChanged}
           />

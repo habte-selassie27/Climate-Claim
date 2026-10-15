@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   IDLE,
-  PHASE_TEXT,
+  phaseText,
+  phaseHint,
   isTerminal,
   phaseForStatus,
   type TxPhase,
 } from "./txStatus";
+import { setLocale } from "../i18n";
 
 describe("phaseForStatus", () => {
   it("maps FINALIZED to finalized", () => {
@@ -60,23 +62,42 @@ describe("isTerminal", () => {
   });
 });
 
-describe("PHASE_TEXT", () => {
+describe("phase text", () => {
+  const phases: TxPhase[] = [
+    "idle",
+    "submitted",
+    "pending",
+    "accepted",
+    "finalized",
+    "failed",
+  ];
+
   it("has a distinct label for every phase", () => {
-    const phases: TxPhase[] = [
-      "idle",
-      "submitted",
-      "pending",
-      "accepted",
-      "finalized",
-      "failed",
-    ];
-    const labels = phases.map((p) => PHASE_TEXT[p]);
+    const labels = phases.map((p) => phaseText(p));
     expect(new Set(labels).size).toBe(phases.length);
+    labels.forEach((l) => expect(l.length).toBeGreaterThan(0));
   });
 
   it("keeps accepted and finalized textually distinct", () => {
-    expect(PHASE_TEXT.accepted).not.toBe(PHASE_TEXT.finalized);
-    expect(PHASE_TEXT.accepted).toMatch(/appeal/i);
+    expect(phaseText("accepted")).not.toBe(phaseText("finalized"));
+    // The accepted label must keep warning that an appeal is still possible.
+    // Matched across all four locales, because the word differs per language.
+    expect(phaseText("accepted")).toMatch(/appeal|impugn|contest|anfecht/i);
+  });
+
+  it("has no hint for idle and a hint for every other phase", () => {
+    expect(phaseHint("idle")).toBe("");
+    for (const p of phases.filter((x) => x !== "idle")) {
+      expect(phaseHint(p).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("is translated, not hard-coded English", () => {
+    const english = phaseText("pending");
+    setLocale("es");
+    const spanish = phaseText("pending");
+    setLocale("en");
+    expect(spanish).not.toBe(english);
   });
 });
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useWallet } from "../hooks/useWallet";
 import { activeNetwork } from "../config/network";
 import { EXPECTED_CHAIN_ID } from "../services/client";
+import { useI18n } from "../i18n/I18nProvider";
 
 const net = activeNetwork();
 
@@ -22,6 +23,7 @@ const net = activeNetwork();
  *    JavaScript (EIP-6963 security consideration).
  */
 export function WalletPanel() {
+  const { t } = useI18n();
   const wallet = useWallet();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -142,15 +144,15 @@ export function WalletPanel() {
           className="wallet-sheet"
           style={sheetStyle ? { top: sheetStyle.top, left: sheetStyle.left } : undefined}
           role="dialog"
-          aria-label="Wallet"
+          aria-label={t("wallet.heading")}
         >
           <div className="wallet-sheet-head">
-            <h2 className="wallet-sheet-title">Wallet</h2>
+            <h2 className="wallet-sheet-title">{t("wallet.heading")}</h2>
             <button
               type="button"
               className="copy-btn"
               onClick={() => setOpen(false)}
-              aria-label="Close wallet panel"
+              aria-label={t("wallet.closePanel")}
             >
               ✕
             </button>
@@ -170,7 +172,7 @@ export function WalletPanel() {
           ) : null}
 
           {/* --- wallet choice ------------------------------------------- */}
-          <h3 className="wallet-section">Detected wallets</h3>
+          <h3 className="wallet-section">{t("wallet.detected")}</h3>
           {wallet.wallets.length === 0 ? (
             <p className="small muted">
               No injected wallet found. A web page cannot list installed browser
@@ -196,7 +198,7 @@ export function WalletPanel() {
                       </span>
                       {isSelected ? <span className="wallet-check">✓</span> : null}
                       {!w.viaEip6963 ? (
-                        <span className="wallet-tag" title="Found via window.ethereum; this wallet does not implement EIP-6963.">
+                        <span className="wallet-tag" title={t("wallet.eip6963Title")}>
                           legacy
                         </span>
                       ) : null}
@@ -217,7 +219,7 @@ export function WalletPanel() {
           {/* --- connected account --------------------------------------- */}
           {wallet.connected ? (
             <>
-              <h3 className="wallet-section">Account</h3>
+              <h3 className="wallet-section">{t("wallet.account")}</h3>
               <div className="wallet-account">
                 <span className="wallet-address mono" title={wallet.address ?? ""}>
                   {wallet.address}
@@ -253,7 +255,7 @@ export function WalletPanel() {
                 {wallet.busy ? "Waiting for approval…" : "Connect"}
               </button>
               {!wallet.selected ? (
-                <span className="small muted">Choose a wallet above first.</span>
+                <span className="small muted">{t("wallet.chooseFirst")}</span>
               ) : null}
             </div>
           )}

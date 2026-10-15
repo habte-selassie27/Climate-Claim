@@ -1,6 +1,7 @@
 import type { EvidenceRecord, SourceDef } from "../domain/types";
 import { fromScaled, periodLabel } from "../domain/format";
 import { mapError } from "../domain/copy";
+import { useI18n } from "../i18n/I18nProvider";
 
 interface Props {
   evidence: EvidenceRecord[];
@@ -16,6 +17,7 @@ interface Props {
  * evaluated evidence — nothing on this table is display-only.
  */
 export function EvidenceTable({ evidence, sources }: Props) {
+  const { t } = useI18n();
   if (!evidence.length) {
     return (
       <div className="empty" data-testid="evidence-empty">
@@ -35,16 +37,16 @@ export function EvidenceTable({ evidence, sources }: Props) {
         </caption>
         <thead>
           <tr>
-            <th scope="col">Source</th>
-            <th scope="col">Station reported</th>
-            <th scope="col">Period</th>
+            <th scope="col">{t("evidenceTable.col.source")}</th>
+            <th scope="col">{t("evidenceTable.col.station")}</th>
+            <th scope="col">{t("evidenceTable.col.period")}</th>
             <th scope="col" className="num-col">
               Value
             </th>
-            <th scope="col">Unit</th>
-            <th scope="col">Days</th>
-            <th scope="col">Crossed</th>
-            <th scope="col">Status</th>
+            <th scope="col">{t("evidenceTable.col.unit")}</th>
+            <th scope="col">{t("evidenceTable.col.days")}</th>
+            <th scope="col">{t("evidenceTable.col.crossed")}</th>
+            <th scope="col">{t("evidenceTable.col.status")}</th>
           </tr>
         </thead>
         <tbody>

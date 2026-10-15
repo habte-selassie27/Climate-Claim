@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { truncateAddress, truncateHash } from "../domain/format";
+import { useI18n } from "../i18n/I18nProvider";
 
 interface Props {
   value: string;
@@ -30,6 +31,7 @@ export function CopyField({
   explorerAvailable = true,
   explorerNote,
 }: Props) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
 
   const copy = useCallback(() => {
@@ -67,19 +69,19 @@ export function CopyField({
         {display}
       </span>
       <button type="button" className="copy-btn" onClick={copy}>
-        {copied ? "Copied" : "Copy"}
+        {copied ? t("copy.copied") : t("copy.copy")}
       </button>
       {showExplorer && explorerAvailable ? (
         <a href={`${explorerUrl}/transaction/${value}`} target="_blank" rel="noreferrer noopener">
-          View on explorer
+          {t("copy.viewOnExplorer")}
         </a>
       ) : null}
       {showExplorer && !explorerAvailable ? (
         <span
           className="link-disabled"
-          title={explorerNote ?? "The explorer is not currently serving."}
+          title={explorerNote ?? t("copy.explorerNoteDefault")}
         >
-          Explorer link unavailable
+          {t("copy.explorerUnavailable")}
         </span>
       ) : null}
     </div>

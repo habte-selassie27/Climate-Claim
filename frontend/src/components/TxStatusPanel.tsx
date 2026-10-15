@@ -1,7 +1,8 @@
 import type { TxState } from "../services/txStatus";
-import { PHASE_ICON, PHASE_TEXT, isTerminal } from "../services/txStatus";
+import { PHASE_ICON, phaseText, phaseHint, isTerminal } from "../services/txStatus";
 import { mapError } from "../domain/copy";
 import { CopyField } from "./CopyField";
+import { useI18n } from "../i18n/I18nProvider";
 
 interface Props {
   state: TxState;
@@ -18,6 +19,7 @@ interface Props {
  * write says what happened and what to do next.
  */
 export function TxStatusPanel({ state, actionLabel, onRetry, onRefresh }: Props) {
+  const { t } = useI18n();
   const { phase, hash, error, retryable } = state;
 
   if (phase === "idle") return null;
@@ -33,25 +35,25 @@ export function TxStatusPanel({ state, actionLabel, onRetry, onRefresh }: Props)
       data-phase={phase}
     >
       <strong>
-        {actionLabel}: {PHASE_TEXT[phase]}
+        {actionLabel}: {phaseText(phase)}
       </strong>
 
       <p>
         <span aria-hidden="true">{PHASE_ICON[phase]}</span>{" "}
         {phase === "pending" || phase === "submitted"
-          ? "This can take a while. Validators fetch the sources independently and compare results."
+          ? t("tx.hint.pending")
           : phase === "accepted"
-            ? "Validators agreed. The result is not permanent until it is final."
+            ? t("tx.hint.accepted")
             : phase === "finalized"
-              ? "This result is permanent."
-              : (mapped?.message ?? "Nothing changed on chain.")}
+              ? t("tx.hint.finalized")
+              : (mapped?.message ?? phaseHint("failed"))}
       </p>
 
       {hash ? (
         <CopyField
           value={hash}
           kind="hash"
-          label="Transaction hash"
+          label={t("audit.txHash")}
           explorerUrl={undefined}
         />
       ) : null}
@@ -60,12 +62,12 @@ export function TxStatusPanel({ state, actionLabel, onRetry, onRefresh }: Props)
         <div className="btn-row">
           {retryable && onRetry ? (
             <button type="button" className="btn btn-secondary" onClick={onRetry}>
-              {mapped?.retryLabel ?? "Try again"}
+              {mapped?.retryLabel ?? t("common.retry")}
             </button>
           ) : null}
           {onRefresh ? (
             <button type="button" className="btn btn-secondary" onClick={onRefresh}>
-              Refresh status
+              {t("tx.refresh")}
             </button>
           ) : null}
         </div>
@@ -74,14 +76,14 @@ export function TxStatusPanel({ state, actionLabel, onRetry, onRefresh }: Props)
       {!isTerminal(phase) && onRefresh ? (
         <div className="btn-row">
           <button type="button" className="btn btn-secondary" onClick={onRefresh}>
-            Refresh status
+            {t("tx.refresh")}
           </button>
         </div>
       ) : null}
 
       {error ? (
         <details className="disclosure">
-          <summary>Details</summary>
+          <summary>{t("common.details")}</summary>
           <p className="small muted mono">{error}</p>
         </details>
       ) : null}

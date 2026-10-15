@@ -12,6 +12,7 @@ import { mapError, policySentence } from "../domain/copy";
 import { CONTRACT_ADDRESS } from "../config/contracts";
 import { activeNetwork } from "../config/network";
 import type { Claim, Policy } from "../domain/types";
+import { useI18n } from "../i18n/I18nProvider";
 
 const net = activeNetwork();
 
@@ -26,6 +27,7 @@ const net = activeNetwork();
  *    presented as a transaction.
  */
 export function Demo() {
+  const { t } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
   const requested = searchParams.get("scenario");
   const scenario = useMemo(() => {
@@ -55,10 +57,9 @@ export function Demo() {
   return (
     <div className="stack">
       <header>
-        <h1>Demo mode</h1>
+        <h1>{t("demo.h1")}</h1>
         <p className="lede">
-          Eight scenarios covering the outcomes a real claim can reach. Each one says what it tests,
-          shows the readings it was decided on, and is labelled with where the data came from.
+          {t("demo.lede")}
         </p>
       </header>
 
@@ -76,7 +77,7 @@ export function Demo() {
             </div>
 
             <p className="small muted" data-testid="scenario-tests">
-              <strong>What this tests:</strong> {scenario.whatThisTests}
+              <strong>{t("demo.whatItTests")}</strong> {scenario.whatThisTests}
             </p>
 
             <div className="tag-row" style={{ marginBottom: "var(--space-3)" }}>
@@ -122,7 +123,7 @@ export function Demo() {
 
             {scenario.contractError ? (
               <div className="alert alert-error" style={{ marginTop: "var(--space-3)" }}>
-                <strong>This attempt is rejected</strong>
+                <strong>{t("demo.rejected")}</strong>
                 <p>{mapError(scenario.contractError).message}</p>
                 <p className="small muted">
                   The contract returns the stable string{" "}
@@ -145,19 +146,19 @@ export function Demo() {
 
           <div className="panel">
             <div className="panel-head">
-              <h3>Decision</h3>
+              <h3>{t("demo.decision")}</h3>
               {isOnChain && real ? (
                 <span className="badge badge-live">
-                  <span aria-hidden="true">◉</span> {real.claim.id} read from the chain
+                  <span aria-hidden="true">◉</span> {t("demo.badgeLive", { id: real.claim.id })}
                 </span>
               ) : (
-                <span className="badge badge-origin">outcome the contract&rsquo;s rules produce</span>
+                <span className="badge badge-origin">{t("demo.badgeReplay")}</span>
               )}
             </div>
 
             {scenario.contractError ? (
               <div className="empty" data-testid="scenario-no-decision">
-                No decision, because no claim was created. The attempt above was rejected.
+                {t("demo.rejectedBody")}
               </div>
             ) : (
               <DecisionPanel
@@ -170,7 +171,7 @@ export function Demo() {
             {real && real.checks.length > 0 ? (
               <div style={{ marginTop: "var(--space-4)" }}>
                 <div className="panel-head">
-                  <h4>Checks recorded on chain</h4>
+                  <h4>{t("demo.checks")}</h4>
                   <span className="badge">{real.checks.length} checks</span>
                 </div>
                 <CheckList checks={real.checks} />
@@ -182,7 +183,7 @@ export function Demo() {
         <div className="stack">
           <div className="panel">
             <div className="panel-head">
-              <h3>Scenarios</h3>
+              <h3>{t("demo.scenarios")}</h3>
             </div>
             <ul className="scenario-list">
               {DEMO_SCENARIOS.map((s) => (
@@ -210,22 +211,22 @@ export function Demo() {
 
           <div className="panel">
             <div className="panel-head">
-              <h3>How to read this</h3>
+              <h3>{t("demo.howToRead")}</h3>
             </div>
             <p className="small">
-              <span className="provenance provenance-live">on-chain</span> means the decision shown
-              is read from the deployed contract at{" "}
-              <span className="mono">{CONTRACT_ADDRESS}</span>. Open it to see the real evidence,
-              checks, audit record and transaction lifecycle.
+              <span className="provenance provenance-live">
+                {t("demo.provenance.onChain")}
+              </span>{" "}
+              {t("demo.provenance.onChainBody", { address: CONTRACT_ADDRESS })}
             </p>
             <p className="small">
-              <span className="provenance provenance-replay">replay</span> means the daily readings
-              are a real recorded source response, and the outcome shown is what the contract's
-              evaluation rules produce for that data. It is not a transaction and is never labelled
-              as one.
+              <span className="provenance provenance-replay">
+                {t("demo.provenance.replay")}
+              </span>{" "}
+              {t("demo.provenance.replayBody")}
             </p>
             <p className="small muted">
-              Every scenario&rsquo;s outcome is pinned by a direct test:{" "}
+              {t("demo.pinnedBy")} {" "}
               <span className="mono" style={{ overflowWrap: "anywhere" }}>
                 {scenario.verifyingTest}
               </span>
@@ -233,16 +234,14 @@ export function Demo() {
           </div>
 
           <div className="panel">
-            <h3>Where the numbers come from</h3>
+            <h3>{t("demo.whereNumbers")}</h3>
             <p className="small muted">
-              All recorded readings live in{" "}
-              <span className="mono">fixtures/historical/</span> and were re-verified against the
-              live endpoints. No weather value in this demo was invented.
+              {t("demo.fixtures")}
             </p>
             <p className="small muted">
-              Network: {net.label} (chain {net.chainId}).{" "}
+              {t("demo.network", { network: net.label, id: net.chainId })} {" "}
               {net.explorerAvailable
-                ? "Explorer links are live."
+                ? t("demo.explorerLive")
                 : "The StudioNet explorer is currently paused, so transaction links are shown disabled rather than as dead links."}
             </p>
           </div>

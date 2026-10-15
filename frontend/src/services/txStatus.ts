@@ -9,6 +9,8 @@
  * decision is never rendered as final.
  */
 
+import { t } from "../i18n";
+
 /**
  * The SDK's transaction status names, mirrored here.
  *
@@ -85,23 +87,40 @@ export function isTerminal(phase: TxPhase): boolean {
   return phase === "finalized" || phase === "failed";
 }
 
-export const PHASE_TEXT: Record<TxPhase, string> = {
-  idle: "Not sent yet",
-  submitted: "Sent to the network",
-  pending: "Validators are evaluating",
-  accepted: "Accepted — can still be appealed",
-  finalized: "Final",
-  failed: "Did not complete",
-};
+/**
+ * Phase label and hint, resolved for the active locale.
+ *
+ * These were `Record<TxPhase, string>` constants holding English text. They are
+ * now functions over message keys so the label follows the chosen language; a
+ * Record of pre-rendered strings would freeze English at module load, before any
+ * locale had been resolved.
+ */
+const PHASE_KEY = {
+  idle: "tx.idle",
+  submitted: "tx.submitted",
+  pending: "tx.pending",
+  accepted: "tx.accepted",
+  finalized: "tx.finalized",
+  failed: "tx.failed",
+} as const satisfies Record<TxPhase, string>;
 
-export const PHASE_HINT: Record<TxPhase, string> = {
+const PHASE_HINT_KEY = {
   idle: "",
-  submitted: "Waiting for the network to pick it up.",
-  pending: "This can take a while. Validators fetch the sources independently.",
-  accepted: "Validators agreed. The result is not permanent until it is final.",
-  finalized: "This result is permanent.",
-  failed: "Nothing changed on chain.",
-};
+  submitted: "tx.hint.submitted",
+  pending: "tx.hint.pending",
+  accepted: "tx.hint.accepted",
+  finalized: "tx.hint.finalized",
+  failed: "tx.hint.failed",
+} as const satisfies Record<TxPhase, string>;
+
+export function phaseText(phase: TxPhase): string {
+  return t(PHASE_KEY[phase]);
+}
+
+export function phaseHint(phase: TxPhase): string {
+  const key = PHASE_HINT_KEY[phase];
+  return key ? t(key) : "";
+}
 
 /** Icon glyph so state is never conveyed by colour alone. */
 export const PHASE_ICON: Record<TxPhase, string> = {

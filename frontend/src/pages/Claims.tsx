@@ -6,6 +6,7 @@ import { decisionCopy, stateCopy } from "../domain/copy";
 import { activeNetwork } from "../config/network";
 import { CONTRACT_ADDRESS } from "../config/contracts";
 import type { Claim } from "../domain/types";
+import { useI18n } from "../i18n/I18nProvider";
 
 const net = activeNetwork();
 
@@ -26,6 +27,7 @@ const TONE_ICON: Record<string, string> = {
  * demo links into: every row is a real on-chain claim.
  */
 export function Claims() {
+  const { t } = useI18n();
   // Seeded from the captured snapshot so the table paints immediately, then
   // upgrades to live chain data. The origin badge shows which is on screen.
   const claims = useRead(() => listClaims(), [], snapshotClaims());
@@ -34,10 +36,9 @@ export function Claims() {
   return (
     <div className="stack">
       <header>
-        <h1>Claims</h1>
+        <h1>{t("claims.h1")}</h1>
         <p className="lede">
-          Every claim below exists on the deployed contract at{" "}
-          <span className="mono">{CONTRACT_ADDRESS}</span> on {net.label}.
+          {t("claims.lede", { address: CONTRACT_ADDRESS, network: net.label })}
         </p>
         <OriginBadge
           mode={claims.origin}
@@ -56,26 +57,29 @@ export function Claims() {
         </div>
       ) : rows.length === 0 ? (
         <div className="empty">
-          No claims yet. Start one from a policy on the <Link to="/policies">policies page</Link>.
+          {t("claims.empty")} <Link to="/policies">{t("claims.emptyLink")}</Link>.
         </div>
       ) : (
         <div className="panel panel-flush">
           <div className="table-wrap">
             <table data-testid="claims-table">
               <caption>
-                {rows.length} claim{rows.length === 1 ? "" : "s"} read from the chain
-                {claims.origin === "snapshot" ? " (recorded snapshot)" : ""}.
+                {t(rows.length === 1 ? "claims.caption.one" : "claims.caption.many", {
+                  count: rows.length,
+                  suffix:
+                    claims.origin === "snapshot" ? t("claims.captionSnapshot") : "",
+                })}
               </caption>
               <thead>
                 <tr>
-                  <th scope="col">Claim</th>
-                  <th scope="col">Policy</th>
-                  <th scope="col">State</th>
-                  <th scope="col">Decision</th>
+                  <th scope="col">{t("claims.col.claim")}</th>
+                  <th scope="col">{t("claims.col.policy")}</th>
+                  <th scope="col">{t("claims.col.state")}</th>
+                  <th scope="col">{t("claims.col.decision")}</th>
                   <th scope="col" className="num-col">
-                    Round
+                    {t("claims.col.round")}
                   </th>
-                  <th scope="col">Final</th>
+                  <th scope="col">{t("claims.col.final")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -96,14 +100,14 @@ export function Claims() {
                           </span>
                         ) : c.eval_error ? (
                           <span className="finality-chip finality-failed">
-                            <span aria-hidden="true">!</span> Evaluation did not complete
+                            <span aria-hidden="true">!</span> {t("claims.evalFailed")}
                           </span>
                         ) : (
-                          <span className="muted">not evaluated</span>
+                          <span className="muted">{t("common.notEvaluated")}</span>
                         )}
                       </td>
                       <td className="num-col num">{c.eval_round}</td>
-                      <td>{c.finalized ? "yes" : "no"}</td>
+                      <td>{c.finalized ? t("common.yes") : t("common.no")}</td>
                     </tr>
                   );
                 })}
@@ -114,8 +118,7 @@ export function Claims() {
       )}
 
       <p className="small muted">
-        <Link to="/demo">Demo mode</Link> replays eight documented scenarios, including ones with no
-        on-chain claim.
+        <Link to="/demo">{t("footer.demoMode")}</Link> — {t("claims.footer")}
       </p>
     </div>
   );

@@ -1,5 +1,6 @@
 import type { DataMode } from "../domain/types";
 import { dataModeCopy, dataModeIcon } from "../domain/copy";
+import { useI18n } from "../i18n/I18nProvider";
 
 interface Props {
   mode: DataMode | "";
@@ -13,6 +14,7 @@ interface Props {
  * surfaces.
  */
 export function DataModeBadge({ mode, origin }: Props) {
+  const { t } = useI18n();
   const { label, blurb } = dataModeCopy(mode);
   const isLive = mode === "live";
   return (
@@ -24,16 +26,13 @@ export function DataModeBadge({ mode, origin }: Props) {
       <span aria-hidden="true">{dataModeIcon(mode)}</span>
       {label}
       {origin === "snapshot" ? (
-        <span className="badge-origin" title="Read from a captured snapshot, not the live chain.">
-          · recorded
+        <span className="badge-origin" title={t("datamode.recordedTitle")}>
+          {t("datamode.recorded")}
         </span>
       ) : null}
       {origin === "mixed" ? (
-        <span
-          className="badge-origin"
-          title="Some of this was read live; some came from the captured snapshot."
-        >
-          · mixed
+        <span className="badge-origin" title={t("datamode.mixedTitle")}>
+          {t("datamode.mixed")}
         </span>
       ) : null}
     </span>

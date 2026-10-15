@@ -1,5 +1,6 @@
 import type { Claim, ClaimState, Dispute, SettlementState } from "../domain/types";
 import { settlementCopy, stateCopy } from "../domain/copy";
+import { useI18n } from "../i18n/I18nProvider";
 
 interface Props {
   claim: Claim;
@@ -61,13 +62,14 @@ function progress(state: ClaimState, disputeCount: number): number {
 }
 
 export function ClaimTimeline({ claim, disputes, settlement }: Props) {
+  const { t } = useI18n();
   const current = progress(claim.state, disputes.length);
   const state = stateCopy(claim.state);
 
   return (
     <div>
       <div className="panel-head">
-        <h3>Claim timeline</h3>
+        <h3>{t("timeline.claim")}</h3>
         <span className="badge">{state.label}</span>
       </div>
 
@@ -105,16 +107,16 @@ export function ClaimTimeline({ claim, disputes, settlement }: Props) {
 
       {disputes.length > 0 ? (
         <div style={{ marginTop: "var(--space-4)" }}>
-          <h4>Dispute history</h4>
+          <h4>{t("timeline.disputes")}</h4>
           <div className="table-wrap">
             <table>
-              <caption>Each round keeps the decision it replaced and the grounds that challenged it.</caption>
+              <caption>{t("timeline.caption")}</caption>
               <thead>
                 <tr>
-                  <th scope="col">Round</th>
-                  <th scope="col">Grounds</th>
-                  <th scope="col">Decision before</th>
-                  <th scope="col">Decision after</th>
+                  <th scope="col">{t("timeline.col.round")}</th>
+                  <th scope="col">{t("timeline.col.grounds")}</th>
+                  <th scope="col">{t("timeline.col.before")}</th>
+                  <th scope="col">{t("timeline.col.after")}</th>
                 </tr>
               </thead>
               <tbody>
