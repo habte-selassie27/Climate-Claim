@@ -369,8 +369,8 @@ export function PrecipitationField({ series, unit }: Props) {
     >
       <div className="precip-fallback" ref={hostRef} />
       {/* The ILLUMINATION half of a strike. It lives OUTSIDE .precip because a
-          layer inside it sits at z-index 0, behind the 3D evidence scene at
-          z-index 1 -- where it was invisible. */}
+          layer inside it sits at z-index 0, buried in the very rain field it is
+          meant to light -- which is where it was, and it was invisible. */}
       <div key={flash} className="precip-flash" data-testid="precip-flash" />
       <LightningBolt strike={flash} />
       <div className="precip-veil" />

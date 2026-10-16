@@ -6,10 +6,9 @@
  * shape -- a jagged channel that forks on its way down. That is what this draws.
  *
  * STACKING, which is the part that was previously wrong: the strike layer sits
- * ABOVE the rain canvas (`.precip`, z 0) and the 3D evidence scene
- * (`.evidence-field`, z 1), and BELOW the hero copy (`.hero-inner`, z 2). An
- * earlier flash lived inside `.precip` at z 0, so it rendered behind the 3D scene
- * as a faint gradient and was effectively invisible.
+ * ABOVE the rain (`.precip`, z 0) and BELOW the hero copy (`.hero-inner`, z 3).
+ * An earlier flash lived inside `.precip` at z 0, so it rendered buried in the
+ * field it was lighting and was effectively invisible.
  *
  * ACCESSIBILITY: decorative and aria-hidden. Nothing is communicated only by it.
  * Under `prefers-reduced-motion` it never draws -- a full-screen luminance

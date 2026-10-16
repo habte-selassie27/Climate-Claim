@@ -1936,7 +1936,7 @@ caption {
   position: relative;
   /* Top of the hero stack, so the strike never covers the headline or the
      buttons even at the brightest frame. */
-  z-index: 4;
+  z-index: 3;
   max-width: 62ch;
 }
 
@@ -1958,140 +1958,6 @@ caption {
   }
 }
 
-/* ==========================================================================
-   Evidence field (Three.js hero scene).
-
-   Port of the supplied "Three.js UI" mock. Positions, heights and the halo
-   day come from src/domain/fieldLayout.ts and src/domain/sourceCompare.ts --
-   the same modules the comparison table uses -- so the scene and the chart
-   below it cannot disagree. Canvas colours are literal because they are
-   painted into WebGL rather than the DOM; they are the dark palette's accent
-   values, so both themes still read as one design.
-   ========================================================================== */
-
-.evidence-field {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  /* Above the rain streaks (.precip, z 0), below the copy (.hero-inner). */
-  z-index: 1;
-  /* The scene must not swallow clicks on the hero copy; the canvas re-enables
-     pointer events for itself so the field can be dragged to rotate. */
-  pointer-events: none;
-}
-
-.evidence-field-fallback,
-.evidence-field-fallback .evidence-field-canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-/* A static wash stands in until the first WebGL frame paints, so there is
-   never a flash of empty background. */
-.evidence-field-fallback {
-  background:
-    radial-gradient(120% 80% at 72% 30%, var(--isobar-wash) 0%, transparent 58%),
-    radial-gradient(90% 70% at 18% 85%, var(--lichen-wash) 0%, transparent 52%);
-}
-
-.evidence-field-canvas {
-  pointer-events: auto;
-  cursor: grab;
-  /* Horizontal drags rotate the field; vertical drags still scroll the page. */
-  touch-action: pan-y;
-}
-
-.evidence-field-veil {
-  position: absolute;
-  inset: 0;
-  /* Protects the headline contrast over whatever the scene draws under it,
-     and fades the floor into the card so the scene and page meet softly. */
-  background:
-    radial-gradient(
-      70% 55% at 16% 10%,
-      color-mix(in srgb, var(--surface) 70%, transparent),
-      transparent 70%
-    ),
-    linear-gradient(
-      180deg,
-      transparent 0%,
-      transparent 72%,
-      color-mix(in srgb, var(--surface) 78%, transparent) 92%,
-      var(--surface) 100%
-    );
-}
-
-.evidence-field-hud {
-  position: absolute;
-  inset: auto 0 0 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding: var(--space-4);
-}
-
-.evidence-field-legend,
-.evidence-field-tip {
-  margin: 0;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--rain-slate-45);
-  background: color-mix(in srgb, var(--gauge-paper) 84%, transparent);
-  border: 1px solid var(--hail);
-  border-radius: var(--radius-md);
-  padding: var(--space-2) var(--space-3);
-}
-
-.evidence-field-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 14px;
-  max-width: min(62%, 32rem);
-}
-
-.evidence-field-tip {
-  color: var(--amber-flag);
-  border-color: color-mix(in srgb, var(--amber-flag) 45%, var(--hail));
-}
-
-.evidence-field-swatch {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-}
-
-.evidence-field-swatch i {
-  display: inline-block;
-  flex: none;
-  width: 10px;
-  height: 10px;
-}
-
-/* The swatches mirror the scene: first source a box, second a cone (drawn
-   from above as a circle), the threshold a plane. */
-.evidence-field-swatch i[data-shape="box"] {
-  background: #6aa7e8;
-}
-
-.evidence-field-swatch i[data-shape="cone"] {
-  background: #5fd3a8;
-  border-radius: 50%;
-}
-
-.evidence-field-swatch i[data-shape="plane"] {
-  background: #e5675a;
-  opacity: 0.85;
-}
-
-/* Copy is not selectable through the scene, but links and buttons stay
-   clickable. This is what lets a drag start anywhere outside them. */
 .hero-inner {
   pointer-events: none;
 }
@@ -2101,34 +1967,22 @@ caption {
   pointer-events: auto;
 }
 
-/* Room for the scene: on wide screens it shares the row with the copy; on
-   narrow ones it drops below, as in the mock. */
+/* The hero is copy over rain. It needs enough height that the rain reads as
+   weather behind the text rather than as a thin band at the edges. */
 .hero {
   min-height: 26rem;
 }
 
 @media (max-width: 860px) {
+  /* Was 34rem, to reserve a column for the 3D scene that shared this row.
+     With copy alone the same room would be mostly empty. */
   .hero {
-    min-height: 34rem;
-  }
-  .evidence-field-legend {
-    max-width: 100%;
-  }
-}
-
-@media (max-width: 640px) {
-  .evidence-field-hud {
-    padding: var(--space-3);
-  }
-  .evidence-field-legend,
-  .evidence-field-tip {
-    font-size: 11px;
+    min-height: 28rem;
   }
 }
 
 @media print {
   /* The fields are screens; a receipt does not need them. */
-  .evidence-field,
   .precip,
   .chart3d {
     display: none;
@@ -2573,13 +2427,12 @@ textarea {
   inset: 0;
   pointer-events: none;
   /* Hero stacking, strictly back to front:
-       0 rain canvas   1 3D evidence scene
-       2 strike glow   3 the bolt itself
-       4 the hero copy
-     The glow and bolt must sit above BOTH canvases -- a layer inside .precip is
-     z 0 and therefore behind the 3D scene, which is why the earlier flash was
-     invisible -- and below the copy, or they would wash out the headline. */
-  z-index: 2;
+       0 the rain field   1 the strike glow   2 the bolt   3 the hero copy
+     The glow and bolt must sit ABOVE the rain -- a layer nested inside .precip
+     is z 0 and therefore buried in the field it is meant to illuminate, which is
+     why an earlier flash there was invisible -- and BELOW the copy, or a strike
+     at its brightest would wash out the headline. */
+  z-index: 1;
   background:
     radial-gradient(120% 90% at 70% 0%, color-mix(in srgb, var(--amber-flag) 30%, transparent) 0%, transparent 65%),
     linear-gradient(180deg, color-mix(in srgb, var(--isobar) 16%, transparent) 0%, transparent 70%);
@@ -2609,16 +2462,16 @@ textarea {
 /* ==========================================================================
    Lightning strike.
 
-   Layered ABOVE the rain canvas and the 3D evidence scene, below the hero copy.
-   The earlier flash sat inside .precip at z-index 0, i.e. behind the scene at
-   z-index 1, so it rendered as a faint gradient nobody could see.
+   Layered ABOVE the rain and BELOW the hero copy. The earlier flash sat inside
+   .precip at z-index 0, i.e. buried in the rain field it was meant to light, so
+   it rendered as a faint gradient nobody could see.
    ========================================================================== */
 
 .lightning {
   position: absolute;
   inset: 0;
-  /* Above the glow (z 2) so the bolt is never washed out by its own flash. */
-  z-index: 3;
+  /* Above the glow (z 1) so the bolt is never washed out by its own flash. */
+  z-index: 2;
   pointer-events: none;
   overflow: visible;
 }

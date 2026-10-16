@@ -2,7 +2,6 @@ import { Link } from "react-router-dom";
 import { CONTRACT_ADDRESS } from "../config/contracts";
 import { activeNetwork } from "../config/network";
 import { EvidenceChart } from "../components/EvidenceChart";
-import { EvidenceField } from "../components/EvidenceField";
 import { PrecipitationField } from "../components/PrecipitationField";
 import { WeatherSound } from "../components/WeatherSound";
 import { DEMO_SCENARIOS } from "../fixtures/demoScenarios";
@@ -21,20 +20,15 @@ export function Landing() {
 
   return (
     <div className="stack">
-      {/* Hero. Two decorative layers, both driven by this page's own recorded
-          readings: the rain streaks behind, the evidence field in front. The
+      {/* Hero. The rain field is decorative and driven by this page's own
+          recorded readings, so the weather is visibly this scenario's rather
+          than stock imagery. It is labelled `aria-hidden` and carries no
+          number the visitor could act on: the evidence it is drawn from is
+          presented, with sources and units, in the chart and tables below. The
           sound toggle is the only audible control on the site, and it is
-          strictly opt-in. Every number the visitor can act on lives in the
-          chart and tables below. */}
+          strictly opt-in. */}
       <section className="hero">
         <PrecipitationField series={scenario.series} unit={scenario.policy.unit} />
-        <EvidenceField
-          series={scenario.series}
-          period={scenario.period}
-          thresholdScaled={scenario.policy.threshold_scaled}
-          comparator={scenario.policy.comparator}
-          unit={scenario.policy.unit}
-        />
         <WeatherSound />
         <div className="hero-inner">
           <h1>{t("landing.h1")}</h1>
