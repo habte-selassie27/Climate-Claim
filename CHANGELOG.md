@@ -81,6 +81,66 @@ reports `0.1.2`; the suite passes on the installed version.
 
 ---
 
+## Persist the Create-a-policy form across reloads and failures
+
+### DONE
+
+Creating a policy is a multi-step write to a chain: the user types a location,
+coordinates and a threshold, picks sources, and only then discovers they need the
+owner account or a different network. Losing the whole form to a refresh at that
+point is punishing, so the draft is now persisted and restored.
+
+Kept across: navigation away and back, refresh, hard reload, a validation
+failure, the wallet/ownership gates, a failed transaction, **and a successful
+creation** (deliberately not cleared, per request). A restored draft shows a short
+"draft restored" note so the reappearing values are explained.
+
+Restoring is the risky half, so it lives in `src/domain/draftStore.ts` rather than
+inline in the page. A draft is untrusted input — possibly from an older build,
+hand-edited or truncated — so:
+
+- `sanitizeForm` overlays only the fields that pass validation onto `INITIAL_FORM`.
+  One bad value degrades to the default instead of discarding the other fifteen.
+- `DRAFT_VERSION` discards a draft written by an incompatible form version
+  rather than half-restoring it.
+- Text fields are length-capped, `sourceIds` are de-duplicated and capped to the
+  contract's `MAX_SOURCES_PER_POLICY`, and enum fields are checked against the
+  contract-accepted values. A hand-edited 10 MB `location_name` cannot flood a
+  controlled input.
+- Storage that throws (private mode, quota) is swallowed: the form still works,
+  just in memory only.
+
+`conditionTouched` is persisted alongside the fields, because `condition_text` is
+regenerated from the summary sentence until the user edits it. Without it, a
+hand-edited sentence would be silently overwritten on the next mount.
+
+An explicit **Clear form** button discards the draft. Without it, a stale draft
+would be a trap the user cannot escape; "Cancel" only navigates away and leaves the
+draft saved, which is the point.
+
+The form shape now lives in `draftStore.ts` and `PolicyNew.tsx` aliases it, so the
+persisted draft and the live form cannot drift apart.
+
+### PROOF
+
+- `npx vitest run` → **93 passed** (6 files; 76 pre-existing + 17 new)
+- New `draftStore.test.ts` covers the four reported cases plus the untrusted-input
+  paths: junk JSON, wrong version, partial overlay, oversized text, non-array
+  sourceIds, and storage that throws
+- `npx tsc -b --noEmit` clean; `npx vite build` → 3.37s
+- Contract unaffected: `pytest tests/direct/ -q` → **200 passed**
+- Deploy key still absent from `dist/`
+
+### NEXT
+
+None for this change.
+
+### BLOCKED
+
+Nothing.
+
+---
+
 ## Multi-language (en/es/fr/de) and light/dark theme
 
 ### DONE

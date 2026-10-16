@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useRead } from "../hooks/useRead";
 import { useWallet } from "../hooks/useWallet";
@@ -13,9 +13,17 @@ import { runWrite } from "../services/evaluationService";
 import { IDLE, type TxState } from "../services/txStatus";
 import { TxStatusPanel } from "../components/TxStatusPanel";
 import { policySentence } from "../domain/copy";
+import {
+  clearDraft,
+  INITIAL_FORM,
+  isDirty,
+  loadDraft,
+  saveDraft,
+  type PolicyFormState,
+} from "../domain/draftStore";
 import { toMicroDegrees, toScaled, truncateAddress } from "../domain/format";
 import { activeNetwork } from "../config/network";
-import type { DataMode, SourceDef } from "../domain/types";
+import type { SourceDef } from "../domain/types";
 import { useI18n } from "../i18n/I18nProvider";
 
 const net = activeNetwork();
@@ -72,45 +80,11 @@ const NUM_RE = /^-?\d+(\.\d+)?$/;
 const INT_RE = /^\d+$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-interface FormState {
-  location_name: string;
-  lat: string;
-  lon: string;
-  tolerance_m: string;
-  metric: keyof typeof METRIC_UNITS;
-  sourceIds: string[];
-  agreement_rule: string;
-  min_sources: string;
-  data_mode: DataMode;
-  period_start: string;
-  period_end: string;
-  timezone: string;
-  comparator: string;
-  threshold: string;
-  aggregation: string;
-  condition_text: string;
-  payout_amount: string;
-}
-
-const INITIAL: FormState = {
-  location_name: "",
-  lat: "",
-  lon: "",
-  tolerance_m: "10000",
-  metric: "precipitation",
-  sourceIds: [],
-  agreement_rule: "majority",
-  min_sources: "1",
-  data_mode: "historical_simulation",
-  period_start: "",
-  period_end: "",
-  timezone: "UTC",
-  comparator: "gt",
-  threshold: "",
-  aggregation: "max_single",
-  condition_text: "",
-  payout_amount: "0",
-};
+/**
+ * The form shape lives in `domain/draftStore` so the persisted draft and the
+ * live form cannot drift apart. This alias keeps the local name short.
+ */
+type FormState = PolicyFormState;
 
 /** Today's date in UTC, as the contract computes it in `_today_iso`. */
 function todayIso(): string {
@@ -203,7 +177,12 @@ export function PolicyNew() {
   const wallet = useWallet();
   const sourcesRead = useRead(() => listSources(), [], snapshotSources());
   const ownerRead = useRead(() => getOwner(), [], snapshotOwner());
-  const [form, setForm] = useState<FormState>(INITIAL);
+  // The draft is read exactly once, in a lazy initialiser, and shared by the
+  // state that needs it (see domain/draftStore). `restored` is frozen at mount
+  // so the notice does not flicker as the form is edited.
+  const [draftAtMount] = useState(() => loadDraft());
+  const [restored] = useState(() => (draftAtMount ? isDirty(draftAtMount.form) : false));
+  const [form, setForm] = useState<FormState>(() => draftAtMount?.form ?? { ...INITIAL_FORM });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [tx, setTx] = useState<TxState>(IDLE);
   /**
@@ -213,11 +192,18 @@ export function PolicyNew() {
    */
   const [submitBlock, setSubmitBlock] = useState<{ title: string; body: string } | null>(null);
   const [createdId, setCreatedId] = useState<string | null>(null);
-  const [conditionTouched, setConditionTouched] = useState(false);
+  const [conditionTouched, setConditionTouched] = useState(
+    () => draftAtMount?.conditionTouched ?? false,
+  );
 
   const sources = (sourcesRead.data ?? []) as SourceDef[];
   const metricSources = sources.filter((s) => s.metric === form.metric);
-  const unit = resultUnit(form.aggregation, form.metric);
+  // form.metric is a plain string because it comes from storage; narrow it once
+  // here rather than casting at every use.
+  const metric = (METRICS as string[]).includes(form.metric)
+    ? (form.metric as keyof typeof METRIC_UNITS)
+    : "precipitation";
+  const unit = resultUnit(form.aggregation, metric);
 
   // The summary sentence updates with every field (UI.md 4.2); the user
   // confirms the sentence, not just the individual fields.
@@ -240,6 +226,30 @@ export function PolicyNew() {
   useEffect(() => {
     if (!conditionTouched) setForm((f) => ({ ...f, condition_text: sentence }));
   }, [sentence, conditionTouched]);
+
+  /**
+   * Persist the draft so it survives a refresh, a hard reload, a failed
+   * validation/wallet/ownership gate, and a successful creation.
+   *
+   * Debounced so a long paste in one field does not serialise the whole form on
+   * every keystroke. Writing nothing while the form is pristine keeps a
+   * half-filled form from outliving a user who abandoned it deliberately.
+   */
+  useEffect(() => {
+    if (!isDirty(form)) return;
+    const id = window.setTimeout(() => saveDraft(form, conditionTouched), 400);
+    return () => window.clearTimeout(id);
+  }, [form, conditionTouched]);
+
+  const resetForm = useCallback(() => {
+    setForm({ ...INITIAL_FORM });
+    setConditionTouched(false);
+    setErrors({});
+    setSubmitBlock(null);
+    setTx(IDLE);
+    setCreatedId(null);
+    clearDraft();
+  }, []);
 
   const owner = ownerRead.data ?? "";
   const notOwner =
@@ -315,7 +325,7 @@ export function PolicyNew() {
       form.period_start,
       form.period_end,
       form.timezone.trim(),
-      form.metric,
+      metric,
       unit,
       form.comparator,
       toScaled(form.threshold),
@@ -353,6 +363,12 @@ export function PolicyNew() {
           {t("policyNew.lede")}
         </p>
       </header>
+
+      {restored ? (
+        <p className="small muted" data-testid="draft-restored" style={{ marginTop: "var(--space-3)" }}>
+          {t("policyNew.draftRestored")}
+        </p>
+      ) : null}
 
       {wallet.wrongNetwork ? (
         <div className="alert alert-error" role="alert">
@@ -720,8 +736,20 @@ export function PolicyNew() {
           >
             Create policy
           </button>
+          {/* "Cancel" only leaves the page; the draft stays saved on purpose.
+              This is the explicit way to throw it away, so a restored draft is
+              never a trap the user cannot escape. */}
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={resetForm}
+            disabled={busy || !isDirty(form)}
+            data-testid="clear-draft"
+          >
+            {t("policyNew.clearDraft")}
+          </button>
           <Link className="btn btn-secondary" to="/policies">
-            Cancel
+            {t("policyNew.cancel")}
           </Link>
         </div>
 

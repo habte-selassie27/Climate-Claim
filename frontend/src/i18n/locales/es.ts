@@ -472,6 +472,10 @@ export const es: Dictionary = {
   "policyNew.confirm.help":
     "Esto es lo que leerán los validadores. Comprueba que dice lo que quieres: una errata aquí es un término de la póliza.",
   "policyNew.submit": "Crear póliza",
+  "policyNew.cancel": "Cancelar",
+  "policyNew.clearDraft": "Vaciar el formulario",
+  "policyNew.draftRestored":
+    "Borrador restaurado de tu última visita en este dispositivo.",
   "policyNew.submitting": "Creando",
   "policyNew.validation": "Corrige primero los campos marcados.",
 

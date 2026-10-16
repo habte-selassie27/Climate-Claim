@@ -485,6 +485,10 @@ export const en = {
   "policyNew.confirm.help":
     "This is what validators will read. Check it says what you mean — a typo here is a term of the policy.",
   "policyNew.submit": "Create policy",
+  "policyNew.cancel": "Cancel",
+  "policyNew.clearDraft": "Clear form",
+  "policyNew.draftRestored":
+    "Draft restored from your last visit on this device.",
   "policyNew.submitting": "Creating",
   "policyNew.validation": "Fix the highlighted fields first.",
 

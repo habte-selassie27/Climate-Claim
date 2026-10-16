@@ -475,6 +475,10 @@ export const de: Dictionary = {
   "policyNew.confirm.help":
     "Das werden die Validatoren lesen. Prüfen Sie, ob es das sagt, was Sie meinen – ein Tippfehler hier ist eine Bedingung der Police.",
   "policyNew.submit": "Bedingung erstellen",
+  "policyNew.cancel": "Abbrechen",
+  "policyNew.clearDraft": "Formular leeren",
+  "policyNew.draftRestored":
+    "Entwurf aus Ihrem letzten Besuch auf diesem Gerät wiederhergestellt.",
   "policyNew.submitting": "Wird erstellt",
   "policyNew.validation": "Beheben Sie zuerst die markierten Felder.",
 

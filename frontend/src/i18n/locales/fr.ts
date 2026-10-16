@@ -474,6 +474,10 @@ export const fr: Dictionary = {
   "policyNew.confirm.help":
     "C’est ce que les validateurs liront. Vérifiez que cela dit ce que vous voulez : une faute de frappe ici devient un terme de la policy.",
   "policyNew.submit": "Créer la policy",
+  "policyNew.cancel": "Annuler",
+  "policyNew.clearDraft": "Effacer le formulaire",
+  "policyNew.draftRestored":
+    "Brouillon restauré depuis votre dernière visite sur cet appareil.",
   "policyNew.submitting": "Création",
   "policyNew.validation": "Corrigez d’abord les champs signalés.",
 
