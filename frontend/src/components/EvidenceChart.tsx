@@ -17,6 +17,14 @@ interface Props {
   caption?: string;
 }
 
+/* Which series is drawn as bars, per the supplied chart spec: the FIRST source
+               is bars, the second is a line. Precipitation is a magnitude read
+               from zero, so bars are the honest form for it; the comparison
+               series stays a line so the two do not read as the same kind of
+               quantity. Shape is also carried by the marker glyph and the
+               legend, so this never becomes colour-only. */
+const BAR_SERIES_INDEX = 0;
+
 const W = 720;
 /* Taller than it was (300): with precipitation values clustered near zero, a
    short plot left most of the frame empty and the series unreadable. */
@@ -413,6 +421,39 @@ export function EvidenceChart({
                 seg.push(`${seg.length === 0 ? "M" : "L"}${xFor(i, dates.length)},${yFor(v)}`);
               });
               if (seg.length === 0) return null;
+
+              // Series 0 is bars (see BAR_SERIES_INDEX); the rest are traces.
+              if (si === BAR_SERIES_INDEX) {
+                const bw = Math.min(
+                  (PW / Math.max(dates.length, 1)) * 0.52,
+                  halfBand * 1.1,
+                );
+                return (
+                  <g key={`bar-${s.sourceId}`}>
+                    {dates.map((d, i) => {
+                      const v = s.daily[d];
+                      if (typeof v !== "number") return null;
+                      const top = yFor(v);
+                      const crosses = meetsThreshold(v, thresholdNum, comparator);
+                      // A hairline minimum height so a zero reading is still a
+                      // visible mark rather than an absence the reader must infer.
+                      const h = Math.max(M.top + PH - top, v > 0 ? 2 : 1);
+                      return (
+                        <rect
+                          key={d}
+                          x={xFor(i, dates.length) - bw / 2}
+                          y={top}
+                          width={bw}
+                          height={h}
+                          rx={2}
+                          className={crosses ? "chart-bar chart-bar-cross" : "chart-bar"}
+                        />
+                      );
+                    })}
+                  </g>
+                );
+              }
+
               return (
                 <g key={`line-${s.sourceId}`}>
                   {/* A soft area under the trace gives the week a body without

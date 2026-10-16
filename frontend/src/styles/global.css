@@ -22,6 +22,11 @@
   --hail: #c7d3db;
   --surface: #ffffff;
 
+  /* Interactive boundaries. --hail is decorative-only: it separates table rows
+     but is far too light to be the thing that makes a control findable
+     (WCAG 1.4.11 wants 3:1). See the note on the dark --line-strong. */
+  --line-strong: #6b7a88;
+
   /* Text drawn ON a solid accent fill (buttons, badges). Kept as its own token
      because the dark palette lightens --isobar and --threshold-ink for contrast
      against a dark page; white on a lightened accent would fail WCAG AA. */
@@ -80,25 +85,45 @@
    ========================================================================== */
 
 [data-theme="dark"] {
-  --gauge-paper: #131a21;
-  --rain-slate: #e7eef4;
-  --isobar: #74abd4;
-  --threshold-ink: #e88b72;
-  --lichen: #74b98e;
-  --amber-flag: #dca94c;
-  --hail: #2b3742;
-  --surface: #1a232c;
+  /* Palette per the supplied design spec. Each value was chosen against its
+     actual background rather than by inverting the light ramp, and the
+     contrasts were computed (all pairs >= 4.5:1 for body text).
 
-  --on-accent: #0d1419;
-  --on-alert: #1c0f0b;
+     The four accents are SEMANTIC, not decorative: --ok carries the second
+     source's trace and every "confirmed" state, --bad is the threshold line and
+     every "not confirmed" state, --warn is the disagreement halo, and --blue is
+     the first source's trace. Each is therefore always paired with a label or
+     an icon as well as a colour. */
+  --gauge-paper: #0b1016;
+  --surface: #171e26;
+  --hail: #263140;
+  /* Interactive boundaries only. The spec's `line` (#263140) measures 1.45:1
+     against `bg`, which is fine for a decorative row separator but not for the
+     edge of a control a user has to find (WCAG 1.4.11 wants 3:1). Panels and
+     inputs differ from the page by only 1.14:1, so their border IS the primary
+     affordance and needs this lighter value. Kept separate so the spec's
+     restrained `line` still does all the decorative work. */
+  --line-strong: #55647a;
 
-  --rain-slate-70: #adbbc8;
-  --rain-slate-45: #93a1af;
-  --hail-soft: #242f39;
-  --lichen-wash: #1c2b23;
-  --amber-wash: #2c2417;
-  --threshold-wash: #2f1f1a;
-  --isobar-wash: #17242f;
+  --rain-slate: #e8e4da;
+  --rain-slate-70: #c3bcb0;
+  --rain-slate-45: #9aa5b1;
+
+  --isobar: #6aa7e8;
+  --threshold-ink: #e5675a;
+  --lichen: #5fd3a8;
+  --amber-flag: #e8b04b;
+
+  /* Fills carrying text. The accents are light here, so the ink on them must be
+     dark -- white would sit at ~1.9:1 and fail. */
+  --on-accent: #0b1016;
+  --on-alert: #1a0f0c;
+
+  --hail-soft: #1e2732;
+  --isobar-wash: #16222f;
+  --lichen-wash: #14261f;
+  --amber-wash: #2a2313;
+  --threshold-wash: #2c1917;
 
   /* Elevation reads as a darker halo on a dark field, not a lighter glow. */
   --shadow-panel: 0 1px 2px rgba(0, 0, 0, 0.5);
@@ -1973,3 +1998,144 @@ caption {
   stroke-width: 3px;
   stroke-linejoin: round;
 }
+
+/* --- chart bars (first source) -------------------------------------------- */
+
+/* Bars are the magnitude form for the first source. The fill is the series
+   accent; a crossed bar is filled with --bad so a crossing is legible without
+   relying on the halo alone. */
+.chart-bar {
+  fill: var(--isobar);
+  opacity: 0.55;
+  stroke: var(--isobar);
+  stroke-width: 1;
+}
+
+.chart-bar-cross {
+  fill: var(--threshold-ink);
+  stroke: var(--threshold-ink);
+  opacity: 0.85;
+}
+
+/* Interactive boundaries use --line-strong, not --hail: the spec's line colour
+   sits at 1.45:1 against the page, and a panel differs from the page by only
+   1.14:1, so the border is the primary way a control is found. */
+.btn-secondary,
+.copy-btn,
+.lang-switch select,
+.theme-toggle,
+input,
+select,
+textarea {
+  border-color: var(--line-strong);
+}
+
+/* --- decision flow --------------------------------------------------------- */
+
+/* Hand-built rather than mermaid: a fixed eight-node graph needs no 2 MB
+   renderer and no layout pass. The visual grid is aria-hidden; an ordered list
+   below carries the same sequence as real text. */
+.flow {
+  margin: 0;
+}
+
+.flow-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--hail);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.flow-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.flow-node {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  font-size: var(--step--1);
+  font-weight: 700;
+  text-align: center;
+  max-width: 46ch;
+  border: 1px solid var(--line-strong);
+}
+
+/* Kind is carried by wording as well as tone, never by colour alone. */
+.flow-node-step {
+  background: var(--isobar-wash);
+  color: var(--isobar);
+}
+
+.flow-node-decision {
+  background: var(--surface);
+  color: var(--rain-slate);
+  border-style: dashed;
+  border-color: var(--rain-slate-45);
+}
+
+.flow-node-outcome {
+  background: var(--lichen-wash);
+  color: var(--lichen);
+}
+
+.flow-node-dead {
+  background: var(--threshold-wash);
+  color: var(--threshold-ink);
+}
+
+.flow-edge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--rain-slate-45);
+}
+
+.flow-arrow {
+  width: 2px;
+  height: var(--space-4);
+  background: currentColor;
+  position: relative;
+}
+
+.flow-arrow::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: -3px;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 6px solid currentColor;
+}
+
+.flow-edge-label {
+  font-size: var(--step--1);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.flow-steps {
+  margin: var(--space-4) 0 0;
+  padding-left: var(--space-5);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.flow-badge {
+  display: inline-block;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--step--1);
+  font-weight: 700;
+}
+
+.flow-badge-step { background: var(--isobar-wash); color: var(--isobar); }
+.flow-badge-decision { background: var(--hail-soft); color: var(--rain-slate); }
+.flow-badge-outcome { background: var(--lichen-wash); color: var(--lichen); }
+.flow-badge-dead { background: var(--threshold-wash); color: var(--threshold-ink); }

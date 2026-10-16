@@ -1,6 +1,7 @@
 import { CONTRACT_ADDRESS } from "../config/contracts";
 import { activeNetwork } from "../config/network";
 import { useI18n } from "../i18n/I18nProvider";
+import { DecisionFlow } from "../components/DecisionFlow";
 
 const net = activeNetwork();
 
@@ -16,6 +17,10 @@ export function HowItWorks() {
         <h1>{t("how.h1")}</h1>
         <p className="lede">{t("how.lede")}</p>
       </header>
+
+      <section className="panel">
+        <DecisionFlow />
+      </section>
 
       <section className="panel">
         <h2>{t("how.leader.h")}</h2>
