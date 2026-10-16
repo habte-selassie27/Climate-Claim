@@ -1523,3 +1523,158 @@ details.disclosure > summary {
   outline: var(--focus);
   outline-offset: var(--focus-offset);
 }
+
+/* --- claims filter bar + pagination --------------------------------------- */
+
+/* Search takes the room; the two facets stay narrow. Collapses to one column
+   on small screens rather than squeezing three controls. */
+.filter-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: var(--space-3);
+  align-items: end;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--hail);
+}
+
+@media (max-width: 720px) {
+  .filter-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- per-day source comparison -------------------------------------------- */
+
+/* The disagreement day is the point of the table: its row gets the amber
+   wash and a left rule, and the verdict cell spells out the problem in
+   words, so colour is never the only signal. */
+.compare-split-row th,
+.compare-split-row td {
+  background: var(--amber-wash);
+}
+
+.compare-split-row th[scope="row"] {
+  border-left: 3px solid var(--amber-flag);
+}
+
+/* The deterministic-contrast cards: one per single source, plus the honest
+   answer. The GenLayer card is set apart by an isobar rule, not by colour
+   alone. */
+.contrast-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+
+.contrast-card {
+  border: 1px solid var(--hail);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+}
+
+.contrast-honest {
+  border-left: 4px solid var(--isobar);
+}
+
+/* --- chart keyboard navigation -------------------------------------------- */
+
+/* Data points are focusable so the values are reachable without the table
+   toggle; the ring matches the app's focus treatment. */
+.chart-point {
+  outline: none;
+}
+
+.chart-point:focus {
+  outline: 2px solid var(--isobar);
+  outline-offset: 2px;
+}
+
+/* --- print receipt --------------------------------------------------------- */
+
+/* Screen-only elements (the print header on a claim page). */
+.print-only {
+  display: none;
+}
+
+@media print {
+  /* Force the light palette no matter which theme is on screen, so a receipt
+     printed from dark mode is not white-on-black. The attribute selectors
+     match the theme blocks' specificity and win by file order. */
+  :root,
+  [data-theme="light"],
+  [data-theme="dark"] {
+    --gauge-paper: #fff;
+    --surface: #fff;
+    --rain-slate: #111;
+    --hail: #999;
+    --isobar: #1c4b6e;
+    --threshold-ink: #8c2f1c;
+    --lichen: #285c3f;
+    --amber-flag: #7a5208;
+    --amber-wash: #faf4e6;
+    --threshold-wash: #f9efec;
+    --isobar-wash: #eef4f8;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  /* Chrome and every interactive control: a receipt is a record, not a
+     control panel. The mobile/SPA chrome disappears entirely. */
+  .chrome,
+  .footer,
+  .skip-link,
+  button,
+  .copy-btn,
+  .scenario-btn,
+  .lang-switch,
+  .theme-toggle,
+  .wallet-panel,
+  [data-print="hide"] {
+    display: none !important;
+  }
+
+  .shell,
+  .container {
+    max-width: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .claim-grid {
+    display: block;
+  }
+
+  .panel {
+    border: 1px solid #bbb;
+    box-shadow: none;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-only {
+    display: block;
+  }
+
+  /* Keep the verdict, provenance and data-mode chips readable on paper. */
+  .finality-chip,
+  .provenance,
+  .badge {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  a {
+    color: #000;
+    text-decoration: none;
+  }
+}

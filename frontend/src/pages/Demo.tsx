@@ -6,8 +6,10 @@ import { getClaimBundle, snapshotClaimBundle } from "../services/claimService";
 import { CheckList } from "../components/CheckList";
 import { DataModeBadge } from "../components/DataModeBadge";
 import { DecisionPanel } from "../components/DecisionPanel";
+import { DeterministicContrast } from "../components/DeterministicContrast";
 import { EvidenceChart } from "../components/EvidenceChart";
 import { OriginBadge } from "../components/OriginBadge";
+import { SourceComparison } from "../components/SourceComparison";
 import { mapError, policySentence } from "../domain/copy";
 import { CONTRACT_ADDRESS } from "../config/contracts";
 import { activeNetwork } from "../config/network";
@@ -144,6 +146,26 @@ export function Demo() {
             />
           </div>
 
+          {/* Item 8: with two or more sources, the per-day comparison table
+              sits directly beside the chart. It draws the same recorded series
+              and names the disagreement days explicitly. */}
+          {scenario.series.length >= 2 ? (
+            <div className="panel">
+              <SourceComparison
+                series={scenario.series}
+                period={scenario.period}
+                thresholdScaled={scenario.policy.threshold_scaled}
+                comparator={scenario.policy.comparator}
+                unit={scenario.policy.unit}
+              />
+            </div>
+          ) : null}
+
+          {/* Item 9: when the recorded answer is inconclusive because the
+              sources genuinely split, show what a deterministic chain would
+              have had to say. Renders nothing for scenarios without a split. */}
+          <DeterministicContrast scenario={scenario} />
+
           <div className="panel">
             <div className="panel-head">
               <h3>{t("demo.decision")}</h3>
@@ -192,7 +214,16 @@ export function Demo() {
                     type="button"
                     className="scenario-btn"
                     aria-current={s.id === scenario.id}
-                    onClick={() => setSearchParams({ scenario: s.id })}
+                    onClick={() =>
+                      setSearchParams((prev) => {
+                        // Keep every other parameter (notably ?lang=) so a
+                        // shared URL reproduces the scenario AND the language
+                        // it was read in.
+                        const next = new URLSearchParams(prev);
+                        next.set("scenario", s.id);
+                        return next;
+                      })
+                    }
                   >
                     <span className="scenario-title">
                       {s.title}

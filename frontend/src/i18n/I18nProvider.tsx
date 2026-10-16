@@ -3,10 +3,12 @@ import {
   DEFAULT_LOCALE,
   getLocale,
   isLocale,
+  localeFromSearch,
   LOCALE_STORAGE_KEY,
   negotiateLocale,
   setLocale as applyLocale,
   t as translate,
+  withLocaleParam,
   type Locale,
   type MessageKey,
   type Vars,
@@ -22,11 +24,20 @@ interface I18nContextValue {
 const I18nContext = createContext<I18nContextValue | null>(null);
 
 /**
- * Read the stored preference, else negotiate from the browser's languages.
- * Guards storage access: private mode throws on setItem/getItem in some browsers.
+ * Precedence: a supported `?lang=` parameter, then the stored preference, then
+ * the browser's languages. The URL wins because that is the whole point of a
+ * shared link — a colleague opens a French claim and gets French, even if
+ * their own preference is English. Guards storage access: private mode throws
+ * on setItem/getItem in some browsers.
  */
 function initialLocale(): Locale {
   if (typeof window === "undefined") return DEFAULT_LOCALE;
+  try {
+    const fromUrl = localeFromSearch(window.location.search);
+    if (fromUrl) return fromUrl;
+  } catch {
+    /* fall through to the stored preference */
+  }
   try {
     const stored = window.localStorage.getItem(LOCALE_STORAGE_KEY);
     if (isLocale(stored)) return stored;
@@ -52,6 +63,16 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       if (typeof window !== "undefined") window.localStorage.setItem(LOCALE_STORAGE_KEY, next);
     } catch {
       /* choice holds for this session only */
+    }
+    // Mirror the choice into ?lang= with replaceState: the current URL becomes
+    // shareable in the language on screen, and no history entry is added.
+    // Every other parameter (e.g. the demo scenario) is preserved.
+    try {
+      if (typeof window !== "undefined") {
+        window.history.replaceState(null, "", withLocaleParam(window.location.href, next));
+      }
+    } catch {
+      /* URL sync is best-effort; the choice still holds in state */
     }
   }, []);
 

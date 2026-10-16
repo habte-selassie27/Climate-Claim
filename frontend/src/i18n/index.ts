@@ -79,6 +79,27 @@ export function negotiateLocale(candidates: readonly string[]): Locale {
   return DEFAULT_LOCALE;
 }
 
+/**
+ * Read a `?lang=` parameter from a query string. Returns null when the
+ * parameter is absent or not one of the supported locales, so the caller can
+ * fall through to the stored preference and the browser languages.
+ */
+export function localeFromSearch(search: string): Locale | null {
+  const raw = new URLSearchParams(search).get("lang");
+  return isLocale(raw) ? raw : null;
+}
+
+/**
+ * Return `href` with `?lang=<locale>` set, preserving every other parameter
+ * and the hash. Used with history.replaceState so a shared URL carries the
+ * language on screen without adding a history entry.
+ */
+export function withLocaleParam(href: string, locale: Locale): string {
+  const url = new URL(href);
+  url.searchParams.set("lang", locale);
+  return url.toString();
+}
+
 /** The active locale. Module state, so non-React callers can translate. */
 let current: Locale = DEFAULT_LOCALE;
 

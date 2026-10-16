@@ -149,7 +149,10 @@ describe("claimStates", () => {
   });
 
   it("keeps an unknown state visible, sorted after the known ones", () => {
-    const withUnknown = [...ROWS, claim({ id: "claim-9", state: "paused" })];
+    const withUnknown = [
+      ...ROWS,
+      { ...claim({ id: "claim-9" }), state: "paused" as Claim["state"] },
+    ];
     expect(claimStates(withUnknown).at(-1)).toBe("paused");
   });
 

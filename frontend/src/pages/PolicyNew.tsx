@@ -222,6 +222,23 @@ export function PolicyNew() {
     [form, unit],
   );
 
+  // Honest incomplete state (item 6): the sentence preview fills gaps with
+  // stand-ins ("the location", "…"), so name what is still missing next to it
+  // instead of presenting placeholder-filled copy as a finished sentence.
+  const missingFields = useMemo(() => {
+    const missing: string[] = [];
+    if (!form.location_name.trim()) missing.push(t("policyNew.missing.location"));
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(form.period_start) ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(form.period_end)
+    ) {
+      missing.push(t("policyNew.missing.dates"));
+    }
+    if (toScaled(form.threshold) === null) missing.push(t("policyNew.missing.threshold"));
+    if (form.sourceIds.length === 0) missing.push(t("policyNew.missing.sources"));
+    return missing;
+  }, [form, t]);
+
   // condition_text follows the sentence until the user edits it themselves.
   useEffect(() => {
     if (!conditionTouched) setForm((f) => ({ ...f, condition_text: sentence }));
@@ -629,16 +646,32 @@ export function PolicyNew() {
             <legend style={{ fontWeight: 700, fontSize: "var(--step--1)", padding: 0 }}>
               Eligible sources
             </legend>
-            <div className="field-set">
-              {metricSources.length === 0 ? (
-                <div className="alert alert-warn" role="status">
-                  <strong>No sources registered for {form.metric}</strong>
-                  <p className="small" style={{ margin: 0 }}>
-                    {t("policyNew.f.dataModeHelp")}
-                    owner registers. This deployment has none for {form.metric} yet, so a policy
-                    cannot be created until one is added with <code>register_source</code> (or{" "}
-                    <code>./scripts/seed-sources.sh &lt;address&gt;</code>).
+            <div className="field-set" aria-busy={sourcesRead.loading && sources.length === 0}>
+              {sourcesRead.loading && sources.length === 0 ? (
+                <>
+                  <div className="skeleton" style={{ height: 18, width: "70%" }} />
+                  <div className="skeleton" style={{ height: 18, width: "55%" }} />
+                  <p className="small muted" style={{ margin: 0 }} data-testid="sources-loading">
+                    {t("policyNew.sources.loading")}
                   </p>
+                </>
+              ) : metricSources.length === 0 ? (
+                <div className="alert alert-warn" role="status" data-testid="sources-empty">
+                  <strong>{t("policyNew.sources.emptyH", { metric: form.metric })}</strong>
+                  <p className="small" style={{ margin: "var(--space-1) 0 0" }}>
+                    {t("policyNew.sources.empty", { metric: form.metric })}
+                  </p>
+                  <div className="btn-row" style={{ marginTop: "var(--space-2)" }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => sourcesRead.refresh()}
+                      disabled={sourcesRead.loading}
+                      data-testid="sources-retry"
+                    >
+                      {t("common.retry")}
+                    </button>
+                  </div>
                 </div>
               ) : (
                 metricSources.map((s) => (
@@ -657,6 +690,13 @@ export function PolicyNew() {
                 ))
               )}
             </div>
+            {sourcesRead.origin === "snapshot" ? (
+              <p className="small muted" style={{ margin: 0 }} data-testid="sources-recorded">
+                {t("policyNew.sources.recorded", {
+                  error: sourcesRead.liveError ?? t("common.unknown"),
+                })}
+              </p>
+            ) : null}
             {errors.sources ? <span className="field-error">{errors.sources}</span> : null}
             <span className="field-hint">
               Only sources measuring {form.metric} are listed: the contract rejects a mixed-metric
@@ -731,6 +771,15 @@ export function PolicyNew() {
         <p className="sentence-preview" data-testid="policy-sentence-preview">
           {sentence}
         </p>
+        {missingFields.length > 0 ? (
+          <p
+            className="small muted"
+            data-testid="sentence-incomplete"
+            style={{ marginTop: "var(--space-2)" }}
+          >
+            {t("policyNew.confirm.incomplete", { fields: missingFields.join(", ") })}
+          </p>
+        ) : null}
         <p className="small muted">
           {t("policyNew.confirm.help")}
           the policy, not a label.

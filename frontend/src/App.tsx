@@ -3,6 +3,7 @@ import { NavLink, Route, Routes, Link } from "react-router-dom";
 import { activeNetwork } from "./config/network";
 import { useWallet } from "./hooks/useWallet";
 import { CONTRACT_ADDRESS } from "./config/contracts";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { WalletPanel } from "./components/WalletPanel";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
@@ -143,30 +144,35 @@ export default function App() {
       <Chrome />
       <main id="main">
         <div className="container">
-          <Suspense fallback={<RouteFallback />}>
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route path="/demo" element={<Demo />} />
-              <Route path="/claims" element={<Claims />} />
-              <Route path="/claims/:id" element={<ClaimDetail />} />
-              <Route path="/policies" element={<Policies />} />
-              <Route path="/policies/new" element={<PolicyNew />} />
-              <Route path="/policies/:id" element={<PolicyDetail />} />
-              <Route path="/how-it-works" element={<HowItWorks />} />
-              <Route
-                path="*"
-                element={
-                  <div className="alert alert-warn">
-                    <strong>{t("nav.notFound.h")}</strong>
-                    <p>{t("nav.notFound.body")}</p>
-                    <Link className="btn btn-secondary" to="/">
-                      {t("nav.home")}
-                    </Link>
-                  </div>
-                }
-              />
-            </Routes>
-          </Suspense>
+          {/* Boundary outside Suspense: a crashing page (or a failed chunk
+              load) shows the fallback while the chrome and every other route
+              stay usable. */}
+          <ErrorBoundary>
+            <Suspense fallback={<RouteFallback />}>
+              <Routes>
+                <Route path="/" element={<Landing />} />
+                <Route path="/demo" element={<Demo />} />
+                <Route path="/claims" element={<Claims />} />
+                <Route path="/claims/:id" element={<ClaimDetail />} />
+                <Route path="/policies" element={<Policies />} />
+                <Route path="/policies/new" element={<PolicyNew />} />
+                <Route path="/policies/:id" element={<PolicyDetail />} />
+                <Route path="/how-it-works" element={<HowItWorks />} />
+                <Route
+                  path="*"
+                  element={
+                    <div className="alert alert-warn">
+                      <strong>{t("nav.notFound.h")}</strong>
+                      <p>{t("nav.notFound.body")}</p>
+                      <Link className="btn btn-secondary" to="/">
+                        {t("nav.home")}
+                      </Link>
+                    </div>
+                  }
+                />
+              </Routes>
+            </Suspense>
+          </ErrorBoundary>
         </div>
       </main>
       <Footer />

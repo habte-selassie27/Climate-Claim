@@ -1,7 +1,9 @@
-import { useId, useMemo, useState } from "react";
+import type * as React from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { DemoSeries } from "../fixtures/demoScenarios";
 import { comparatorSymbol } from "../domain/copy";
 import { dateRange, fromScaled } from "../domain/format";
+import { meetsThreshold } from "../domain/sourceCompare";
 import { useI18n } from "../i18n/I18nProvider";
 
 interface Props {
@@ -48,6 +50,16 @@ function niceMax(value: number): number {
   return step * mag;
 }
 
+/** One focusable data point: a single source on a single day. */
+interface ChartPoint {
+  key: string;
+  x: number;
+  y: number;
+  crosses: boolean;
+  shape: DemoSeries["shape"];
+  label: string;
+}
+
 /**
  * EvidenceChart — readings per source against the policy threshold.
  *
@@ -58,6 +70,13 @@ function niceMax(value: number): number {
  *  - disagreements about crossing flagged where they occur;
  *  - a data-table alternative and a text summary for screen readers;
  *  - renders correctly with zero, one and many sources, and with empty data.
+ *
+ * Accessibility (item 11): the svg carries a SHORT label (source and day count
+ * only — the full narrative lives in the visible summary line below, which
+ * screen readers reach in document order). Each data point is a separate
+ * focusable element with its own label, navigated with the arrow keys and
+ * Home/End once focus is inside the chart, so the values are reachable without
+ * the table toggle.
  */
 export function EvidenceChart({
   series,
@@ -103,7 +122,7 @@ export function EvidenceChart({
       dates.filter((d) => {
         const v = s.daily[d];
         if (typeof v !== "number") return false;
-        return comparator === "gt" ? v > thresholdNum : v >= thresholdNum;
+        return meetsThreshold(v, thresholdNum, comparator);
       }).length,
   );
 
@@ -114,7 +133,7 @@ export function EvidenceChart({
       const flags = series.map((s) => {
         const v = s.daily[d];
         if (typeof v !== "number") return null;
-        return comparator === "gt" ? v > thresholdNum : v >= thresholdNum;
+        return meetsThreshold(v, thresholdNum, comparator);
       });
       const present = flags.filter((f): f is boolean => f !== null);
       if (present.length > 1 && present.some((f) => f) && present.some((f) => !f)) set.add(d);
@@ -123,6 +142,67 @@ export function EvidenceChart({
   }, [series, dates, thresholdNum, comparator]);
 
   const empty = series.length === 0 || dates.length === 0;
+
+  // Day-major, so the arrow keys walk forward in time; each point carries the
+  // full sentence a screen reader announces when it takes focus.
+  const points = useMemo(() => {
+    const out: ChartPoint[] = [];
+    dates.forEach((d, i) => {
+      for (const s of series) {
+        const v = s.daily[d];
+        if (typeof v !== "number") continue;
+        const crosses = meetsThreshold(v, thresholdNum, comparator);
+        out.push({
+          key: `${s.sourceId}-${d}`,
+          x: xFor(i, dates.length),
+          y: yFor(v),
+          crosses,
+          shape: s.shape,
+          label: crosses
+            ? t("evidence.pointPass", { source: s.label, date: d, value: v.toFixed(2), unit })
+            : t("evidence.pointFail", { source: s.label, date: d, value: v.toFixed(2), unit }),
+        });
+      }
+    });
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [series, dates, thresholdNum, comparator, yMax, t, unit]);
+
+  const [activeIndex, setActiveIndex] = useState(0);
+  const pointRefs = useRef<Array<SVGGElement | null>>([]);
+  const pendingFocus = useRef(false);
+  const active = points.length === 0 ? 0 : Math.min(activeIndex, points.length - 1);
+
+  // Moving the cursor only takes real focus once a key handler asked for it;
+  // otherwise a re-render would steal focus from wherever the user was.
+  useEffect(() => {
+    if (pendingFocus.current) {
+      pendingFocus.current = false;
+      pointRefs.current[active]?.focus();
+    }
+  }, [active]);
+
+  const move = (next: number) => {
+    if (points.length === 0) return;
+    pendingFocus.current = true;
+    setActiveIndex(Math.min(Math.max(next, 0), points.length - 1));
+  };
+
+  const onPointKeyDown = (event: React.KeyboardEvent<SVGGElement>, i: number) => {
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      event.preventDefault();
+      move(i + 1);
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      event.preventDefault();
+      move(i - 1);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      move(0);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      move(points.length - 1);
+    }
+  };
 
   const summary = useMemo(() => {
     if (empty) return t("evidence.noData");
@@ -143,7 +223,7 @@ export function EvidenceChart({
       ? ` ${t(conflictDays.size === 1 ? "evidence.summaryConflictOne" : "evidence.summaryConflictMany", { days: conflictDays.size })}`
       : "";
     return `${parts.join("; ")}.${conflict}${tail}`;
-  }, [series, dates, crossingCount, conflictDays.size, empty]);
+  }, [series, dates, crossingCount, conflictDays.size, empty, t]);
 
   return (
     <section className="chart-shell" aria-labelledby={titleId}>
@@ -211,7 +291,11 @@ export function EvidenceChart({
             className="chart-svg"
             viewBox={`0 0 ${W} ${H}`}
             role="img"
-            aria-label={`Evidence chart. ${summary}`}
+            aria-label={
+              series.length === 1
+                ? t("evidence.chartAriaOne", { days: dates.length })
+                : t("evidence.chartAriaMany", { sources: series.length, days: dates.length })
+            }
           >
             <defs>
               <pattern id="gap-hatch" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
@@ -296,23 +380,27 @@ export function EvidenceChart({
               ),
             )}
 
-            {/* series markers */}
-            {series.map((s) =>
-              dates.map((d, i) => {
-                const v = s.daily[d];
-                if (typeof v !== "number") return null;
-                const x = xFor(i, dates.length);
-                const y = yFor(v);
-                const crosses = comparator === "gt" ? v > thresholdNum : v >= thresholdNum;
-                return (
-                  <g key={`${s.sourceId}-${d}`}>
-                    {crosses ? <circle cx={x} cy={y} r={9} className="chart-crossed" opacity={0.18} /> : null}
-                    {SHAPE_MARKER[s.shape](x, y)}
-                    <title>{`${s.label} — ${d}: ${v} ${unit}${crosses ? " (crosses threshold)" : ""}`}</title>
-                  </g>
-                );
-              }),
-            )}
+            {/* focusable data points — arrow keys walk them in day order */}
+            {points.map((p, i) => (
+              <g
+                key={p.key}
+                className="chart-point"
+                tabIndex={i === active ? 0 : -1}
+                role="img"
+                aria-label={p.label}
+                ref={(el) => {
+                  pointRefs.current[i] = el;
+                }}
+                onFocus={() => setActiveIndex(i)}
+                onKeyDown={(e) => onPointKeyDown(e, i)}
+              >
+                {p.crosses ? (
+                  <circle cx={p.x} cy={p.y} r={9} className="chart-crossed" opacity={0.18} />
+                ) : null}
+                {SHAPE_MARKER[p.shape](p.x, p.y)}
+                <title>{p.label}</title>
+              </g>
+            ))}
 
             {/* conflict flags */}
             {[...conflictDays].map((d) => {

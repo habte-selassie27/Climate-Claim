@@ -574,4 +574,73 @@ export const en = {
   "demo.network": "Network: {network} (chain {id}).",
   "demo.explorerLive": "Explorer links are live.",
   "demo.explorerDown": "The explorer is paused, so links are disabled.",
+
+  // --- claims filtering and pagination -------------------------------------
+  "claims.filter.h": "Filter and search",
+  "claims.filter.search": "Claim or policy id",
+  "claims.filter.decision": "Decision",
+  "claims.filter.state": "State",
+  "claims.filter.all": "All",
+  "claims.filter.pending": "Not decided",
+  "claims.filter.clear": "Clear filters",
+  "claims.filter.none": "No claims match these filters.",
+  "claims.filter.showing": "Showing {shown} of {total} claims.",
+  "claims.pagination.prev": "Previous",
+  "claims.pagination.next": "Next",
+  "claims.pagination.page": "Page {page} of {pages}",
+
+  // --- policy form: honest loading/empty/incomplete states -----------------
+  "policyNew.sources.loading": "Loading the source registry…",
+  "policyNew.sources.emptyH": "No source measures {metric}",
+  "policyNew.sources.empty": "The contract cannot create a policy without a registered source, and none measuring {metric} is on file — the registry was unreadable or genuinely empty. Retry the read, or ask the owner to register one with register_source.",
+  "policyNew.sources.recorded": "Showing the recorded registry snapshot; the live read failed ({error}).",
+  "policyNew.confirm.incomplete": "Still missing: {fields}",
+  "policyNew.missing.location": "location name",
+  "policyNew.missing.dates": "observation dates",
+  "policyNew.missing.threshold": "threshold",
+  "policyNew.missing.sources": "at least one source",
+
+  // --- evidence comparison --------------------------------------------------
+  "compare.h": "Per-day source comparison",
+  "compare.caption": "Each source's reading for every day of the period, in {unit}. The spread is the highest reading that day minus the lowest.",
+  "compare.col.spread": "Spread",
+  "compare.col.verdict": "That day",
+  "compare.verdict.split": "sources disagree on crossing",
+  "compare.verdict.both": "both cross",
+  "compare.verdict.neither": "neither crosses",
+  "compare.verdict.single": "one source only",
+  "compare.noReadings": "no readings",
+  "compare.missing": "no reading",
+  "compare.incomplete": "incomplete day",
+  "compare.summaryOne": "The sources disagree about the threshold on {days}.",
+  "compare.summaryNone": "On every day, the sources with readings agree about the threshold.",
+
+  // --- the deterministic-chain contrast ------------------------------------
+  "contrast.h": "What a deterministic chain would have said",
+  "contrast.badge": "thought experiment",
+  "contrast.intro": "A contract that reads one hard-wired source cannot express doubt: it must return pass or fail. These are the answers each single source would force, computed from the same recorded readings.",
+  "contrast.sourceCard": "If the contract read {label} only",
+  "contrast.verdictConfirmed": "Condition confirmed — payout",
+  "contrast.verdictNotConfirmed": "Condition not confirmed — no payout",
+  "contrast.observed": "Observed: {value} {unit}",
+  "contrast.genlayerCard": "What the deployed contract actually returned",
+  "contrast.genlayerVerdict": "Inconclusive — source conflict",
+  "contrast.genlayerBody": "The same readings, judged honestly: the sources disagree about crossing and the policy defines no tie-break, so the evidence does not settle the question. No payout is forced either way.",
+  "contrast.footnote": "Not a chain result. The left-hand answers are a hypothetical, computed locally from the same recorded readings by the policy's own comparison rule; the right-hand answer is what the contract's evaluation rules produce, pinned by a direct test.",
+
+  // --- chart accessibility --------------------------------------------------
+  "evidence.chartAriaOne": "Evidence chart with one source over {days} days.",
+  "evidence.chartAriaMany": "Evidence chart with {sources} sources over {days} days.",
+  "evidence.pointPass": "{source} — {date}: {value} {unit}, crosses the threshold",
+  "evidence.pointFail": "{source} — {date}: {value} {unit}, does not cross the threshold",
+
+  // --- error boundary -------------------------------------------------------
+  "errorBoundary.h": "This screen stopped working",
+  "errorBoundary.body": "An unexpected problem interrupted this page. The rest of the app still works — try again, or go back to the start.",
+  "errorBoundary.home": "Go to the home page",
+
+  // --- print receipt --------------------------------------------------------
+  "audit.print": "Print receipt",
+  "audit.printHint": "Print this page, or save it as PDF. The print layout keeps only the claim record.",
+  "audit.printNote": "Printed {date} · contract {address} · {network}",
 } as const;

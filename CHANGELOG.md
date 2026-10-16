@@ -5,6 +5,83 @@ gaps are stated plainly; nothing is claimed that was not run.
 
 ---
 
+## Demo usability, evidence comparison, print receipt, shareable language
+
+### DONE
+
+**Claims table (Tier 2 item 4).** Text search (claim id / policy id / claimant), filters
+by decision (including a "not decided" facet that covers failed evaluations) and by
+state, and pagination (8 rows/page). Filtering and paging are pure functions in
+`frontend/src/domain/claimsQuery.ts`, unit tested; a filter change resets to page 1, a
+"showing X of Y" line keeps the total visible, and an all-filtered-out table says so
+instead of rendering empty.
+
+**Error boundary (item 5).** `frontend/src/components/ErrorBoundary.tsx` wraps the
+routed content inside the shell: a render crash or failed lazy chunk shows a localized
+fallback with *Try again* (re-mount) and a link home, plus the raw message behind the
+same *Details* disclosure used elsewhere; the chrome and every other route stay usable.
+
+**Honest form states (item 6).** PolicyNew's source picker shows a skeleton while the
+registry reads, an explicit "unreadable or empty" alert with a Retry button when there
+is genuinely nothing to choose, and a muted "recorded snapshot; live read failed (…)"
+note when the fallback is on screen. The sentence preview now lists what is still
+missing (`Still missing: location name, observation dates, …`) instead of leaving its
+stand-ins unlabelled.
+
+**Print receipt (item 7).** A `@media print` block in `global.css` forces the light
+palette, hides chrome/buttons/the actions panel (`data-print="hide"`), keeps panels
+whole across page breaks and prints a receipt-header line (timestamp, contract,
+network) that is screen-hidden. The claim page gains a *Print receipt* button.
+
+**Per-day comparison (item 8).** With two or more sources, the demo page shows a
+per-day table beside the chart: each source's reading, the spread, an explicit verdict
+per day, and the disagreement days highlighted and named in a summary line. Computed by
+`domain/sourceCompare.ts` (17 tests) — no interpolation, missing days stay missing.
+
+**Deterministic contrast (item 9).** For the conflicting-sources scenario, a
+side-by-side panel shows the pass/fail each single hard-wired source would force (one
+pays out, one denies, computed from the same recorded readings by the policy's own
+comparison rule) against the deployed contract's honest third answer, *inconclusive —
+source conflict*. Clearly badged a thought experiment; never presented as a chain
+result.
+
+**Chart accessibility (item 11).** The svg's aria-label is now short (source and day
+count) with the full narrative left in the visible summary; every data point is
+focusable with its own label and arrow-key / Home / End navigation (roving tabindex).
+
+**Shareable language (item 12).** A supported `?lang=` parameter decides the initial
+locale ahead of the stored preference, and every locale change writes `?lang=` back via
+`history.replaceState`, preserving other parameters; the demo scenario switcher now
+preserves them too, so `/demo?scenario=conflict&lang=fr` opens exactly that. Rules
+pinned in `frontend/src/i18n/url.test.ts`.
+
+Also: 55 new i18n keys in all four locales (completeness and placeholder parity are
+enforced by the existing i18n tests), and `scripts/live-claim.sh` — the runbook for
+item 10 (live data_mode): redeploy current source → seed registry → create a policy
+whose window ends today against `om_forecast_precip` → evaluate → read back.
+
+### PROOF
+
+- `cd frontend && npm test` — **148/148 passed** (10 files; was 105/7).
+- `npm run build` — clean (tsc + vite, 4.48s).
+- Bundle names changed (`index-BEX_ndpy.js`, `Claims-DuK-KKMV.js`, `Demo-lTZV3FvA.js`,
+  `ClaimDetail-DHcMmYfo.js`, `PolicyNew-C7UziXcS.js`).
+
+### NEXT
+
+- After the RPC quota resets: `scripts/redeploy-studionet.sh`, update the address
+  (`frontend/src/config/contracts.ts`, `.env`, `.env.example`, env-consistency test),
+  then `scripts/live-claim.sh <new-address>` for the live-mode claim, followed by the
+  dispute walk (`scripts/dispute-claim.sh`) and the finalize → settle walk.
+
+### BLOCKED
+
+- Item 10's on-chain run and the dispute/settlement walks: StudioNet RPC daily quota
+  (5,000 requests/day) until ≈19:15 UTC. `scripts/live-claim.sh` and
+  `scripts/dispute-claim.sh` are written but not yet executed.
+
+---
+
 ## Claim audit receipt export (JSON) + status-panel label fixes
 
 ### DONE

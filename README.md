@@ -330,6 +330,26 @@ Honesty rules the UI enforces:
   recorded snapshot), snapshot capture time, network, contract address and the session's
   transaction link — assembled from the same data the page renders, so nothing can be
   exported that the screen did not show.
+- the claim page also **prints as a receipt**: a print stylesheet drops the chrome,
+  buttons and the actions panel, forces the light palette, keeps panels whole across
+  page breaks and adds a print-only line with the timestamp, contract address and
+  network;
+- the claims table **filters by decision and state**, searches by id, and **paginates**
+  (8 rows/page) — all pure functions with unit tests, so the table stays usable at
+  hundreds of claims;
+- a **route-level error boundary** keeps a crashed page from white-screening the app:
+  the fallback offers *Try again* while the header and every other route stay usable;
+- the demo page puts a **per-day source comparison table** beside the chart when two or
+  more sources are shown (spread per day, disagreement days named explicitly), and for
+  the conflicting-sources scenario a **"what a deterministic chain would have said"**
+  panel sets the pass/fail each single hard-wired source would force against the
+  contract's honest *inconclusive*;
+- the evidence chart's screen-reader label is short, and **every data point is
+  keyboard-focusable** (arrow keys / Home / End) with its own label;
+- the selected **language lives in the URL** (`?lang=fr`), so
+  `/demo?scenario=conflict&lang=fr` opens exactly that scenario in French — a supported
+  `?lang=` wins over the stored preference on load, and every locale change updates the
+  address bar.
 
 **Demo mode** (`/demo`) walks eight scenarios — threshold crossed, not reached,
 exactly at the threshold, conflicting sources, missing observations, location mismatch,
@@ -521,7 +541,7 @@ was checked against WCAG AA.
 ```bash
 GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/climateclaim.py   # 3 lint checks + SDK validation
 python3.12 -m pytest tests/direct/ -q                                 # 200 direct tests
-cd frontend && npm test && npx tsc -b --noEmit && npm run build          # 76 unit tests + typecheck + build
+cd frontend && npm test && npx tsc -b --noEmit && npm run build          # 148 unit tests (10 files) + typecheck + build
 ```
 
 > The contract suite needs **Python 3.12+** (`genlayer_py` imports
@@ -561,7 +581,10 @@ Stated plainly:
    owner-only. The two-phase settlement lifecycle is implemented and unit-tested
    but **not yet demonstrated by a live transfer**, and the recorded deployment
    predates the audit fixes described in the changelog. A redeploy is required
-   before the on-chain evidence matches the current source.
+   before the on-chain evidence matches the current source. Live mode
+   (`data_mode: live`) is in the same position: it requires the forecast-kind
+   source added after the v2 deploy, so it becomes demonstrable with the same
+   redeploy (`scripts/live-claim.sh`).
 3. **No integration tests.** `tests/integration/` does not exist. On-chain behaviour
    was verified by real writes against StudioNet (deploy, 7 policies, 7 claims,
    5 evaluations — receipts under `artifacts/studionet-v2/`) rather than by an

@@ -565,4 +565,73 @@ export const de: Dictionary = {
   "demo.network": "Netzwerk: {network} (Chain {id}).",
   "demo.explorerLive": "Die Explorer-Links sind aktiv.",
   "demo.explorerDown": "Der Explorer ist pausiert; die Links sind deaktiviert.",
+
+  // --- claims filtering and pagination -------------------------------------
+  "claims.filter.h": "Filtern und suchen",
+  "claims.filter.search": "Anspruchs- oder Policen-ID",
+  "claims.filter.decision": "Entscheidung",
+  "claims.filter.state": "Status",
+  "claims.filter.all": "Alle",
+  "claims.filter.pending": "Nicht entschieden",
+  "claims.filter.clear": "Filter löschen",
+  "claims.filter.none": "Keine Ansprüche passen zu diesen Filtern.",
+  "claims.filter.showing": "{shown} von {total} Ansprüchen angezeigt.",
+  "claims.pagination.prev": "Zurück",
+  "claims.pagination.next": "Weiter",
+  "claims.pagination.page": "Seite {page} von {pages}",
+
+  // --- policy form: honest loading/empty/incomplete states -----------------
+  "policyNew.sources.loading": "Quellenregister wird geladen…",
+  "policyNew.sources.emptyH": "Keine Quelle misst {metric}",
+  "policyNew.sources.empty": "Der Vertrag kann keine Police ohne registrierte Quelle erstellen, und keine mit der Messgröße {metric} ist hinterlegt — das Register war nicht lesbar oder wirklich leer. Wiederholen Sie das Lesen, oder bitten Sie den Eigentümer, eine mit register_source zu registrieren.",
+  "policyNew.sources.recorded": "Es wird der aufgezeichnete Register-Schnappschuss angezeigt; das Live-Lesen ist fehlgeschlagen ({error}).",
+  "policyNew.confirm.incomplete": "Es fehlt noch: {fields}",
+  "policyNew.missing.location": "der Ortsname",
+  "policyNew.missing.dates": "die Beobachtungsdaten",
+  "policyNew.missing.threshold": "der Schwellenwert",
+  "policyNew.missing.sources": "mindestens eine Quelle",
+
+  // --- evidence comparison --------------------------------------------------
+  "compare.h": "Quellenvergleich pro Tag",
+  "compare.caption": "Die Messung jeder Quelle für jeden Tag des Zeitraums, in {unit}. Die Spanne ist die höchste Messung des Tages minus der niedrigsten.",
+  "compare.col.spread": "Spanne",
+  "compare.col.verdict": "An diesem Tag",
+  "compare.verdict.split": "Quellen widersprechen sich beim Überschreiten",
+  "compare.verdict.both": "beide überschreiten",
+  "compare.verdict.neither": "keine überschreitet",
+  "compare.verdict.single": "nur eine Quelle",
+  "compare.noReadings": "keine Messungen",
+  "compare.missing": "keine Messung",
+  "compare.incomplete": "unvollständiger Tag",
+  "compare.summaryOne": "Die Quellen widersprechen sich beim Schwellenwert am {days}.",
+  "compare.summaryNone": "An jedem Tag stimmen die Quellen mit Messungen beim Schwellenwert überein.",
+
+  // --- the deterministic-chain contrast ------------------------------------
+  "contrast.h": "Was eine deterministische Chain geantwortet hätte",
+  "contrast.badge": "Gedankenexperiment",
+  "contrast.intro": "Ein Vertrag, der eine fest verdrahtete Quelle liest, kann keine Zweifel ausdrücken: Er muss Ja oder Nein zurückgeben. Dies sind die Antworten, die jede einzelne Quelle erzwingen würde — berechnet aus denselben aufgezeichneten Messwerten.",
+  "contrast.sourceCard": "Wenn der Vertrag nur {label} lesen würde",
+  "contrast.verdictConfirmed": "Bedingung bestätigt — Auszahlung",
+  "contrast.verdictNotConfirmed": "Bedingung nicht bestätigt — keine Auszahlung",
+  "contrast.observed": "Beobachtet: {value} {unit}",
+  "contrast.genlayerCard": "Was der bereitgestellte Vertrag tatsächlich zurückgab",
+  "contrast.genlayerVerdict": "Nicht conclusiv — Quellenkonflikt",
+  "contrast.genlayerBody": "Dieselben Messwerte, ehrlich beurteilt: Die Quellen widersprechen sich beim Überschreiten, und die Police definiert keine Stichentscheidung — die Evidenz entscheidet die Frage also nicht. Es wird in keine Richtung eine Auszahlung erzwungen.",
+  "contrast.footnote": "Kein Chain-Ergebnis. Die Antworten links sind eine Hypothese, lokal berechnet aus denselben aufgezeichneten Messwerten nach der Vergleichsregel der Police; die Antwort rechts ist das, was die Bewertungsregeln des Vertrags erzeugen — festgehalten durch einen direkten Test.",
+
+  // --- chart accessibility --------------------------------------------------
+  "evidence.chartAriaOne": "Evidenzdiagramm mit einer Quelle über {days} Tage.",
+  "evidence.chartAriaMany": "Evidenzdiagramm mit {sources} Quellen über {days} Tage.",
+  "evidence.pointPass": "{source} — {date}: {value} {unit}, überschreitet den Schwellenwert",
+  "evidence.pointFail": "{source} — {date}: {value} {unit}, überschreitet den Schwellenwert nicht",
+
+  // --- error boundary -------------------------------------------------------
+  "errorBoundary.h": "Dieser Bildschirm funktioniert nicht mehr",
+  "errorBoundary.body": "Ein unerwartetes Problem hat diese Seite unterbrochen. Der Rest der App funktioniert weiter — versuchen Sie es erneut oder kehren Sie zum Start zurück.",
+  "errorBoundary.home": "Zur Startseite gehen",
+
+  // --- print receipt --------------------------------------------------------
+  "audit.print": "Beleg drucken",
+  "audit.printHint": "Diese Seite drucken oder als PDF speichern. Das Drucklayout enthält nur den Anspruchsdatensatz.",
+  "audit.printNote": "Gedruckt {date} · Vertrag {address} · {network}",
 };

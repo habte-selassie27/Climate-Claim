@@ -228,6 +228,15 @@ export function ClaimDetail() {
           })}
         </p>
         <DataModePanel mode={policy.data_mode} />
+        {/* Print-only receipt header: a printed page has no chrome, so the
+            contract and network have to be stated on the paper itself. */}
+        <p className="print-only small muted" data-testid="print-note">
+          {t("audit.printNote", {
+            date: new Date().toISOString().slice(0, 16).replace("T", " "),
+            address: CONTRACT_ADDRESS,
+            network: net.label,
+          })}
+        </p>
       </header>
 
       {wallet.wrongNetwork ? (
@@ -301,7 +310,9 @@ export function ClaimDetail() {
             <ClaimTimeline claim={claim} disputes={disputes} settlement={settlement.state} />
           </div>
 
-          <div className="panel">
+          {/* Actions are controls, not receipt material: the print stylesheet
+              drops this panel from the printed record. */}
+          <div className="panel" data-print="hide">
             <div className="panel-head">
               <h2>{t("claimDetail.actions")}</h2>
             </div>
@@ -542,6 +553,17 @@ export function ClaimDetail() {
                   }}
                 >
                   {t("audit.export")}
+                </button>
+                {/* Print receipt: the @media print stylesheet strips the chrome
+                    and interactive controls, so this opens the browser's print
+                    dialog (save as PDF) over a clean claim record. */}
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  title={t("audit.printHint")}
+                  onClick={() => window.print()}
+                >
+                  {t("audit.print")}
                 </button>
                 <Link className="small" to="/how-it-works">
                   How this is decided

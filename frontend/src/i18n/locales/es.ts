@@ -562,4 +562,73 @@ export const es: Dictionary = {
   "demo.network": "Red: {network} (cadena {id}).",
   "demo.explorerLive": "Los enlaces al explorador están activos.",
   "demo.explorerDown": "El explorador está en pausa, así que los enlaces están desactivados.",
+
+  // --- claims filtering and pagination -------------------------------------
+  "claims.filter.h": "Filtrar y buscar",
+  "claims.filter.search": "Id de reclamación o póliza",
+  "claims.filter.decision": "Decisión",
+  "claims.filter.state": "Estado",
+  "claims.filter.all": "Todas",
+  "claims.filter.pending": "Sin decidir",
+  "claims.filter.clear": "Borrar filtros",
+  "claims.filter.none": "Ninguna reclamación coincide con estos filtros.",
+  "claims.filter.showing": "Mostrando {shown} de {total} reclamaciones.",
+  "claims.pagination.prev": "Anterior",
+  "claims.pagination.next": "Siguiente",
+  "claims.pagination.page": "Página {page} de {pages}",
+
+  // --- policy form: honest loading/empty/incomplete states -----------------
+  "policyNew.sources.loading": "Cargando el registro de fuentes…",
+  "policyNew.sources.emptyH": "Ninguna fuente mide {metric}",
+  "policyNew.sources.empty": "El contrato no puede crear una póliza sin una fuente registrada, y no consta ninguna que mida {metric}: el registro no se pudo leer o está realmente vacío. Reintenta la lectura o pide al propietario que registre una con register_source.",
+  "policyNew.sources.recorded": "Mostrando la instantánea registrada del registro; la lectura en vivo falló ({error}).",
+  "policyNew.confirm.incomplete": "Aún falta: {fields}",
+  "policyNew.missing.location": "el nombre del lugar",
+  "policyNew.missing.dates": "las fechas de observación",
+  "policyNew.missing.threshold": "el umbral",
+  "policyNew.missing.sources": "al menos una fuente",
+
+  // --- evidence comparison --------------------------------------------------
+  "compare.h": "Comparación de fuentes por día",
+  "compare.caption": "La lectura de cada fuente para cada día del periodo, en {unit}. La diferencia es la lectura más alta del día menos la más baja.",
+  "compare.col.spread": "Diferencia",
+  "compare.col.verdict": "Ese día",
+  "compare.verdict.split": "las fuentes discrepan sobre el cruce",
+  "compare.verdict.both": "ambas cruzan",
+  "compare.verdict.neither": "ninguna cruza",
+  "compare.verdict.single": "solo una fuente",
+  "compare.noReadings": "sin lecturas",
+  "compare.missing": "sin lectura",
+  "compare.incomplete": "día incompleto",
+  "compare.summaryOne": "Las fuentes discrepan sobre el umbral el {days}.",
+  "compare.summaryNone": "Todos los días, las fuentes con lecturas coinciden sobre el umbral.",
+
+  // --- the deterministic-chain contrast ------------------------------------
+  "contrast.h": "Lo que habría dicho una cadena determinista",
+  "contrast.badge": "experimento mental",
+  "contrast.intro": "Un contrato que lee una sola fuente fija no puede expresar duda: debe devolver aprobado o denegado. Estas son las respuestas que cada fuente forzaría por sí sola, calculadas con las mismas lecturas registradas.",
+  "contrast.sourceCard": "Si el contrato leyera solo {label}",
+  "contrast.verdictConfirmed": "Condición confirmada — pago",
+  "contrast.verdictNotConfirmed": "Condición no confirmada — sin pago",
+  "contrast.observed": "Observado: {value} {unit}",
+  "contrast.genlayerCard": "Lo que devolvió realmente el contrato desplegado",
+  "contrast.genlayerVerdict": "No concluyente — conflicto de fuentes",
+  "contrast.genlayerBody": "Las mismas lecturas, juzgadas con honestidad: las fuentes discrepan sobre el cruce y la póliza no define ningún desempate, así que la evidencia no resuelve la pregunta. No se fuerza ningún pago en ningún sentido.",
+  "contrast.footnote": "No es un resultado de cadena. Las respuestas de la izquierda son una hipótesis, calculada localmente con las mismas lecturas registradas según la regla de comparación de la propia póliza; la respuesta de la derecha es lo que producen las reglas de evaluación del contrato, fijado por una prueba directa.",
+
+  // --- chart accessibility --------------------------------------------------
+  "evidence.chartAriaOne": "Gráfico de evidencia con una fuente durante {days} días.",
+  "evidence.chartAriaMany": "Gráfico de evidencia con {sources} fuentes durante {days} días.",
+  "evidence.pointPass": "{source} — {date}: {value} {unit}, cruza el umbral",
+  "evidence.pointFail": "{source} — {date}: {value} {unit}, no cruza el umbral",
+
+  // --- error boundary -------------------------------------------------------
+  "errorBoundary.h": "Esta pantalla dejó de funcionar",
+  "errorBoundary.body": "Un problema inesperado interrumpió esta página. El resto de la aplicación sigue funcionando: inténtalo de nuevo o vuelve al inicio.",
+  "errorBoundary.home": "Ir a la página de inicio",
+
+  // --- print receipt --------------------------------------------------------
+  "audit.print": "Imprimir recibo",
+  "audit.printHint": "Imprime esta página o guárdala como PDF. El diseño de impresión conserva solo el registro de la reclamación.",
+  "audit.printNote": "Impreso {date} · contrato {address} · {network}",
 };

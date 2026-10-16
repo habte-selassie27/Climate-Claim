@@ -564,4 +564,73 @@ export const fr: Dictionary = {
   "demo.network": "Réseau : {network} (chaîne {id}).",
   "demo.explorerLive": "Les liens vers l’explorateur sont actifs.",
   "demo.explorerDown": "L’explorateur est en pause ; les liens sont désactivés.",
+
+  // --- claims filtering and pagination -------------------------------------
+  "claims.filter.h": "Filtrer et rechercher",
+  "claims.filter.search": "Id de réclamation ou de police",
+  "claims.filter.decision": "Décision",
+  "claims.filter.state": "État",
+  "claims.filter.all": "Toutes",
+  "claims.filter.pending": "Non décidée",
+  "claims.filter.clear": "Effacer les filtres",
+  "claims.filter.none": "Aucune réclamation ne correspond à ces filtres.",
+  "claims.filter.showing": "{shown} réclamations sur {total} affichées.",
+  "claims.pagination.prev": "Précédent",
+  "claims.pagination.next": "Suivant",
+  "claims.pagination.page": "Page {page} sur {pages}",
+
+  // --- policy form: honest loading/empty/incomplete states -----------------
+  "policyNew.sources.loading": "Chargement du registre des sources…",
+  "policyNew.sources.emptyH": "Aucune source ne mesure {metric}",
+  "policyNew.sources.empty": "Le contrat ne peut pas créer de police sans source enregistrée, et aucune ne mesure {metric} : le registre était illisible ou réellement vide. Relancez la lecture, ou demandez au propriétaire d’en enregistrer une avec register_source.",
+  "policyNew.sources.recorded": "Affichage de l’instantané enregistré du registre ; la lecture en direct a échoué ({error}).",
+  "policyNew.confirm.incomplete": "Il manque encore : {fields}",
+  "policyNew.missing.location": "le nom du lieu",
+  "policyNew.missing.dates": "les dates d’observation",
+  "policyNew.missing.threshold": "le seuil",
+  "policyNew.missing.sources": "au moins une source",
+
+  // --- evidence comparison --------------------------------------------------
+  "compare.h": "Comparaison des sources jour par jour",
+  "compare.caption": "La lecture de chaque source pour chaque jour de la période, en {unit}. L’écart est la lecture la plus haute du jour moins la plus basse.",
+  "compare.col.spread": "Écart",
+  "compare.col.verdict": "Ce jour-là",
+  "compare.verdict.split": "les sources divergent sur le franchissement",
+  "compare.verdict.both": "les deux franchissent",
+  "compare.verdict.neither": "aucune ne franchit",
+  "compare.verdict.single": "une seule source",
+  "compare.noReadings": "aucune lecture",
+  "compare.missing": "pas de lecture",
+  "compare.incomplete": "jour incomplet",
+  "compare.summaryOne": "Les sources divergent sur le seuil le {days}.",
+  "compare.summaryNone": "Chaque jour, les sources disposant de lectures s’accordent sur le seuil.",
+
+  // --- the deterministic-chain contrast ------------------------------------
+  "contrast.h": "Ce qu’une chaîne déterministe aurait répondu",
+  "contrast.badge": "expérience de pensée",
+  "contrast.intro": "Un contrat qui lit une seule source figée ne peut pas exprimer le doute : il doit répondre oui ou non. Voici la réponse que chaque source imposerait à elle seule, calculée à partir des mêmes relevés enregistrés.",
+  "contrast.sourceCard": "Si le contrat ne lisait que {label}",
+  "contrast.verdictConfirmed": "Condition confirmée — paiement",
+  "contrast.verdictNotConfirmed": "Condition non confirmée — pas de paiement",
+  "contrast.observed": "Observé : {value} {unit}",
+  "contrast.genlayerCard": "Ce que le contrat déployé a réellement renvoyé",
+  "contrast.genlayerVerdict": "Non concluant — conflit de sources",
+  "contrast.genlayerBody": "Les mêmes relevés, jugés honnêtement : les sources divergent sur le franchissement et la police ne définit aucune règle de départage ; les preuves ne tranchent donc pas la question. Aucun paiement n’est forcé dans un sens ou dans l’autre.",
+  "contrast.footnote": "Pas un résultat de chaîne. Les réponses de gauche sont une hypothèse, calculée localement à partir des mêmes relevés enregistrés par la règle de comparaison de la police ; la réponse de droite est ce que produisent les règles d’évaluation du contrat, figée par un test direct.",
+
+  // --- chart accessibility --------------------------------------------------
+  "evidence.chartAriaOne": "Graphique de preuves avec une source sur {days} jours.",
+  "evidence.chartAriaMany": "Graphique de preuves avec {sources} sources sur {days} jours.",
+  "evidence.pointPass": "{source} — {date} : {value} {unit}, franchit le seuil",
+  "evidence.pointFail": "{source} — {date} : {value} {unit}, ne franchit pas le seuil",
+
+  // --- error boundary -------------------------------------------------------
+  "errorBoundary.h": "Cet écran a cessé de fonctionner",
+  "errorBoundary.body": "Un problème inattendu a interrompu cette page. Le reste de l’application fonctionne : réessayez, ou revenez à l’accueil.",
+  "errorBoundary.home": "Aller à la page d’accueil",
+
+  // --- print receipt --------------------------------------------------------
+  "audit.print": "Imprimer le reçu",
+  "audit.printHint": "Imprimez cette page ou enregistrez-la en PDF. La mise en page d’impression ne conserve que le dossier de réclamation.",
+  "audit.printNote": "Imprimé {date} · contrat {address} · {network}",
 };
