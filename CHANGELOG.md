@@ -39,12 +39,11 @@ attaching it could not have compiled before.
 
 ### PROOF
 
-- `npm test` → 207 passed (16 files); includes 12 new `chart3d` tests and
-  the reworked `EvidenceChart` tests (the 2D frame is asserted via
-  `initialMode`, plus 3D-default container/toggle/accessible-carrier checks)
-- `npm run build` → clean (verified from a clean worktree of this commit;
-  the main checkout concurrently held the other session's uncommitted sound
-  work, which is not part of this commit)
+- `npm test` → 228 passed (17 files) on this commit's tree; includes 12 new
+  `chart3d` tests and the reworked `EvidenceChart` tests (the 2D frame is
+  asserted via `initialMode`, plus 3D-default container/toggle/
+  accessible-carrier checks)
+- `npm run build` → clean on this commit's tree
 - Vercel bundle checked after push (chart-3d markup and CSS present)
 
 ### NEXT
