@@ -5,6 +5,92 @@ gaps are stated plainly; nothing is claimed that was not run.
 
 ---
 
+## Fix SPA deep links on the Vercel deployment (root directory = frontend)
+
+### DONE
+
+The user reported `GET /claims 404` in the console and Vercel's "page could not
+be found" screen for `/how-it-works`. Root cause, verified against the live
+deployment: the project's Vercel **Root Directory** is `frontend/`, so Vercel
+reads `frontend/vercel.json` — which did not exist — and ignored the
+repository-root `vercel.json`. The `/(.*) -> /index.html` rewrite was never
+applied, so any direct document load of a deep link (typed URL, hard reload,
+open in a new tab) hit Vercel's 404. Client-side navigation inside the loaded
+app was unaffected, which made the failure look inconsistent.
+
+Changes:
+- added `frontend/vercel.json` (install `npm ci`, build `npm run build`, output
+  `dist`, SPA rewrite) — the file the deployed project actually reads;
+- restored the repository-root `vercel.json` commands to the documented
+  `cd frontend && ...` form, so the "Root Directory = repository root" route
+  also builds (it would have failed with no `package.json` at the root);
+- README deploy section now states both root-directory cases explicitly.
+
+### PROOF
+
+Before the fix, against the live deployment:
+- `GET /` -> 200 (app served)
+- `GET /claims` -> 404, `GET /how-it-works` -> 404 (Vercel's own 404 body)
+
+### NEXT
+
+- Commit, push, let Vercel redeploy, then verify:
+  `curl -o /dev/null -w '%{http_code}\n' https://climate-claim-fawn.vercel.app/claims`
+  — expect 200 once the fix is live.
+
+### BLOCKED
+
+None; the fix is committed locally and needs a push + redeploy to be verified.
+
+---
+
+## Verify theme/i18n and contract completeness: nothing to change
+
+### DONE
+
+The user asked two questions: (1) does the code have a dark/light/system theme
+and multi-language support, with both controls in the navbar? (2) do we need any
+contract change?
+
+Both were verified against the current tree — no code was changed.
+
+1. Theme and i18n already exist and are already wired into the navbar. Three-state
+   theme (`system` / `light` / `dark`) with an OS-following listener
+   (`theme/theme.ts`), CSS variables that flip under `[data-theme="dark"]`
+   (`global.css`), four locales (en/es/fr/de) with type-enforced completeness
+   (`i18n/`), and both controls rendered in the `Chrome` header
+   (`App.tsx`). This matches the "Navbar theme + language controls" entry; the
+   only gap found was deployment lag, which was already fixed by pushing
+   `1d73172..fa59fe0`.
+
+2. No contract change is needed. All 32 methods the frontend calls
+   (`frontend/src/config/contracts.ts` `METHODS`) exist in
+   `contracts/climateclaim.py`, the full direct suite passes (200/200), and no
+   documentation or CHANGELOG entry marks planned-but-missing contract
+   functionality. The contract already contains all four components: policy
+   registry, evaluator with leader/validator logic, the claim state machine,
+   and the settlement controller.
+
+### PROOF
+
+- Method cross-check: all 32 frontend-called methods present in the contract
+  (scripted check, 32/32 OK).
+- `python3.12 -m pytest tests/direct/ -q` → **200 passed** in 6.73s
+- Theme/i18n re-verified by reading the implementation; their suites
+  (`theme.test.ts` 10 tests, `i18n.test.ts` 19 tests) were green as established
+  in the "Navbar theme + language controls" entry.
+
+### NEXT
+
+- Redeploy the contract so the deployed v2 address picks up the post-audit
+  methods (`confirm_settlement`, `fail_settlement`, `get_in_flight`,
+  `get_refunds`, `get_payouts`, `get_source_count`). This is a deployment step;
+  `contracts/climateclaim.py` already contains them.
+
+### BLOCKED
+
+None.
+
 ## Navbar theme + language controls: live on the deployed site
 
 ### DONE

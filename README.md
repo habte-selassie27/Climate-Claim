@@ -358,9 +358,18 @@ The `rewrites` entry is what makes `react-router` deep links work. The app is a
 to `index.html` and lets the client route it. Vercel checks the filesystem *before*
 applying a rewrite, so hashed assets under `/assets/` are still served directly.
 
+If the import flow instead sets **Root Directory** to `frontend/` (the Vercel
+UI's default for this repository), that works too: keep it, and Vercel reads the
+same rewrite from [`frontend/vercel.json`](frontend/vercel.json), which is
+committed for exactly that setup. The one arrangement that breaks deep links is
+Root Directory = `frontend/` with no config inside it: no rewrite is applied, so
+every direct load of a deep link (`/claims`, `/how-it-works`, a hard reload)
+answers Vercel's 404 while in-app navigation still looks fine — observed on
+2026-10-16 on `climate-claim-fawn.vercel.app`.
+
 **CLI route:** `npx vercel --prod` **from the repository root** (running it from
-`frontend/` makes Vercel treat that directory as the project root, and the rewrites
-here would be ignored).
+`frontend/` makes Vercel treat that directory as the project root; the rewrite
+then comes from `frontend/vercel.json`, not the repository-root file).
 
 Three things worth knowing before you trust the deployed site:
 
