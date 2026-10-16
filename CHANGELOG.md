@@ -5,6 +5,58 @@ gaps are stated plainly; nothing is claimed that was not run.
 
 ---
 
+## Evidence chart: animated 3D view (2D and table one click away)
+
+### DONE
+
+**The evidence panel now opens on a 3D column chart.** Grouped columns per
+day — box for the first source, cylinder for the second, so the series differ
+by shape as well as colour — grown in with a staggered ease when the panel
+scrolls into view. A slow turntable keeps the scene moving and pauses while
+you drag or hover; dragging spins and tilts (elevation clamped); hovering a
+day raises a selection frame and swaps the chip's hint for that day's
+readings; the threshold is a translucent plane that sweeps in and floats at
+its true height with a labelled edge; shelf outlines sit at every axis tick
+with values on the back-left corner; the ground is a grid with real soft
+shadows. Recording honesty is unchanged: a recorded 0 draws a hairline
+column, a missing reading draws NO column and an amber ground cross (never a
+fake zero), and the amber halo may only sit on a day `compareSources()`
+classifies as a split. Nothing new computes numbers — heights come from
+`niceScale` plus the new pure, tested `domain/chart3d.ts`; crossings from
+`meetsThreshold`.
+
+**The 2D view and the table view remain**, one toggle away, because
+perspective genuinely distorts exact height comparison and the 2D view keeps
+the per-point keyboard walk through the readings. The `useChartReveal`
+docstring's old "why 2D, not 3D" note now describes the arrangement, and the
+hook exposes `inView`/`run` so the 3D scene re-runs its growth on replay.
+
+**Bug fixed on the way:** the reveal hook's `ref` was never attached to the
+chart shell, so the reveal sequence never armed in a browser. It is now
+attached — and the hook hands out a callback ref, because the object-ref
+shape it previously returned is not assignable to a JSX `ref` attribute, so
+attaching it could not have compiled before.
+
+### PROOF
+
+- `npm test` → 207 passed (16 files); includes 12 new `chart3d` tests and
+  the reworked `EvidenceChart` tests (the 2D frame is asserted via
+  `initialMode`, plus 3D-default container/toggle/accessible-carrier checks)
+- `npm run build` → clean (verified from a clean worktree of this commit;
+  the main checkout concurrently held the other session's uncommitted sound
+  work, which is not part of this commit)
+- Vercel bundle checked after push (chart-3d markup and CSS present)
+
+### NEXT
+
+- On-chain queue unchanged: waits on the StudioNet quota window.
+
+### BLOCKED
+
+- Nothing on this change.
+
+---
+
 ## Hero ambience: rain streaks back, opt-in rain + thunder sound
 
 ### DONE

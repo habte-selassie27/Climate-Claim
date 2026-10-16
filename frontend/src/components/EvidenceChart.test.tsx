@@ -12,6 +12,12 @@ import type { DemoSeries } from "../fixtures/demoScenarios";
  *    permanently blank, which is why `css.test.ts` asserts the settled frame
  *    independently -- that the animation ends at opacity 1, transform none and
  *    dashoffset 0, so "no animation" and "animation finished" look identical.
+ *
+ * The default view is the 3D scene. It cannot be asserted on the server --
+ * three.js is imported in an effect, which never runs here -- so its geometry
+ * facts live in `chart3d.test.ts` and here we assert its container and the
+ * fact that the accessible carriers (summary, legend) survive. The 2D static
+ * frame is asserted through `initialMode="2d"`, the same prop real callers use.
  */
 
 const OM: Record<string, number | null> = {
@@ -34,7 +40,7 @@ const SERIES: DemoSeries[] = [
   { sourceId: "nasa", label: "NASA POWER MERRA-2", shape: "triangle", daily: NASA, unit: "mm/day" },
 ];
 
-function render() {
+function render(mode: "3d" | "2d" = "3d") {
   return renderToStaticMarkup(
     // The chart reads its copy through useI18n, so the provider is required.
     // The default locale is English, which is what the assertions expect.
@@ -45,13 +51,42 @@ function render() {
         thresholdScaled={150}
         comparator="gt"
         unit="mm"
+        initialMode={mode}
       />
     </I18nProvider>,
   );
 }
 
-describe("EvidenceChart static frame", () => {
-  const html = render();
+describe("EvidenceChart default view", () => {
+  const html = render("3d");
+
+  it("opens on the 3D scene with its hint chip", () => {
+    expect(html).toContain('data-testid="chart-3d"');
+    expect(html).toContain('data-testid="chart3d-hud"');
+    expect(html).toContain("drag to rotate");
+    expect(html).not.toMatch(/chart-svg/);
+  });
+
+  it("offers the 2D view as a toggle labelled with the target view", () => {
+    expect(html).toContain('data-testid="chart-mode"');
+    expect(html).toMatch(/>2D<\/button>/);
+  });
+
+  it("keeps the accessible carriers regardless of the canvas", () => {
+    // The legend, the summary sentence and the table toggle are the data's
+    // accessible path; none of them depends on three.js having loaded.
+    expect(html).toContain("chart-legend");
+    expect(html).toContain('data-testid="chart-summary"');
+    expect(html).toContain("sources disagree");
+  });
+});
+
+describe("EvidenceChart 2D static frame", () => {
+  const html = render("2d");
+
+  it("labels the toggle with the view it switches to", () => {
+    expect(html).toMatch(/>3D<\/button>/);
+  });
 
   it("renders every recorded reading as a mark", () => {
     // 5 days x 2 sources, none null in this fixture.

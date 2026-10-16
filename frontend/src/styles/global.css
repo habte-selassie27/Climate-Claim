@@ -983,6 +983,69 @@ td.num-col {
   margin-top: var(--space-2);
 }
 
+/* --- 3D evidence chart ------------------------------------------------------
+   Deliberately quiet chrome: the panel's words stay outside the canvas, and
+   the chip matches the hero field's tip so the two canvases read as one
+   design. touch-action pan-y keeps vertical scrolling on touch while a
+   horizontal drag spins the scene. */
+
+.chart3d {
+  position: relative;
+  width: 100%;
+  height: clamp(300px, 52vw, 400px);
+  margin-top: var(--space-2);
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(
+      120% 90% at 50% 0%,
+      color-mix(in srgb, var(--isobar) 9%, transparent),
+      transparent 62%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--gauge-paper) 60%, transparent),
+      transparent 72%
+    );
+  touch-action: pan-y;
+  cursor: grab;
+}
+
+.chart3d:active {
+  cursor: grabbing;
+}
+
+.chart3d-fallback {
+  position: absolute;
+  inset: 0;
+}
+
+.chart3d-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: pan-y;
+}
+
+.chart3d-hud {
+  position: absolute;
+  left: var(--space-3);
+  right: var(--space-3);
+  bottom: var(--space-3);
+  width: fit-content;
+  max-width: 100%;
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--rain-slate-45);
+  background: color-mix(in srgb, var(--gauge-paper) 84%, transparent);
+  border: 1px solid var(--hail);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  pointer-events: none;
+}
+
 details.disclosure {
   margin-top: var(--space-3);
 }
@@ -2065,7 +2128,8 @@ caption {
 @media print {
   /* The fields are screens; a receipt does not need them. */
   .evidence-field,
-  .precip {
+  .precip,
+  .chart3d {
     display: none;
   }
   .hero {

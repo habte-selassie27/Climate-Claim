@@ -1,13 +1,18 @@
 /**
  * Reveals the evidence chart as it enters the viewport.
  *
- * WHY ANIMATED 2D RATHER THAN 3D: this chart's only job is to show that on one
- * day one source says 1.10 mm and the other 2.03 mm against a 1.50 mm threshold.
- * A 3D bar chart makes that judgement WORSE, not better -- perspective distorts
- * the very heights being compared, and the back row occludes the front one. The
- * animation below is deliberately confined to motion that does not change what
- * is measured: the marks travel to the position the data already implies, so
- * the settled frame is identical to the static chart.
+ * WHY BOTH 2D AND 3D: the 3D view is the default -- it is the version people
+ * actually watch, and the version demos run on. The 2D view stays one click
+ * away because perspective genuinely distorts the comparison this panel
+ * exists to make: heights read through a rotated camera, and a far column can
+ * hide a near one. Where the exact relationship matters, the flat frame and
+ * the table remain the honest forms. Neither view carries data the other
+ * lacks, and the summary sentence and table are written for screen readers
+ * regardless of which view is on screen.
+ *
+ * In both views the animation is confined to motion that does not change what
+ * is measured: marks travel to the position the data already implies, so the
+ * settled frame is identical to the static one.
  *
  * ACCESSIBILITY:
  *  - The whole thing is decoration. The chart's accessible names, its summary
@@ -19,7 +24,7 @@
  *    means the animation never gates understanding of the page.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 function prefersReducedMotion(): boolean {
   if (typeof window === "undefined" || !window.matchMedia) return false;
@@ -57,22 +62,39 @@ export function useInView<T extends HTMLElement>(rootMargin = "0px") {
 }
 
 interface Reveal {
-  /** Spread onto the chart's <svg> to arm the sequence. */
+  /** Applied to the chart shell to arm the 2D keyframe sequence. */
   className: string;
   /** Attached to the replay control. */
   replay: () => void;
   /** False when motion is reduced, so the control can be hidden. */
   animated: boolean;
+  /** True once the observed element has entered the viewport. */
+  inView: boolean;
+  /** Replay counter; the 3D scene re-runs its growth when this changes. */
+  run: number;
 }
 
 export function useChartReveal<T extends HTMLElement>(): Reveal & {
-  ref: React.RefObject<T | null>;
+  /**
+   * A CALLBACK ref, not the underlying RefObject.
+   *
+   * React 18's `ref` prop is typed `Ref<T>`, and `RefObject<T | null>` is not
+   * assignable to it, so passing the object straight through is a type error.
+   * The callback form is stable, so it never detaches and reattaches the
+   * IntersectionObserver on a re-render.
+   */
+  ref: (node: T | null) => void;
 } {
-  // The ref is returned for callers that want to observe a different element
-  // than the one carrying the class; the chart itself observes the shell.
-  const { ref, inView } = useInView<T>();
+  const { ref: refObject, inView } = useInView<T>();
   const [run, setRun] = useState(0);
   const animated = !prefersReducedMotion();
+
+  const ref = useCallback(
+    (node: T | null) => {
+      refObject.current = node;
+    },
+    [refObject],
+  );
 
   // Re-arm the sequence by flipping the class off and on across a frame, so a
   // replay actually replays instead of being a no-op.
@@ -86,5 +108,5 @@ export function useChartReveal<T extends HTMLElement>(): Reveal & {
 
   const className = animated && inView ? `chart-reveal run-${run}` : "";
 
-  return { className, replay, animated, ref };
+  return { className, replay, animated, inView, run, ref };
 }

@@ -8,6 +8,7 @@ import { dateRange, fromScaled } from "../domain/format";
 import { meetsThreshold } from "../domain/sourceCompare";
 import { useI18n } from "../i18n/I18nProvider";
 import { useChartReveal } from "../hooks/useChartReveal";
+import { EvidenceChart3D } from "./EvidenceChart3D";
 
 interface Props {
   series: DemoSeries[];
@@ -17,6 +18,11 @@ interface Props {
   unit: string;
   /** Rendered above the chart to explain what is contract data vs display detail. */
   caption?: string;
+  /**
+   * Which chart view opens first. 3D is the default everywhere; the 2D view
+   * stays available for callers that want the flat, precise frame immediately.
+   */
+  initialMode?: "3d" | "2d";
 }
 
 /* Which series is drawn as bars, per the supplied chart spec: the FIRST source
@@ -72,6 +78,13 @@ interface ChartPoint {
 /**
  * EvidenceChart — readings per source against the policy threshold.
  *
+ * TWO VIEWS, ONE TRUTH: the 3D view (the default) draws the same readings as
+ * an animated turntable scene — grouped columns per day, shelf lines at every
+ * axis tick, the threshold as a plane, an amber halo on disagreement days.
+ * The 2D view is one click away because perspective genuinely distorts exact
+ * height comparison; the table view stays for text. All views draw from the
+ * same pure modules, and none carries data another lacks.
+ *
  * Design requirements from UI.md section 5.1, all honoured:
  *  - per-source series distinguished by SHAPE and label, not colour alone;
  *  - threshold line in --threshold-ink, labelled with value, unit, comparator;
@@ -94,9 +107,11 @@ export function EvidenceChart({
   comparator,
   unit,
   caption,
+  initialMode = "3d",
 }: Props) {
   const { t } = useI18n();
   const [showTable, setShowTable] = useState(false);
+  const [mode, setMode] = useState<"3d" | "2d">(initialMode);
   const titleId = useId();
 
   const dates = useMemo(
@@ -262,9 +277,25 @@ export function EvidenceChart({
   }, [series, dates, crossingCount, conflictDays.size, empty, t]);
 
   return (
-    <section className={`chart-shell ${reveal.className}`} aria-labelledby={titleId}>
+    <section
+      ref={reveal.ref}
+      className={`chart-shell ${reveal.className}`}
+      aria-labelledby={titleId}
+    >
       <div className="panel-head">
         <h3 id={titleId}>{t("evidence.chart")}</h3>
+        {/* "2D" and "3D" are the same in every locale, so no key is needed.
+            The label names the view the button switches TO. */}
+        {!showTable ? (
+          <button
+            type="button"
+            className="copy-btn"
+            data-testid="chart-mode"
+            onClick={() => setMode((m) => (m === "3d" ? "2d" : "3d"))}
+          >
+            {mode === "3d" ? "2D" : "3D"}
+          </button>
+        ) : null}
         <button
           type="button"
           className="copy-btn"
@@ -333,6 +364,17 @@ export function EvidenceChart({
             </tbody>
           </table>
         </div>
+      ) : mode === "3d" ? (
+        <EvidenceChart3D
+          series={series}
+          period={period}
+          thresholdScaled={thresholdScaled}
+          comparator={comparator}
+          unit={unit}
+          armed={reveal.inView}
+          run={reveal.run}
+          animated={reveal.animated}
+        />
       ) : (
         <div className="chart-scroll">
           <svg
