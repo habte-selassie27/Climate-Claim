@@ -2,6 +2,7 @@ import type * as React from "react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { DemoSeries } from "../fixtures/demoScenarios";
 import { comparatorSymbol } from "../domain/copy";
+import { formatTick, niceScale } from "../domain/chartScale";
 import { dateRange, fromScaled } from "../domain/format";
 import { meetsThreshold } from "../domain/sourceCompare";
 import { useI18n } from "../i18n/I18nProvider";
@@ -42,14 +43,6 @@ const SHAPE_NAME: Record<DemoSeries["shape"], string> = {
 };
 
 /** Round the top of the axis up to something readable. */
-function niceMax(value: number): number {
-  if (value <= 0) return 1;
-  const mag = 10 ** Math.floor(Math.log10(value));
-  const norm = value / mag;
-  const step = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10;
-  return step * mag;
-}
-
 /** One focusable data point: a single source on a single day. */
 interface ChartPoint {
   key: string;
@@ -98,7 +91,12 @@ export function EvidenceChart({
   const threshold = fromScaled(thresholdScaled);
   const thresholdNum = thresholdScaled / 100;
 
-  const yMax = useMemo(() => {
+  /**
+   * Axis scale. The step is chosen first and the top derived from it, so every
+   * gridline carries a round label. The old code divided the top into quarters
+   * and rounded each label, which produced uneven numbers on evenly spaced lines.
+   */
+  const scale = useMemo(() => {
     let max = thresholdNum;
     for (const s of series) {
       for (const d of dates) {
@@ -106,8 +104,9 @@ export function EvidenceChart({
         if (typeof v === "number" && v > max) max = v;
       }
     }
-    return niceMax(max * 1.15);
+    return niceScale(max * 1.15);
   }, [series, dates, thresholdNum]);
+  const yMax = scale.top;
 
   const xFor = (index: number, n: number) =>
     M.left + (n <= 1 ? PW / 2 : (index * PW) / (n - 1));
@@ -304,14 +303,14 @@ export function EvidenceChart({
               </pattern>
             </defs>
 
-            {/* y grid + labels */}
-            {[0, 0.25, 0.5, 0.75, 1].map((f) => {
-              const y = M.top + PH - f * PH;
+            {/* y grid + labels, on the round step from `scale` */}
+            {scale.ticks.map((tick) => {
+              const y = yFor(tick);
               return (
-                <g key={f}>
+                <g key={tick}>
                   <line x1={M.left} y1={y} x2={M.left + PW} y2={y} className="chart-grid" />
                   <text x={M.left - 8} y={y + 4} textAnchor="end" className="chart-label">
-                    {(yMax * f).toFixed(yMax < 1 ? 2 : 1)}
+                    {formatTick(tick, scale.decimals)}
                   </text>
                 </g>
               );

@@ -496,6 +496,72 @@ funding them is a manual step for the user.
 
 ---
 
+## Chart axis fix, table redesign, and a data-driven Three.js hero
+
+### DONE
+
+Three things the earlier review flagged, plus the requested hero.
+
+**1. Real chart bug fixed.** The evidence chart placed gridlines at fixed
+fractions of the axis top (`[0, 0.25, 0.5, 0.75, 1]`) and labelled them with
+`toFixed(1)`. On a 2.5 mm axis that produced **0.0 / 0.6 / 1.3 / 1.9 / 2.5** —
+evenly spaced *lines* carrying unevenly spaced *numbers*, so a reader infers
+distances that do not exist. `domain/chartScale.ts` now picks a round STEP first
+(1/2/5/10 × a power of ten, Hastings) and derives the top from it, giving
+0.0 / 0.5 / 1.0 / 1.5 / 2.0 / 2.5. Precision comes from the step's own decimal
+representation, so a 2.5 step still labels as "2.5" rather than rounding to "3".
+Ticks are accumulated by index, not by repeated addition, because 0.1 + 0.2 drifts.
+
+**2. Tables redesigned.** Sticky header with a hairline shadow so rows read as
+passing beneath it; zebra banding (tints only, so it adds no meaning and breaks
+neither the colour-is-never-the-only-signal rule nor printing); roomier padding;
+tabular numerals on numeric columns; hover affordance; a card border and radius
+instead of a bare grid. All token-driven, so dark theme and print inherit it.
+
+**3. Three.js hero.** `components/PrecipitationField.tsx` — an atmospheric
+precipitation field whose particle density and fall speed are driven by the real
+recorded readings of the conflicting-sources scenario, so the visible divergence
+between the two sources is the divergence in the data (1.10 mm vs 2.03 mm).
+
+It is explicitly decoration, and the component says so: no axes, no values, no
+claim. Reading exact numbers is the SVG chart's job and 3D is worse at it, so
+every quantitative surface on the page remains 2D.
+
+### PROOF
+
+- Frontend: `npx vitest run` → **156 passed** (11 files), including 8 new
+  `chartScale` tests covering the original regression, even spacing, sub-1
+  values, degenerate input and float drift
+- `npx tsc -b --noEmit` clean; `npx vite build` → built in 12.62s
+- Contract untouched: lint ✓ (3 checks) + ✓ validation; `pytest` → **200 passed**
+- **Three.js is not in the first-paint bundle**: it builds to its own 730 kB
+  chunk, referenced only via `import("./three.module-…")` from the lazy Landing
+  chunk, and is absent from `index.html` preloads. Main chunk 152 kB → 169 kB.
+- Deploy key still absent from `dist/`
+
+### ACCESSIBILITY AND PERFORMANCE
+
+- `prefers-reduced-motion: reduce` renders a still field and never starts a
+  render loop
+- Rendering stops when scrolled out of view (`IntersectionObserver`) and when the
+  tab is hidden (`visibilitychange`)
+- Device pixel ratio capped at 1.75; scene disposed and canvas removed on unmount
+- WebGL failure, a blocked chunk or an old browser degrades silently to the CSS
+  gradient fallback — the page never breaks
+- The canvas is `aria-hidden`; the peak readout is real text, not painted
+
+### NOTE FOR REVIEW
+
+- `color-mix()` is used in the table/hero styling. Supported in Chrome 111+,
+  Safari 16.2+, Firefox 113+. Fine for a modern reviewer; worth knowing if you
+  must support older browsers.
+
+### BLOCKED
+
+Nothing for this change.
+
+---
+
 ## Redeploy attempt — still BLOCKED (StudioNet quota, then a Bradbury gas bug)
 
 ### DONE

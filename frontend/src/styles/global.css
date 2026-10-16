@@ -1678,3 +1678,193 @@ details.disclosure > summary {
     text-decoration: none;
   }
 }
+
+/* ==========================================================================
+   Precipitation field (Three.js hero backdrop).
+
+   Sits BEHIND the hero copy. It carries no data of its own: the numbers on the
+   page live in the chart and tables. Canvas colours are literal here because
+   they are drawn into a WebGL scene rather than into the DOM; the veil below
+   ties them back to the token palette so both themes still read as one design.
+   ========================================================================== */
+
+.precip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.precip-fallback,
+.precip-fallback .precip-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Until the first frame is painted, a static gradient stands in, so there is
+   never a flash of empty background. */
+.precip-fallback {
+  background:
+    radial-gradient(120% 80% at 20% 0%, var(--isobar-wash) 0%, transparent 60%),
+    radial-gradient(90% 70% at 85% 10%, var(--hail-soft) 0%, transparent 55%);
+}
+
+.precip-veil {
+  position: absolute;
+  inset: 0;
+  /* Fades the scene into the page background so text contrast is unaffected. */
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    color-mix(in srgb, var(--gauge-paper) 55%, transparent) 62%,
+    var(--gauge-paper) 100%
+  );
+}
+
+/* The peak readout: small, quiet, and factual. It is decoration-adjacent copy,
+   so it is never the only place a number appears. */
+.precip-note {
+  position: absolute;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  font-size: var(--step--1);
+  font-family: var(--font-ui);
+  color: var(--rain-slate-45);
+  letter-spacing: 0.02em;
+}
+
+/* Reduced motion: no WebGL loop is started at all (see the component). This
+   rule only stops any incidental CSS motion. */
+@media (prefers-reduced-motion: reduce) {
+  .precip-veil {
+    transition: none;
+  }
+}
+
+/* ==========================================================================
+   Table redesign.
+
+   The old table was one border and no hierarchy: header and body carried equal
+   weight, rows were hard to track across eight columns, and the header scrolled
+   away. These changes are all token-driven, so both themes and print inherit
+   them.
+   ========================================================================== */
+
+/* A soft card rather than a bare grid, with the header pinned so long tables
+   stay readable. */
+.table-wrap {
+  border: 1px solid var(--hail);
+  border-radius: var(--radius-md);
+  overflow: auto;
+  max-height: 70vh;
+  background: var(--surface);
+}
+
+.table-wrap table {
+  min-width: 640px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.table-wrap thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface);
+  border-bottom: 2px solid var(--isobar);
+  /* A hairline shadow so rows sliding under the header read as passing
+     beneath it rather than colliding with it. */
+  box-shadow: inset 0 -6px 6px -6px var(--rain-slate-70);
+  padding: var(--space-3);
+  text-align: left;
+  white-space: nowrap;
+}
+
+/* Banding: every other row tinted, which is what makes eight columns
+   trackable. Tints only — never colour-coded, so it adds no meaning. */
+.table-wrap tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--hail-soft) 38%, transparent);
+}
+
+.table-wrap tbody tr:hover {
+  background: color-mix(in srgb, var(--isobar-wash) 70%, transparent);
+}
+
+.table-wrap td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--hail-soft);
+  vertical-align: top;
+}
+
+.table-wrap tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table-wrap th.num-col,
+.table-wrap td.num-col {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Slightly stronger row separation inside a banded table. */
+.table-wrap tbody td {
+  border-bottom-color: color-mix(in srgb, var(--hail) 55%, transparent);
+}
+
+caption {
+  text-align: left;
+  color: var(--rain-slate-70);
+  font-size: var(--step--1);
+  padding: var(--space-3) var(--space-3) var(--space-2);
+}
+
+/* --- landing hero ---------------------------------------------------------- */
+
+.hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: var(--space-7) var(--space-5) var(--space-6);
+  border-radius: var(--radius-md);
+  /* The field is behind, so the panel needs a tint of its own or the copy
+     competes with the particles. Kept subtle so it still reads as one surface. */
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--surface) 72%, transparent) 0%,
+      color-mix(in srgb, var(--surface) 88%, transparent) 55%,
+      var(--surface) 100%
+    ),
+    var(--surface);
+  border: 1px solid var(--hail);
+}
+
+.hero-inner {
+  position: relative;
+  /* Above the canvas, which is z-index 0 inside .precip. */
+  z-index: 1;
+  max-width: 62ch;
+}
+
+.hero h1 {
+  margin-top: 0;
+  font-size: var(--step-4);
+  line-height: 1.12;
+}
+
+@media (max-width: 640px) {
+  .hero {
+    padding: var(--space-5) var(--space-4);
+  }
+  .hero h1 {
+    font-size: var(--step-3);
+  }
+  .precip-note {
+    display: none;
+  }
+}
