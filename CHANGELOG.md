@@ -5,6 +5,51 @@ gaps are stated plainly; nothing is claimed that was not run.
 
 ---
 
+## Point explorer links at the live official StudioNet explorer
+
+### DONE
+
+The app treated the StudioNet explorer as paused (the old
+`genlayer-explorer.vercel.app` alias from the chain definition was captured
+returning `DEPLOYMENT_PAUSED` on 2026-10-13) and so disabled every transaction
+link. The official explorer is live at `https://explorer-studio.genlayer.com`,
+and its routes were probed directly: `/tx/<hash>` and `/address/<addr>` return
+200, while the `/transaction/<hash>` path the app was building returns 404 on
+StudioNet, Asimov and Bradbury alike — so even the links marked "available"
+were dead routes.
+
+Changes:
+- `frontend/src/config/network.ts`: StudioNet points at the official explorer
+  and is marked available; every network carries a verified `txPath` (`/tx/`);
+  explorer base URLs no longer carry a trailing slash;
+- `frontend/src/components/CopyField.tsx`: links are built as
+  `explorerUrl + txPath + hash`; the hardcoded `/transaction/` route is gone;
+- `AuditPanel.tsx` passes the configured `txPath` through;
+- `README.md`, `docs/ui-sketch.md`, `artifacts/DEPLOYMENT.md`: the
+  paused-explorer statements are replaced with the verified status.
+
+### PROOF
+
+- Direct probes, 2026-10-16 (curl status codes):
+  - `https://explorer-studio.genlayer.com/` → **200**, title "GenLayer Studio
+    Explorer";
+  - `…/tx/0x85748a90…cc8809f` (the v2 deploy tx) → **200**;
+  - `…/address/0x6E4BD06b…82ea8` (the live contract) → **200**;
+  - `…/transaction/<hash>` → **404** on studio, asimov and bradbury.
+- `npm run build` in `frontend/` — clean (tsc + vite, built in 3.68s).
+- `npm test` in `frontend/` — 6 files, **93 tests passed**.
+
+### NEXT
+
+- Deployed by the push that carries this entry; verify the live bundle carries
+  the official explorer base and the `/tx/` route.
+
+### BLOCKED
+
+None.
+
+---
+
 ## Clear the stale wallet-gate banner on Create policy
 
 ### DONE

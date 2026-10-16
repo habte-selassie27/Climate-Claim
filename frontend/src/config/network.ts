@@ -3,19 +3,26 @@ import { ENV_CHAIN_ID, ENV_NETWORK_KEY, ENV_RPC_URL } from "./env";
 /**
  * Network configuration.
  *
- * Values here are NOT guesses. They are taken from the verified `genlayer-js`
- * chain definitions (v1.1.8), cross-checked against `genlayer config get`:
+ * Chain parameters come from the verified `genlayer-js` chain definitions
+ * (v1.1.8), cross-checked against `genlayer config get`; explorer facts were
+ * verified against the live services on 2026-10-16:
  *
  *   genlayer config get  ->  rpc_url: https://studio.genlayer.com/api
- *   chains.studionet    ->  id 61999, explorer https://genlayer-explorer.vercel.app
+ *   StudioNet explorer   ->  https://explorer-studio.genlayer.com — serving
+ *                            (the `genlayer-explorer.vercel.app` alias carried
+ *                            by the chain definition returns DEPLOYMENT_PAUSED)
+ *   tx deep links        ->  `<explorer>/tx/<hash>` returns 200 on StudioNet,
+ *                            Asimov and Bradbury; the older
+ *                            `/transaction/<hash>` path returns 404 on all
+ *                            three, so links are composed from `txPath`
  *
  * These literals remain the source of truth and the fallback. A deployment may
  * override three of them from the repository-root `.env` (see `env.ts`):
  * VITE_GENLAYER_RPC_URL, VITE_GENLAYER_CHAIN_ID and VITE_GLTEST_NETWORK.
  * Anything unset or malformed falls back to the value below, so the app builds
- * and runs identically with or without a `.env`. Explorer URLs, labels and
- * availability flags are deliberately NOT overridable: they encode verified
- * facts about each chain, not per-deployment settings.
+ * and runs identically with or without a `.env`. Explorer URLs and routes,
+ * labels and availability flags are deliberately NOT overridable: they encode
+ * verified facts about each chain, not per-deployment settings.
  */
 
 export type NetworkKey = "studionet" | "testnetAsimov" | "testnetBradbury";
@@ -26,18 +33,17 @@ export interface NetworkConfig {
   label: string;
   chainId: number;
   rpcUrl: string;
-  /**
-   * Explorer base URL from the verified chain definition.
-   *
-   * HONESTY NOTE: the StudioNet explorer deployment is currently returning
-   * "DEPLOYMENT_PAUSED", so links built from this URL do not resolve right now.
-   * The UI therefore shows the explorer link *disabled with a reason* rather
-   * than presenting a dead link as if it worked. See `explorerAvailability`.
-   */
+  /** Explorer base URL, stored without a trailing slash. */
   explorerUrl: string;
   /**
-   * Whether the explorer is actually serving. Verified 2026-10-13: StudioNet
-   * explorer returns DEPLOYMENT_PAUSED. Set to false and the UI hides links.
+   * Path prefix for a transaction deep link, appended as
+   * `explorerUrl + txPath + hash`. Verified 2026-10-16: all three GenLayer
+   * explorers serve `/tx/<hash>`; the `/transaction/<hash>` path returns 404.
+   */
+  txPath: string;
+  /**
+   * Whether the explorer is actually serving. When false the UI disables
+   * links *with a reason* instead of presenting dead links as if they worked.
    */
   explorerAvailable: boolean;
   explorerNote: string;
@@ -54,10 +60,10 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
     label: "StudioNet",
     chainId: ENV_CHAIN_ID ?? 61999,
     rpcUrl: ENV_RPC_URL || "https://studio.genlayer.com/api",
-    explorerUrl: "https://genlayer-explorer.vercel.app",
-    explorerAvailable: false,
-    explorerNote:
-      "The StudioNet explorer deployment is paused, so transaction links do not resolve right now. Hashes shown here were read from the network directly.",
+    explorerUrl: "https://explorer-studio.genlayer.com",
+    txPath: "/tx/",
+    explorerAvailable: true,
+    explorerNote: "",
     gasless: true,
     symbol: "GEN",
     faucetUrl: null,
@@ -67,7 +73,8 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
     label: "Asimov",
     chainId: 4221,
     rpcUrl: "https://rpc-asimov.genlayer.com",
-    explorerUrl: "https://explorer-asimov.genlayer.com/",
+    explorerUrl: "https://explorer-asimov.genlayer.com",
+    txPath: "/tx/",
     explorerAvailable: true,
     explorerNote: "",
     gasless: false,
@@ -80,7 +87,8 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
     label: "Bradbury",
     chainId: 4221,
     rpcUrl: "https://rpc-bradbury.genlayer.com",
-    explorerUrl: "https://explorer-bradbury.genlayer.com/",
+    explorerUrl: "https://explorer-bradbury.genlayer.com",
+    txPath: "/tx/",
     explorerAvailable: true,
     explorerNote: "",
     gasless: false,

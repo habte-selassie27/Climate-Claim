@@ -17,7 +17,10 @@ verified, that is stated explicitly rather than filled in.
 
 - **Network:** GenLayer StudioNet (`studionet`), chain id `61999`
 - **RPC:** `https://studio.genlayer.com/api`
-- **Explorer:** `https://genlayer-explorer.vercel.app` — **currently paused**
+- **Explorer:** `https://explorer-studio.genlayer.com` — serving (verified
+  2026-10-16); transaction deep links use the `/tx/<hash>` route. The
+  `genlayer-explorer.vercel.app` alias from the chain definition is the one
+  that returns DEPLOYMENT_PAUSED.
   (`DEPLOYMENT_PAUSED`, verified 2026-10-13). See "Known gaps".
 
 ---
@@ -197,9 +200,12 @@ page reports `Live from StudioNet`.
 
 ## 7. Known gaps — stated, not hidden
 
-1. **StudioNet explorer is paused.** Returns `DEPLOYMENT_PAUSED`, so transaction
-   links cannot be verified. The UI renders them *disabled with a reason*
-   instead of presenting dead links. No explorer URL is shown as if it worked.
+1. **Explorer status changed after capture — resolved.** The
+   `genlayer-explorer.vercel.app` alias returned `DEPLOYMENT_PAUSED` when this
+   record was captured. The official explorer now serves at
+   `https://explorer-studio.genlayer.com` (verified 2026-10-16) and the app
+   links to it via the verified `/tx/<hash>` route. If any network's explorer
+   goes down, links render *disabled with a reason* rather than as dead links.
 2. **No integration tests.** `tests/integration/` does not exist, so gate 3 of
    the AGENTS.md sequence has never run. Everything on-chain came from real
    writes against StudioNet instead.

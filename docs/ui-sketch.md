@@ -22,7 +22,7 @@ Rendered by `App.tsx` (`Header`, `Footer`).
 - Wrong network → amber `Wrong network (chainId)` badge, `role="alert"`.
 - No wallet → `Connect wallet` button; no `window.ethereum` → `Read-only`.
 - Footer: contract address `CopyField`, network/chain, explorer link **only if
-  `net.explorerAvailable`** (currently paused on StudioNet → muted note, no dead
+  `net.explorerAvailable`** (a down explorer shows a muted note, never a dead
   link), link to How it works.
 
 Responsive: nav collapses under 640px; status badges wrap below nav.

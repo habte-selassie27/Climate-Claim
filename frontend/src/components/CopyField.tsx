@@ -9,6 +9,11 @@ interface Props {
   label: string;
   /** Explorer base URL. When null, no link is rendered. */
   explorerUrl?: string | null;
+  /**
+   * Transaction-link path prefix, verified per network in `config/network.ts`
+   * (`/tx/` on all three GenLayer explorers). Defaults to the verified value.
+   */
+  txPath?: string;
   /** When false, the link is rendered disabled with a reason instead of dead. */
   explorerAvailable?: boolean;
   explorerNote?: string;
@@ -28,6 +33,7 @@ export function CopyField({
   kind = "raw",
   label,
   explorerUrl,
+  txPath = "/tx/",
   explorerAvailable = true,
   explorerNote,
 }: Props) {
@@ -72,7 +78,7 @@ export function CopyField({
         {copied ? t("copy.copied") : t("copy.copy")}
       </button>
       {showExplorer && explorerAvailable ? (
-        <a href={`${explorerUrl}/transaction/${value}`} target="_blank" rel="noreferrer noopener">
+        <a href={`${explorerUrl}${txPath}${value}`} target="_blank" rel="noreferrer noopener">
           {t("copy.viewOnExplorer")}
         </a>
       ) : null}

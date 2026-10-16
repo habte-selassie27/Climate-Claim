@@ -321,8 +321,8 @@ Honesty rules the UI enforces:
 - `inconclusive` is presented as a result with an explanation, never an error;
 - the origin badge says whether data is live or a recorded snapshot, including while
   a live read is still in flight;
-- explorer links are shown **disabled with a reason** when the explorer is paused,
-  rather than as dead links;
+- explorer links are built from verified routes (`/tx/<hash>`) and shown **disabled
+  with a reason** if an explorer is down, rather than as dead links;
 - contract error prefixes map to actionable messages, with the stable string behind a
   "Details" disclosure.
 
@@ -544,8 +544,10 @@ fails a test that names it.
 
 Stated plainly:
 
-1. **The StudioNet explorer is paused.** Transaction links cannot be verified, so the
-   UI disables them with a reason instead of linking to a dead page.
+1. **Explorer links depend on the official StudioNet explorer.** Links point at
+   `https://explorer-studio.genlayer.com/tx/<hash>` (verified serving on 2026-10-16);
+   if it is ever paused again, the UI disables them with a reason instead of linking
+   to a dead page.
 2. **No claim is finalized or settled yet, and the deployed contract is older than
    the source.** The v2 deployment created policies 7 and 8 with a real
    `payout_amount` (1,000,000 wei) and the recorded claims exercise evaluation,

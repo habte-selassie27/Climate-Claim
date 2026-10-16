@@ -61,6 +61,7 @@ export function AuditPanel({ claim, policy, txHash }: Props) {
                 kind="hash"
                 label={t("audit.txHash")}
                 explorerUrl={net.explorerUrl}
+                txPath={net.txPath}
                 explorerAvailable={net.explorerAvailable}
                 explorerNote={net.explorerNote}
               />
