@@ -361,6 +361,64 @@ reports `0.1.2`; the suite passes on the installed version.
 
 ---
 
+## Redeploy attempt — BLOCKED on StudioNet daily write quota
+
+### DONE
+
+Attempted the redeploy that unblocks `confirm_settlement` / `fail_settlement` and
+the `get_in_flight` / `get_refunds` / `get_payouts` / `get_source_count` views.
+The deploy **did not happen** — the network refused it. Everything up to the
+network call is verified and ready.
+
+**Pre-flight verified**
+
+- Gates: `genvm-lint` ✓ Lint passed (3 checks) + ✓ Validation passed,
+  `Methods: 32 (19 view, 13 write)`; `pytest tests/direct/ -q` → **200 passed**
+- Network already on `studionet` (built-in; no manual RPC override)
+- Account `rabby` is active, unlocked, holds 701 GEN
+- The key in the gitignored `.env` was checked to derive to
+  `0x5B3661C576c7001e6d6279C67F3779705d334c89` — the same address as the active
+  account and as `DEPLOYER_ADDRESS` in `contracts.ts`. The key was never printed.
+
+**Also done:** added `scripts/redeploy-studionet.sh`, which runs the gates, sets
+the network, refuses to proceed if the active account is not the owner, deploys,
+captures `docs/schema.genlayer-cli.txt`, proves the six missing methods now exist,
+and prints the exact manual follow-ups (address in `contracts.ts`, address in
+`.env`/`.env.example`, then the drift test). Executed end to end and confirmed it
+fails cleanly with an actionable message rather than a stack trace.
+
+### PROOF
+
+```
+Details: Rate limit exceeded: 5000 requests per day
+data: { bucket: 'standard', window: 'day', limit: 5000, current: 5000,
+        retry_after_seconds: 16852 }
+```
+
+- Raw JSON-RPC reads still work: `eth_chainId` → `0xf22f` (61999), read bucket
+  300/min with 296 remaining. Only the write bucket is exhausted.
+- The failure occurred at fee derivation, before a transaction was constructed,
+  so no contract was created. That could not be confirmed on-chain because
+  `genlayer call` also draws on the exhausted bucket.
+
+### BLOCKED
+
+StudioNet's daily **write** quota is spent (5000/5000). It resets at roughly
+**2026-10-16 22:15** local, and the limit is per day, not per minute — waiting a
+few minutes does not help.
+
+Next command, once it resets:
+
+```bash
+scripts/redeploy-studionet.sh
+```
+
+Asimov and Bradbury were checked as alternatives and both hold **0 GEN**. The
+faucet (`https://testnet-faucet.genlayer.foundation/`) is browser-based, so
+funding them is a manual step for the user.
+
+---
+
 ## Persist the Create-a-policy form across reloads and failures
 
 ### DONE
