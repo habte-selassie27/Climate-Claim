@@ -2493,3 +2493,43 @@ textarea {
     stroke-dashoffset: 0;
   }
 }
+
+/* --- lightning flash ------------------------------------------------------- */
+
+/* A two-strike flash: a short bright pulse, a gap, then a weaker second. Real
+   lightning does this, and a single soft fade reads as a screen bug rather than
+   weather. The element is remounted via `key` on each tick so the animation
+   restarts cleanly.
+
+   Kept faint and warm rather than white and full-screen. It sits BEHIND the
+   hero copy, so it never washes out the headline or the buttons. */
+.precip-flash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(120% 90% at 70% 0%, color-mix(in srgb, var(--amber-flag) 30%, transparent) 0%, transparent 65%),
+    linear-gradient(180deg, color-mix(in srgb, var(--isobar) 16%, transparent) 0%, transparent 70%);
+  opacity: 0;
+  animation: precip-flash 1.15s ease-out 1 forwards;
+}
+
+@keyframes precip-flash {
+  0% { opacity: 0; }
+  6% { opacity: 0.55; }
+  12% { opacity: 0.06; }
+  20% { opacity: 0.34; }
+  32% { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+/* Reduced motion: no flash at all. A repeating full-screen luminance change is
+   exactly the kind of thing this setting exists to suppress, and it can trigger
+   vestibular discomfort. The element renders but never animates. */
+@media (prefers-reduced-motion: reduce) {
+  .precip-flash {
+    animation: none;
+    opacity: 0;
+  }
+}

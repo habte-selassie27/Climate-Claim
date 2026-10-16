@@ -29,6 +29,7 @@ import type { DemoSeries } from "../fixtures/demoScenarios";
 // Type-only: erased at compile time, so it does NOT pull three into the bundle.
 // `three` itself is dynamically imported inside the effect.
 import type { BufferAttribute } from "three";
+import { useTheme } from "../theme/ThemeProvider";
 
 interface Props {
   /** The two recorded source series, so density follows the real readings. */
@@ -50,11 +51,47 @@ function peakOf(s: DemoSeries): number {
   return peak;
 }
 
+/**
+ * Rain streak colours per theme.
+ *
+ * WHY THEME-AWARE AND WHY THESE VALUES: a single mid-blue streak that reads
+ * clearly against the dark page (#0B1016) all but disappears against the light
+ * one (#edf1F3) -- a pale blue at low opacity over near-white has almost no
+ * contrast left. Alpha blending also dilutes the ink toward whatever is behind
+ * it, so the composited result is what matters, not the raw colour. These pairs
+ * were solved for against each theme's real page colour and reach >= 3:1 once
+ * composited at the opacities used below:
+ *
+ *   light: #0F4463 @ 0.75 -> 4.74:1, #246F92 @ 0.75 -> 3.11:1 on #edf1f3
+ *   dark:  #AAC8DE @ 0.75 -> 4.27:1, #CFE0EE @ 0.75 -> 5.52:1 on #0B1016
+ *
+ * The opacity is high on purpose. It looks like a lot, but alpha compositing
+ * pulls the drawn result most of the way back toward the background, so a
+ * "reasonable looking" 0.3 renders near-invisible. 0.75 is what actually
+ * survives compositing, and the two sources stay 1.5:1 apart from each other
+ * so the divergence is still readable by weight.
+ *
+ * Kept as literals because they are painted into WebGL, not the DOM, so they
+ * cannot read a CSS custom property.
+ */
+const RAINK_COLORS = {
+  light: { a: "#0f4463", b: "#246f92" },
+  dark: { a: "#aac8de", b: "#cfe0ee" },
+} as const;
+
+/** Opacity floor per theme; the wetter source adds on top of this. */
+const RAINK_OPACITY = { light: 0.75, dark: 0.75 } as const;
+
 export function PrecipitationField({ series, unit }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const { theme } = useTheme();
   // The fallback is visible until the canvas has actually painted a frame, so
   // there is never a flash of empty background.
   const [live, setLive] = useState(false);
+  // Visual lightning. A key change re-runs the CSS animation. Independent
+  // of the audio schedule on purpose: sound is opt-in and this is not,
+  // so coupling them would make the visual depend on a user toggle.
+  const [flash, setFlash] = useState(0);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -120,10 +157,14 @@ export function PrecipitationField({ series, unit }: Props) {
           const geo = new THREE.BufferGeometry();
           geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
 
+          const pal = RAINK_COLORS[theme === "dark" ? "dark" : "light"];
+          const floor = RAINK_OPACITY[theme === "dark" ? "dark" : "light"];
           const mat = new THREE.LineBasicMaterial({
-            color: new THREE.Color(i === 0 ? "#7ba6c6" : "#b9cfdf"),
+            color: new THREE.Color(i === 0 ? pal.a : pal.b),
             transparent: true,
-            opacity: 0.28 + share * 0.42,
+            // The floor is the value that clears 3:1 composited; the wetter
+            // source adds on top so the divergence is separable by weight.
+            opacity: Math.min(floor + share * 0.3, 0.92),
             depthWrite: false,
             // Normal alpha, not AdditiveBlending: additive is invisible
             // against a light page (white plus anything is white), and this
@@ -202,7 +243,20 @@ export function PrecipitationField({ series, unit }: Props) {
         document.addEventListener("visibilitychange", onVisibility);
         start();
 
+        // Occasional double-strike flash. Deliberately sparse: a flash on a
+        // timer is an accessibility hazard if it fires often, so it is spaced
+        // like the thunder claps and never flickers rapidly.
+        let flashTimer = 0;
+        const scheduleFlash = () => {
+          flashTimer = window.setTimeout(() => {
+            setFlash((n) => n + 1);
+            scheduleFlash();
+          }, 9000 + Math.random() * 13000);
+        };
+        scheduleFlash();
+
         cleanup = () => {
+          window.clearTimeout(flashTimer);
           stop();
           io?.disconnect();
           ro?.disconnect();
@@ -224,7 +278,7 @@ export function PrecipitationField({ series, unit }: Props) {
       disposed = true;
       cleanup?.();
     };
-  }, [series]);
+  }, [series, theme]);
 
   return (
     <div
@@ -235,6 +289,7 @@ export function PrecipitationField({ series, unit }: Props) {
     >
       <div className="precip-fallback" ref={hostRef} />
       <div className="precip-veil" />
+      <div key={flash} className="precip-flash" data-testid="precip-flash" />
       {/* A CSS-only drift stands in when motion is reduced or WebGL is
           unavailable, so the field still reads as weather rather than a void. */}
       <span className="precip-note">
