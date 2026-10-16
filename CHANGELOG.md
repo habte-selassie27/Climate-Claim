@@ -496,6 +496,71 @@ funding them is a manual step for the user.
 
 ---
 
+## Redeploy attempt — still BLOCKED (StudioNet quota, then a Bradbury gas bug)
+
+### DONE
+
+Tried the redeploy again on two networks. **Neither succeeded.** Both blockers are
+external and are recorded so the next attempt is not re-derived from scratch.
+
+### Path A — StudioNet: daily write quota
+
+Unchanged: 5000/5000 requests per day, resets at **2026-10-16 22:15:33** local
+(~4h30m after the last attempt). Reads are fine (300/min). A deploy needs a write.
+
+### Path B — Bradbury: the node rejects the SDK's gas limit
+
+New account supplied, verified before use:
+
+- The key was checked to derive to the stated address
+  `0x04e0353B7218b66D6803725ce7342E6e1225DB1b` — never printed, stored only in the
+  gitignored `.env`. **That key was pasted into a chat and should be rotated
+  after use.**
+- Imported as account `bradbury`, unlocked, holding **9.98 GEN**.
+- Bradbury RPC reachable, chain id `0x107d` = 4221.
+
+Deploy still fails with:
+
+```
+GenLayer RPC error (eth_sendRawTransaction): gas limit too high
+```
+
+Diagnosis, read from the SDK source rather than guessed:
+
+- `genlayer deploy` reaches `genlayer-js` `_sendTransaction`, which sets
+  `gas: estimatedGas` from `client.estimateTransactionGas`.
+- `deployContract` accepts **no `gas` parameter** — only `account, code, args,
+  kwargs, leaderOnly, consensusMaxRotations`. A gas value passed to it is
+  silently ignored, which is why a retry at 90M produced an identical error.
+- `genlayer estimate-fees` is broken in the latest CLI (0.39.2):
+  `client.estimateTransactionFees is not a function`. So there is no supported way
+  to obtain or override a fee/gas preset.
+- No `--gas` flag exists on `deploy`, and none is documented.
+- 90M was already below Bradbury's advertised block gas limit (100M), so the node
+  enforces a per-transaction cap the SDK is unaware of.
+
+Fixing this would mean patching `node_modules`, which was not done: a local hack
+that diverges from the published SDK and breaks for anyone else. The temporary
+`scripts/deploy-with-gas.mjs` written to prove the point was deleted rather than
+shipped, since it cannot deliver the gas override its name promises.
+
+### BLOCKED
+
+- **StudioNet** — wait for the quota, then run `scripts/redeploy-studionet.sh`
+- **Bradbury** — needs an upstream SDK fix (a gas override in `deployContract`,
+  or `estimate-fees` repaired) before any deploy can work
+
+### ALSO WORTH KNOWING
+
+Even if Bradbury worked it is not a drop-in substitute. The deployed contract
+holds **7 seeded policies and 5 claims**; a fresh Bradbury deploy starts empty and
+needs re-seeding via `scripts/seed-v2*.sh`. It would also move the app off
+StudioNet (chain 61999 → 4221), repoint `network.ts`, and require Bradbury funds
+in the browser wallet. The one genuine upside: Bradbury's explorer works, whereas
+StudioNet's is paused, so transaction links would resolve.
+
+---
+
 ## Persist the Create-a-policy form across reloads and failures
 
 ### DONE
