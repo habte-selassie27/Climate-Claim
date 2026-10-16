@@ -5,6 +5,56 @@ gaps are stated plainly; nothing is claimed that was not run.
 
 ---
 
+## Navbar theme + language controls: live on the deployed site
+
+### DONE
+
+The user asked for a dark/light/system theme button and a language selector in
+the navbar. Both already existed in the source — `ThemeToggle` and
+`LanguageSwitcher` are imported and rendered in the `Chrome` header of
+`frontend/src/App.tsx`, committed in `997c732`. No new code was needed.
+
+The gap was deployment: local `main` was **4 commits ahead of `origin/main`**, and
+Vercel builds from GitHub, so `climate-claim-fawn.vercel.app` was serving the
+pre-theme commit `1d73172`. Confirmed by fetching the live bundle
+`assets/index-kayEie4X.js`: zero matches for `theme-toggle`, `lang-switch`,
+`theme`, `prefers-color-scheme`, or any i18n key.
+
+Before pushing: secret scan of the 4 unpushed commits (only `.env.example` is
+tracked; `VITE_DEPLOYER_PRIVATE_KEY=` is empty, guarded by
+`test_env_example_carries_no_secret`), `npm run build` clean, `npm test` green.
+
+Pushed `1d73172..fa59fe0` to `origin/main` and let Vercel redeploy.
+
+### PROOF
+
+```
+$ git push origin main
+   1d73172..fa59fe0  main -> main
+
+$ npm test            # frontend
+ ✓ src/theme/theme.test.ts (10 tests)      ✓ src/i18n/i18n.test.ts (19 tests)
+ Test Files  6 passed (6) / Tests  93 passed (93)
+
+$ npm run build
+✓ built in 3.46s   dist/assets/index-CB8pZXfR.js 152.92 kB
+
+# live site after redeploy — hashes now match the local build
+/assets/index-CB8pZXfR.js   js theme-toggle: 2   js lang-switch: 2
+/assets/index-BmPnYxsM.css  css theme-toggle: 3  css lang-switch: 4
+```
+
+### NEXT
+
+Hard refresh the deployed navbar: `◐/☀/☾` cycles system → light → dark, and the
+`EN/ES/FR/DE` select switches locale.
+
+### BLOCKED
+
+None.
+
+---
+
 ## `VITE_` env names, wired into the frontend and guarded
 
 ### DONE
