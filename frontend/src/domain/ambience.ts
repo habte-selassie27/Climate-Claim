@@ -81,23 +81,63 @@ export function thunderShape(random: () => number = Math.random): ThunderShape {
 /**
  * Per-layer gains, documented so the mix can be reasoned about.
  *
- * The ordering is the contract: rain sits UNDER the reader, wind is felt rather
- * than heard, and thunder is the only layer allowed to be loud. `thunder` being
- * the peak is asserted in the test, because a storm where the background is
- * louder than the clap sounds wrong immediately.
+ * REVISED after feedback that the storm needed to be audible: the wind is now
+ * the most prominent continuous layer, not the quietest. The ordering below is
+ * the contract, and the test asserts it:
+ *
+ *   thunder > wind > bed > rain > rainFar
+ *
+ * Thunder peaks because it is an event; wind is next because the request was for
+ * a loud, voiced wind; the rain layers stay under reading level so the page
+ * remains usable while the ambience plays.
  */
 export const AMB_GAINS = {
-  /** The near rain hiss the user is nominally "standing in". */
+  /** The near rain hiss. Kept low: this runs under everything, continuously. */
   rain: 0.05,
   /** A duller, quieter layer behind it, which is what adds depth. */
   rainFar: 0.022,
-  /** Wind. Deliberately the quietest: it should be felt, not noticed. */
-  wind: 0.05,
+  /** Wind. Prominent, as requested -- but still below a thunder clap. */
+  wind: 0.13,
   /** A very low bed that gives the storm weight under everything. */
-  bed: 0.035,
-  /** The clap. The only layer allowed to be prominent. */
-  thunder: 0.34,
+  bed: 0.07,
+  /** The clap. The loudest thing in the mix. */
+  thunder: 0.38,
 } as const;
 
-/** Band-pass sweep range for the wind, in Hz. */
-export const WIND_BAND = { low: 220, high: 900, q: 1.6 } as const;
+/**
+ * Band-pass range for the wind.
+ *
+ * `q` is raised well above the previous 1.6 and the range dropped: a narrow,
+ * highly resonant band sweeping slowly gives wind a *voiced*, hollow quality
+ * instead of plain hiss. Too high a Q and it whistles rather than howls.
+ */
+export const WIND_BAND = { low: 160, high: 640, q: 5.5 } as const;
+
+/**
+ * Sidechain duck: how far the continuous layers drop while a clap sounds.
+ *
+ * WHY: rain, wind and bed are continuous beds, so an un-ducked clap is masked by
+ * them and reads as a thump *inside* the storm rather than cutting through it.
+ * Dipping the beds briefly is how a mixer makes an event audible over a bed --
+ * and it is perceptually correct, because a loud source does mask what is behind
+ * it.
+ */
+export const DUCK = {
+  /** Fraction of the beds' gain remaining at the deepest point. */
+  depth: 0.42,
+  /** How fast the duck engages, seconds. Fast, or the clap loses its punch. */
+  attack: 0.06,
+  /** How long it holds before releasing, seconds. */
+  hold: 0.5,
+  /** How slowly it recovers, seconds. Recovery must be slower than attack. */
+  release: 2.6,
+} as const;
+
+/**
+ * Rain streak width in PIXELS.
+ *
+ * Needed because `LineBasicMaterial.linewidth` is ignored by every WebGL
+ * implementation -- it is not a hint, it is a no-op -- so real width needs
+ * `LineSegments2` from three's addons, which expands each segment into a quad.
+ */
+export const RAIN_WIDTH = { px: 2.4 } as const;

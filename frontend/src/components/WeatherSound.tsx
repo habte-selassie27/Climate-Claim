@@ -24,7 +24,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AMB_GAINS, WIND_BAND, thunderDelayMs, thunderShape, windGustMs } from "../domain/ambience";
+import { AMB_GAINS, DUCK, WIND_BAND, thunderDelayMs, thunderShape, windGustMs } from "../domain/ambience";
 import { useI18n } from "../i18n/I18nProvider";
 
 type AudioContextCtor = new () => AudioContext;
@@ -85,6 +85,14 @@ export function WeatherSound() {
     master.gain.value = 1;
     master.connect(ctx.destination);
 
+    // The duck node sits between the continuous beds and master. Every bed gain
+    // connects here rather than to master, so one scheduled ramp on `duck`
+    // controls all of them together -- which keeps them in proportion, since
+    // ducking each independently would let the wind fall away from the rain.
+    const duck = ctx.createGain();
+    duck.gain.value = 1;
+    duck.connect(master);
+
     const buffer = noiseBuffer(ctx);
 
     /**
@@ -107,7 +115,7 @@ export function WeatherSound() {
     lp.Q.value = 0.6;
     const rainGain = ctx.createGain();
     rainGain.gain.value = AMB_GAINS.rain;
-    rain.connect(hp).connect(lp).connect(rainGain).connect(master);
+    rain.connect(hp).connect(lp).connect(rainGain).connect(duck);
 
     // Far rain: duller and quieter. This layer is what adds DEPTH -- a single
     // rain voice sounds like a tap running rather than like weather.
@@ -119,7 +127,7 @@ export function WeatherSound() {
     farLp.frequency.value = 900;
     const farGain = ctx.createGain();
     farGain.gain.value = AMB_GAINS.rainFar;
-    rainFar.connect(farLp).connect(farGain).connect(master);
+    rainFar.connect(farLp).connect(farGain).connect(duck);
 
     // Wind: band-pass noise whose centre frequency is swept by a slow LFO.
     // The sweep is what makes it read as a gust rather than as hiss.
@@ -132,7 +140,7 @@ export function WeatherSound() {
     windBand.Q.value = WIND_BAND.q;
     const windGain = ctx.createGain();
     windGain.gain.value = AMB_GAINS.wind;
-    wind.connect(windBand).connect(windGain).connect(master);
+    wind.connect(windBand).connect(windGain).connect(duck);
 
     const gustLfo = ctx.createOscillator();
     gustLfo.type = "sine";
@@ -161,7 +169,7 @@ export function WeatherSound() {
     bedLp.frequency.value = 110;
     const bedGain = ctx.createGain();
     bedGain.gain.value = AMB_GAINS.bed;
-    bed.connect(bedLp).connect(bedGain).connect(master);
+    bed.connect(bedLp).connect(bedGain).connect(duck);
 
     rain.start();
     rainFar.start();
@@ -176,6 +184,22 @@ export function WeatherSound() {
       const now = ctx.currentTime;
       const s = thunderShape(Math.random);
       const decay = s.seconds;
+
+      /**
+       * SIDECHAIN DUCK -- the reason the clap is now audible at all.
+       *
+       * Rain, wind and bed are continuous, so an un-ducked clap sits *inside*
+       * them and reads as a thump. Those three layers are routed through `duck`
+       * rather than straight to master, and a clap pulls that one node down, so
+       * the event cuts through the storm and the beds recover slowly afterwards.
+       * This is standard practice for exactly this problem, and it is also
+       * perceptually honest: a loud source does mask what is behind it.
+       */
+      duck.gain.cancelScheduledValues(now);
+      duck.gain.setValueAtTime(duck.gain.value, now);
+      duck.gain.linearRampToValueAtTime(DUCK.depth, now + DUCK.attack);
+      duck.gain.setValueAtTime(DUCK.depth, now + DUCK.attack + DUCK.hold);
+      duck.gain.linearRampToValueAtTime(1, now + DUCK.attack + DUCK.hold + DUCK.release);
 
       // Body: a noise burst that darkens as it rolls away.
       const burst = ctx.createBufferSource();

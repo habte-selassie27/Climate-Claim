@@ -28,7 +28,11 @@ import { useEffect, useRef, useState } from "react";
 import type { DemoSeries } from "../fixtures/demoScenarios";
 // Type-only: erased at compile time, so it does NOT pull three into the bundle.
 // `three` itself is dynamically imported inside the effect.
-import type { BufferAttribute } from "three";
+// The addons give the rain REAL width. See the note at the material.
+import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
+import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
+import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
+import { RAIN_WIDTH } from "../domain/ambience";
 import { useTheme } from "../theme/ThemeProvider";
 
 interface Props {
@@ -92,6 +96,16 @@ export function PrecipitationField({ series, unit }: Props) {
   // of the audio schedule on purpose: sound is opt-in and this is not,
   // so coupling them would make the visual depend on a user toggle.
   const [flash, setFlash] = useState(0);
+  /**
+   * Wind gust, 0..1, driving how far the rain leans over so the wind is VISIBLE
+   * as well as audible.
+   *
+   * A ref, deliberately, not state: this changes every animation frame, and
+   * setState at 60fps would re-render the whole tree continuously. The container
+   * is aria-hidden, so nothing needs re-rendering for the change to be
+   * accessible.
+   */
+  const gustRef = useRef(0);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -137,10 +151,17 @@ export function PrecipitationField({ series, unit }: Props) {
           const positions = new Float32Array(count * 6);
           const speeds = new Float32Array(count);
           const lengths = new Float32Array(count);
+          const phases = new Float32Array(count);
+          const baseX = new Float32Array(count);
           for (let n = 0; n < count; n += 1) {
             const x = (Math.random() - 0.5) * 46;
             const y = (Math.random() - 0.5) * 26;
             const z = -6 + i * 5 + (Math.random() - 0.5) * 4;
+            /**
+             * Wind is only visible if the rain leans. Each drop gets a fixed
+             * random phase so the whole field does not swing as one rigid sheet.
+             */
+            const phase = Math.random();
             // Faster fall and longer streak for the wetter source.
             const speed = 3.6 + (peaks[i]! / maxPeak) * 11;
             // Streak length tracks speed, the way a real drop does.
@@ -153,26 +174,41 @@ export function PrecipitationField({ series, unit }: Props) {
             positions[n * 6 + 5] = z;
             speeds[n] = speed;
             lengths[n] = len;
+            phases[n] = phase;
+            baseX[n] = x;
           }
-          const geo = new THREE.BufferGeometry();
-          geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+          const geo = new LineSegmentsGeometry();
+          geo.setPositions(positions);
 
           const pal = RAINK_COLORS[theme === "dark" ? "dark" : "light"];
           const floor = RAINK_OPACITY[theme === "dark" ? "dark" : "light"];
-          const mat = new THREE.LineBasicMaterial({
-            color: new THREE.Color(i === 0 ? pal.a : pal.b),
+          const mat = new LineMaterial({
+            color: new THREE.Color(i === 0 ? pal.a : pal.b).getHex(),
             transparent: true,
             // The floor is the value that clears 3:1 composited; the wetter
             // source adds on top so the divergence is separable by weight.
             opacity: Math.min(floor + share * 0.3, 0.92),
             depthWrite: false,
-            // Normal alpha, not AdditiveBlending: additive is invisible
-            // against a light page (white plus anything is white), and this
-            // field now sits behind the evidence scene in both themes.
+            /**
+             * REAL WIDTH, which is why this uses the addon and not
+             * THREE.LineBasicMaterial.
+             *
+             * `LineBasicMaterial.linewidth` is ignored by every WebGL
+             * implementation -- it is a no-op, not a hint -- so the previous
+             * streaks were pinned at 1px however it was set. `LineSegments2`
+             * expands each segment into a screen-facing quad, so `linewidth` is
+             * honoured. The cost is that the material must be re-synced with the
+             * camera on every resize, which is what updateLineMatrices does.
+             */
+            linewidth: RAIN_WIDTH.px,
           });
-          const lines = new THREE.LineSegments(geo, mat);
+          // Keep the rain out of the renderer's tone mapping so its colour
+          // matches the CSS palette rather than being shifted by the pipeline.
+          mat.toneMapped = false;
+
+          const lines = new LineSegments2(geo, mat);
           scene.add(lines);
-          return { points: lines, positions, speeds, lengths, count, geo, mat };
+          return { points: lines, positions, speeds, lengths, phases, baseX, count, geo, mat };
         });
 
         const resize = () => {
@@ -181,6 +217,9 @@ export function PrecipitationField({ series, unit }: Props) {
           renderer.setSize(w, h, false);
           camera.aspect = w / h;
           camera.updateProjectionMatrix();
+          // LineMaterial computes its screen-space width against the camera, so
+          // it has to be re-synced or the streaks render at the wrong size.
+          for (const b of bands) b.mat.resolution.set(w, h);
         };
         resize();
         const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(resize) : null;
@@ -196,6 +235,17 @@ export function PrecipitationField({ series, unit }: Props) {
           raf = requestAnimationFrame(frame);
           const dt = Math.min((now - last) / 1000, 0.05);
           last = now;
+          /**
+           * The gust drives how far the rain leans. Each drop carries its own
+           * phase, so the field ripples rather than swinging as one rigid
+           * sheet -- which is what makes it read as wind rather than as the
+           * whole scene being rotated.
+           */
+          gustPhase += dt * gustRate;
+          const targetGust = 0.5 + 0.5 * Math.sin(gustPhase);
+          gustRef.current += (targetGust - gustRef.current) * Math.min(dt * 1.6, 1);
+          const gustNow = gustRef.current;
+
           for (const band of bands) {
             for (let n = 0; n < band.count; n += 1) {
               const y = band.positions[n * 6 + 1]! - band.speeds[n]! * dt;
@@ -205,9 +255,20 @@ export function PrecipitationField({ series, unit }: Props) {
               const ny = y < -13 ? 13 : y;
               band.positions[n * 6 + 1] = ny;
               band.positions[n * 6 + 4] = ny + band.lengths[n]!;
+
+              // Lean: both ends of the segment move, so the streak tilts as
+              // one piece rather than stretching at the top.
+              const lean =
+                gustNow * (0.35 + band.phases[n]! * 0.5) * band.lengths[n]!;
+              const x = band.baseX[n]!;
+              band.positions[n * 6 + 0] = x;
+              band.positions[n * 6 + 3] = x + lean;
             }
-            const attr = band.geo.getAttribute("position") as BufferAttribute;
-            attr.needsUpdate = true;
+            // LineSegmentsGeometry does not animate via a plain "position"
+            // attribute: setPositions() rebuilds the interleaved instanceStart /
+            // instanceEnd buffers that LineSegments2 actually draws. Mutating a
+            // "position" attribute here would silently do nothing.
+            band.geo.setPositions(band.positions);
           }
           renderer.render(scene, camera);
           if (!painted) {
@@ -254,6 +315,14 @@ export function PrecipitationField({ series, unit }: Props) {
           }, 9000 + Math.random() * 13000);
         };
         scheduleFlash();
+
+        /**
+         * Gust target: a slow sine, not per-drop randomness, so the whole field
+         * agrees on which way the wind is blowing at any moment. Two
+         * incommensurate periods keep it from visibly repeating.
+         */
+        let gustPhase = Math.random() * Math.PI * 2;
+        let gustRate = 0.055 + Math.random() * 0.05;
 
         cleanup = () => {
           window.clearTimeout(flashTimer);

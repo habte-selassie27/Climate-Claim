@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   AMB_GAINS,
+  DUCK,
+  RAIN_WIDTH,
   WIND_BAND,
   thunderDelayMs,
   thunderShape,
@@ -113,8 +115,43 @@ describe("AMB_GAINS mix", () => {
     expect(AMB_GAINS.rainFar).toBeLessThan(AMB_GAINS.rain);
   });
 
-  it("keeps wind quieter than rain, so wind is felt not noticed", () => {
-    expect(AMB_GAINS.wind).toBeLessThanOrEqual(AMB_GAINS.rain);
+  it("makes wind prominent, as requested, but still under the clap", () => {
+    // Reversed from the first mix, where wind was the quietest layer. The
+    // request was for a loud, voiced wind -- but a clap must still be the peak,
+    // or the storm stops having an event in it.
+    expect(AMB_GAINS.wind).toBeGreaterThan(AMB_GAINS.rain);
+    expect(AMB_GAINS.wind).toBeLessThan(AMB_GAINS.thunder);
+  });
+
+  it("orders the whole mix: thunder > wind > bed > rain > rainFar", () => {
+    const { thunder, wind, bed, rain, rainFar } = AMB_GAINS;
+    expect(thunder).toBeGreaterThan(wind);
+    expect(wind).toBeGreaterThan(bed);
+    expect(bed).toBeGreaterThan(rain);
+    expect(rain).toBeGreaterThan(rainFar);
+  });
+});
+
+describe("DUCK", () => {
+  it("dips the beds without silencing them entirely", () => {
+    expect(DUCK.depth).toBeGreaterThan(0);
+    expect(DUCK.depth).toBeLessThan(1);
+  });
+
+  it("engages faster than it releases, which is what makes it read as a duck", () => {
+    expect(DUCK.attack).toBeLessThan(DUCK.release);
+  });
+
+  it("recovers slowly enough not to pump between claps", () => {
+    expect(DUCK.release).toBeGreaterThan(2);
+  });
+});
+
+describe("RAIN_WIDTH", () => {
+  it("is wider than the 1px WebGL default, in pixels", () => {
+    // LineBasicMaterial.linewidth is a no-op in WebGL, so this needs the addon.
+    expect(RAIN_WIDTH.px).toBeGreaterThan(1);
+    expect(RAIN_WIDTH.px).toBeLessThan(6);
   });
 });
 
@@ -123,5 +160,13 @@ describe("WIND_BAND", () => {
     expect(WIND_BAND.low).toBeGreaterThan(0);
     expect(WIND_BAND.high).toBeGreaterThan(WIND_BAND.low);
     expect(WIND_BAND.q).toBeGreaterThan(0.5);
+  });
+
+  it("is resonant enough to read as a voiced wind, not plain hiss", () => {
+    expect(WIND_BAND.q).toBeGreaterThanOrEqual(5);
+  });
+
+  it("sweeps low, where wind lives", () => {
+    expect(WIND_BAND.high).toBeLessThan(1000);
   });
 });
