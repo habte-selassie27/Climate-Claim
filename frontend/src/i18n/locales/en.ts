@@ -345,6 +345,11 @@ export const en = {
   "landing.wont.l5": "Present recorded historical data as if it were live.",
   "landing.deployed": "Deployed at {address} on {network} (chain {id}). {scaled} thresholds and amounts are stored as scaled integers, never floats.",
 
+  // --- hero evidence field (three.js) --------------------------------------
+  "hero.threshold": "threshold {value} {unit}",
+  "hero.drag": "drag to rotate",
+  "hero.split": "{day}: sources disagree · drag to rotate",
+
   // --- how it works --------------------------------------------------------
   "how.h1": "How a decision is reached",
   "how.lede":

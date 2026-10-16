@@ -332,6 +332,11 @@ export const fr: Dictionary = {
   "landing.deployed":
     "Déployé sur {address} sur {network} (chaîne {id}). Les seuils et montants de {scaled} sont stockés en entiers mis à l’échelle, jamais en flottants.",
 
+  // --- hero evidence field (three.js) --------------------------------------
+  "hero.threshold": "seuil {value} {unit}",
+  "hero.drag": "faites glisser pour pivoter",
+  "hero.split": "{day} : les sources divergent · faites glisser pour pivoter",
+
   "how.h1": "Comment une décision est prise",
   "how.lede":
     "Un leader propose un résultat, plusieurs validateurs le vérifient indépendamment, et le résultat n’est conservé que si assez d’entre eux admettent qu’il signifie la même chose.",

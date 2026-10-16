@@ -333,6 +333,11 @@ export const de: Dictionary = {
   "landing.deployed":
     "Bereitgestellt unter {address} in {network} (Chain {id}). {scaled} Schwellenwerte und Beträge werden als skalierte Integer gespeichert, niemals als Fließkommazahlen.",
 
+  // --- hero evidence field (three.js) --------------------------------------
+  "hero.threshold": "Schwelle {value} {unit}",
+  "hero.drag": "zum Drehen ziehen",
+  "hero.split": "{day}: Quellen widersprechen sich · zum Drehen ziehen",
+
   "how.h1": "Wie eine Entscheidung zustande kommt",
   "how.lede":
     "Ein Leader schlägt ein Ergebnis vor, mehrere Validatoren prüfen es unabhängig, und das Ergebnis bleibt nur erhalten, wenn genug von ihnen übereinstimmen, dass es dasselbe bedeutet.",

@@ -5,6 +5,58 @@ gaps are stated plainly; nothing is claimed that was not run.
 
 ---
 
+## Home hero: the supplied three.js evidence field
+
+### DONE
+
+**The Home hero now renders the supplied "Three.js UI" mock as a live scene.**
+One bar per source per day (first source a box, second a cone), the policy
+threshold as a translucent red plane, day labels, and an amber halo on the day
+the sources disagree — over the mock's 150-point particle net. Drag to rotate
+(the mock's `dx * 0.008` sensitivity); auto-rotation and the halo pulse stop
+under `prefers-reduced-motion` (a single still frame is rendered instead, and
+dragging still redraws), and the render loop stops when the hero is off-screen
+or the tab is hidden. Three.js stays in its own lazy chunk (747 kB raw /
+192 kB gzip) and never reaches first paint; the whole component is
+`aria-hidden` because every fact in it is repeated in the accessible chart and
+tables below.
+
+**The scene is data-driven, not the mock's hardcoded arrays.**
+`frontend/src/domain/fieldLayout.ts` (14 tests) derives bar heights and day
+positions from the recorded conflicting-sources readings; the halo day comes
+from `compareSources()` in `sourceCompare.ts` — the same split-day logic the
+comparison table uses — so the halo cannot sit on a day the data does not call
+a disagreement. A day a source did not return draws **no bar** (a missing
+reading is not a zero); a recorded 0.0 draws the minimum stub. The bar/plane
+relation is pinned by test: MERRA-2's 2.03 clears the 1.50 plane, ERA5's 1.10
+does not.
+
+**Legend and tip are localized** ("threshold 1.50 mm"; "Jun 4: sources
+disagree · drag to rotate") — three new keys in all four locales, covered by
+the existing placeholder-parity test.
+
+**The rain-streak backdrop was replaced in the hero** — the mock has no rain.
+`PrecipitationField.tsx` is untouched and still in the tree if we want it
+elsewhere.
+
+### PROOF
+
+- `npm test` → 170 passed (12 files), including the 14 new `fieldLayout` tests
+- `npm run build` → clean (tsc + vite); three.js emitted as its own chunk
+- Pushed to `main`; the Vercel production build serves the new bundle (checked
+  after push — see the session report for the exact asset names)
+
+### NEXT
+
+- The on-chain queue (StudioNet redeploy, live-mode claim, dispute walk) waits
+  for the daily RPC quota window.
+
+### BLOCKED
+
+- Nothing on this change.
+
+---
+
 ## Demo usability, evidence comparison, print receipt, shareable language
 
 ### DONE

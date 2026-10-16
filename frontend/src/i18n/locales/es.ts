@@ -331,6 +331,11 @@ export const es: Dictionary = {
   "landing.deployed":
     "Desplegado en {address} en {network} (cadena {id}). Los umbrales e importes de {scaled} se almacenan como enteros escalados, nunca como flotantes.",
 
+  // --- hero evidence field (three.js) --------------------------------------
+  "hero.threshold": "umbral {value} {unit}",
+  "hero.drag": "arrastra para girar",
+  "hero.split": "{day}: las fuentes discrepan · arrastra para girar",
+
   "how.h1": "Cómo se alcanza una decisión",
   "how.lede":
     "Un líder propone un resultado, varios validadores lo comprueban de forma independiente, y el resultado solo se conserva si suficientes coinciden en que significa lo mismo.",
