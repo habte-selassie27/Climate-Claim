@@ -45,15 +45,10 @@ genlayer network set studionet
 
 echo
 echo "== account (must be the owner $OWNER) =="
-ADDR=$(genlayer account show | grep -oE "0x[0-9a-fA-F]{40}" | head -1)
-echo "active account: $ADDR"
-if [ "$(printf '%s' "$ADDR" | tr 'A-Z' 'a-z')" != "$(printf '%s' "$OWNER" | tr 'A-Z' 'a-z')" ]; then
-  echo "ERROR: active account is not the contract owner." >&2
-  echo "Import the key and select it:" >&2
-  echo "  set -a; . ./$ENVFILE; set +a" >&2
-  echo "  genlayer account import --private-key \"\$VITE_DEPLOYER_PRIVATE_KEY\"" >&2
-  exit 1
-fi
+# Local-only selection: finds the owner's keystore account and makes it active
+# (account list/use never touch the RPC, so this works even while the daily
+# quota is spent). Exits 1 with the import command if no local account matches.
+./scripts/select-owner-account.sh || exit 1
 
 echo
 echo "== deploy =="

@@ -20,6 +20,10 @@ CATALOGUE="${2:-docs/sources.json}"
 OUT="artifacts/seed-sources"
 mkdir -p "$OUT"
 
+# register_source is owner-only and CLI writes sign with the active account:
+# make sure the owner's account is the one signing (local, no RPC).
+./scripts/select-owner-account.sh || exit 1
+
 if [ ! -f "$CATALOGUE" ]; then
   echo "catalogue not found: $CATALOGUE" >&2
   exit 1

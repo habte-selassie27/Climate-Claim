@@ -20,6 +20,10 @@ GROUNDS="${3:-Re-check the station match: the recorded grid distance is within t
 OUT=artifacts/studionet-v2
 mkdir -p "$OUT"
 
+# open_dispute/resolve_dispute are party actions and the seeded claimant is the
+# owner account; make sure the active CLI account is that one (local, no RPC).
+./scripts/select-owner-account.sh || exit 1
+
 echo "== open_dispute($CLAIM) =="
 genlayer write "$A" open_dispute --args "$CLAIM" "$GROUNDS" \
   > "$OUT/dispute-open-$CLAIM.txt" 2>&1

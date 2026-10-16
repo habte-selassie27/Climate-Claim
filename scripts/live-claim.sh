@@ -23,6 +23,10 @@ A="${1:?usage: live-claim.sh <contract-address>}"
 OUT=artifacts/studionet-live
 mkdir -p "$OUT"
 
+# Every write below is owner-led (create_policy is owner-only) and CLI writes
+# sign with the active account; make sure that is the owner's (local, no RPC).
+./scripts/select-owner-account.sh || exit 1
+
 END=$(date -u +%F)
 START=$(date -u -d '4 days ago' +%F)
 echo "live window: $START .. $END (UTC — a live policy's window must reach today)"
