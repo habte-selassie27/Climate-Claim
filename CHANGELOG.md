@@ -32,15 +32,21 @@ Before the fix, against the live deployment:
 - `GET /` -> 200 (app served)
 - `GET /claims` -> 404, `GET /how-it-works` -> 404 (Vercel's own 404 body)
 
+After pushing `2450fe3` and the Vercel redeploy (checked ~30s later):
+- `GET /claims` -> 200, `GET /claims/claim-2` -> 200, `GET /how-it-works` -> 200,
+  `GET /policies/new` -> 200
+- `/claims` now serves the SPA bundle (`<div id="root">` + `assets/index-*.js`),
+  so deep links and hard reloads route client-side as intended.
+
 ### NEXT
 
-- Commit, push, let Vercel redeploy, then verify:
-  `curl -o /dev/null -w '%{http_code}\n' https://climate-claim-fawn.vercel.app/claims`
-  — expect 200 once the fix is live.
+- None for this fix. Remaining fragility: anyone changing the Vercel Root
+  Directory must keep a matching config inside that root — both cases
+  (repository root and `frontend/`) are now committed and documented.
 
 ### BLOCKED
 
-None; the fix is committed locally and needs a push + redeploy to be verified.
+None.
 
 ---
 
