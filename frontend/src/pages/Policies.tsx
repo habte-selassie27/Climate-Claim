@@ -38,6 +38,8 @@ export function Policies() {
           liveError={policies.liveError}
             pending={policies.refreshing}
           networkLabel={net.label}
+          onRefresh={policies.refresh}
+          readCost={3}
         />
         <div className="btn-row" style={{ marginTop: "var(--space-3)" }}>
           <Link className="btn" to="/policies/new">
@@ -162,7 +164,9 @@ export function PolicyDetail() {
             liveError={policies.liveError}
             pending={policies.refreshing}
             networkLabel={net.label}
-          />
+          onRefresh={policies.refresh}
+          readCost={3}
+        />
         </div>
         <p className="lede" data-testid="policy-sentence">
           {policySentence({

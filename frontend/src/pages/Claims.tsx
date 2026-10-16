@@ -90,6 +90,8 @@ export function Claims() {
           liveError={claims.liveError}
             pending={claims.refreshing}
           networkLabel={net.label}
+          onRefresh={claims.refresh}
+          readCost={1}
         />
       </header>
 

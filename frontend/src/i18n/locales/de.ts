@@ -151,6 +151,12 @@ export const de: Dictionary = {
   "datamode.historical.blurb":
     "Die Werte stammen aus archivierten Beobachtungen für ein vollständig in der Vergangenheit liegendes Zeitfenster – nicht aus einem Live-Feed. Der Vertrag ruft das Archiv bei jeder Bewertung erneut ab, sodass eine Überarbeitung der Historie durch den Anbieter sichtbar würde: Dies ist kein eingefrorener Datensatz.",
   "datamode.recorded": "· aufgezeichnet",
+  "data.refreshLive": "Aus der Chain aktualisieren",
+  "data.refreshing": "Wird aus der Chain gelesen…",
+  "data.reads": "Reads",
+  "data.rateLimited": "Read-Kontingent am öffentlichen Endpunkt aufgebraucht – aufgezeichneter Snapshot wird angezeigt.",
+  "data.liveFailed": "Live-Read fehlgeschlagen – aufgezeichneter Snapshot wird angezeigt.",
+
   "datamode.mixed": "· gemischt",
   "datamode.recordedTitle": "Aus einem erfassten Snapshot gelesen, nicht aus der Live-Chain.",
   "datamode.mixedTitle":

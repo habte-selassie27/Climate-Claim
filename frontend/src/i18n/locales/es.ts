@@ -150,6 +150,12 @@ export const es: Dictionary = {
   "datamode.historical.blurb":
     "Los valores provienen de observaciones archivadas de una ventana completamente pasada, no de un feed en vivo. El contrato vuelve a obtener el archivo cada vez que se evalúa una reclamación, así que se reflejaría que un proveedor revisara su propia historia: no es un conjunto de datos congelado.",
   "datamode.recorded": "· registrado",
+  "data.refreshLive": "Actualizar desde la cadena",
+  "data.refreshing": "Leyendo desde la cadena…",
+  "data.reads": "lecturas",
+  "data.rateLimited": "Cupo de lecturas agotado en el endpoint público: se muestra la instantánea registrada.",
+  "data.liveFailed": "Falló la lectura en vivo: se muestra la instantánea registrada.",
+
   "datamode.mixed": "· mixto",
   "datamode.recordedTitle": "Leído de una instantánea capturada, no de la cadena en vivo.",
   "datamode.mixedTitle":

@@ -92,6 +92,8 @@ export function Demo() {
                     liveError={bundle.liveError}
                     pending={bundle.refreshing}
                     networkLabel={net.label}
+                    onRefresh={bundle.refresh}
+                    readCost={6}
                   />
                   <Link className="badge" to={`/claims/${scenario.onChainClaimId}`}>
                     Open {scenario.onChainClaimId} on the network

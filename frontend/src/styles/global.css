@@ -2538,3 +2538,35 @@ textarea {
 @media (prefers-reduced-motion: reduce) {
   .lightning { display: none; }
 }
+
+/* ==========================================================================
+   Live-read control.
+
+   Wraps the origin badge together with the button that spends a read. Reads are
+   no longer automatic -- a page view costs zero requests against the shared,
+   capped public endpoint -- so this is how a visitor opts into live data. The
+   cost is shown on the button so the trade is explicit before the click.
+   ========================================================================== */
+
+.live-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.live-refresh .btn-sm {
+  padding: 2px var(--space-2);
+  font-size: var(--step--1);
+}
+
+.live-refresh-error {
+  font-size: var(--step--1);
+  color: var(--muted);
+}
+
+/* A rate-limited read is our own doing, not the source being unavailable, so it
+   is stated plainly rather than dressed up as a network fault. */
+.live-refresh-error[data-rate-limited="true"] {
+  color: var(--warn, var(--muted));
+}

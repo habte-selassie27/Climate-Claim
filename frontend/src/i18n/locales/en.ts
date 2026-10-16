@@ -162,6 +162,12 @@ export const en = {
   "datamode.historical.blurb":
     "Values come from archived observations for a window that is entirely in the past - not a live feed. The contract re-fetches the archive each time a claim is evaluated, so a provider revising its own history would be reflected: this is not a frozen dataset.",
   "datamode.recorded": "· recorded",
+  "data.refreshLive": "Refresh from chain",
+  "data.refreshing": "Reading from the chain…",
+  "data.reads": "reads",
+  "data.rateLimited": "Read budget spent on the public endpoint — showing the recorded snapshot.",
+  "data.liveFailed": "Live read failed — showing the recorded snapshot.",
+
   "datamode.mixed": "· mixed",
   "datamode.recordedTitle": "Read from a captured snapshot, not the live chain.",
   "datamode.mixedTitle": "Some of this was read live; some came from the captured snapshot.",

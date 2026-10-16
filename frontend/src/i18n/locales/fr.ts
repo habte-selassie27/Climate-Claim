@@ -150,6 +150,12 @@ export const fr: Dictionary = {
   "datamode.historical.blurb":
     "Les valeurs proviennent d’observations archivées sur une fenêtre entièrement passée — pas d’un flux en direct. Le contrat récupère l’archive à chaque évaluation ; une révision des données par le fournisseur serait donc prise en compte : ce n’est pas un jeu de données figé.",
   "datamode.recorded": "· enregistré",
+  "data.refreshLive": "Actualiser depuis la chaîne",
+  "data.refreshing": "Lecture depuis la chaîne…",
+  "data.reads": "lectures",
+  "data.rateLimited": "Quota de lectures épuisé sur le point d'accès public — instantané enregistré affiché.",
+  "data.liveFailed": "Échec de la lecture en direct — instantané enregistré affiché.",
+
   "datamode.mixed": "· mixte",
   "datamode.recordedTitle": "Lu depuis un instantané capturé, pas depuis la chaîne en direct.",
   "datamode.mixedTitle":

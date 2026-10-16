@@ -213,7 +213,9 @@ export function ClaimDetail() {
             liveError={bundle.liveError}
             pending={bundle.refreshing}
             networkLabel={net.label}
-          />
+          onRefresh={bundle.refresh}
+          readCost={6}
+        />
         </div>
         <p className="lede" data-testid="policy-sentence">
           {policySentence({

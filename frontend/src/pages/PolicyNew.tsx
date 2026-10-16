@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useRead } from "../hooks/useRead";
+import { OriginBadge } from "../components/OriginBadge";
 import { useWallet } from "../hooks/useWallet";
 import {
   getOwner,
@@ -647,6 +648,21 @@ export function PolicyNew() {
               Eligible sources
             </legend>
             <div className="field-set" aria-busy={sourcesRead.loading && sources.length === 0}>
+              {/* The registered source list is read on demand, not on mount: this
+                  page previously cost 2 reads per visit against a shared, capped
+                  public endpoint, which is what produced HTTP 429 for ordinary
+                  visitors. `listSources` and `getOwner` are now only spent when
+                  the form actually needs live truth (e.g. confirming the owner
+                  before a write). */}
+              <OriginBadge
+                mode={sourcesRead.origin}
+                capturedAt={sourcesRead.capturedAt}
+                liveError={sourcesRead.liveError}
+                pending={sourcesRead.refreshing}
+                networkLabel={net.label}
+                onRefresh={sourcesRead.refresh}
+                readCost={1}
+              />
               {sourcesRead.loading && sources.length === 0 ? (
                 <>
                   <div className="skeleton" style={{ height: 18, width: "70%" }} />
