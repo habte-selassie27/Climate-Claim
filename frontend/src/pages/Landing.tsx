@@ -3,6 +3,8 @@ import { CONTRACT_ADDRESS } from "../config/contracts";
 import { activeNetwork } from "../config/network";
 import { EvidenceChart } from "../components/EvidenceChart";
 import { EvidenceField } from "../components/EvidenceField";
+import { PrecipitationField } from "../components/PrecipitationField";
+import { WeatherSound } from "../components/WeatherSound";
 import { DEMO_SCENARIOS } from "../fixtures/demoScenarios";
 import { fromScaled } from "../domain/format";
 import { useI18n } from "../i18n/I18nProvider";
@@ -19,12 +21,13 @@ export function Landing() {
 
   return (
     <div className="stack">
-      {/* Hero. The scene behind it is the supplied mock's: one bar per source
-          per day, the threshold as a plane, a halo on the day the sources
-          disagree. It draws this page's own recorded readings, and is
-          decorative only -- every number the visitor can act on is in the
-          chart and tables below. Drag it to rotate. */}
+      {/* Hero. Two decorative layers, both driven by this page's own recorded
+          readings: the rain streaks behind, the evidence field in front. The
+          sound toggle is the only audible control on the site, and it is
+          strictly opt-in. Every number the visitor can act on lives in the
+          chart and tables below. */}
       <section className="hero">
+        <PrecipitationField series={scenario.series} unit={scenario.policy.unit} />
         <EvidenceField
           series={scenario.series}
           period={scenario.period}
@@ -32,6 +35,7 @@ export function Landing() {
           comparator={scenario.policy.comparator}
           unit={scenario.policy.unit}
         />
+        <WeatherSound />
         <div className="hero-inner">
           <h1>{t("landing.h1")}</h1>
           <p className="lede">{t("landing.lede")}</p>

@@ -123,9 +123,11 @@ export function PrecipitationField({ series, unit }: Props) {
           const mat = new THREE.LineBasicMaterial({
             color: new THREE.Color(i === 0 ? "#7ba6c6" : "#b9cfdf"),
             transparent: true,
-            opacity: 0.26 + share * 0.34,
+            opacity: 0.28 + share * 0.42,
             depthWrite: false,
-            blending: THREE.AdditiveBlending,
+            // Normal alpha, not AdditiveBlending: additive is invisible
+            // against a light page (white plus anything is white), and this
+            // field now sits behind the evidence scene in both themes.
           });
           const lines = new THREE.LineSegments(geo, mat);
           scene.add(lines);

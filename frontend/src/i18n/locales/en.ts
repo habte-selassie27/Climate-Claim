@@ -349,6 +349,8 @@ export const en = {
   "hero.threshold": "threshold {value} {unit}",
   "hero.drag": "drag to rotate",
   "hero.split": "{day}: sources disagree · drag to rotate",
+  "hero.sound.off": "rain sound off",
+  "hero.sound.on": "rain sound on",
 
   // --- how it works --------------------------------------------------------
   "how.h1": "How a decision is reached",

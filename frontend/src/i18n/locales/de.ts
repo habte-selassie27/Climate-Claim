@@ -337,6 +337,8 @@ export const de: Dictionary = {
   "hero.threshold": "Schwelle {value} {unit}",
   "hero.drag": "zum Drehen ziehen",
   "hero.split": "{day}: Quellen widersprechen sich · zum Drehen ziehen",
+  "hero.sound.off": "Regen: ohne Ton",
+  "hero.sound.on": "Regen: mit Ton",
 
   "how.h1": "Wie eine Entscheidung zustande kommt",
   "how.lede":

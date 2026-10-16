@@ -5,6 +5,46 @@ gaps are stated plainly; nothing is claimed that was not run.
 
 ---
 
+## Hero ambience: rain streaks back, opt-in rain + thunder sound
+
+### DONE
+
+**The rain-streak backdrop (PrecipitationField) is back, layered behind the
+evidence field** — streaks at z 0, the three.js scene at z 1, copy above. Its
+material swapped AdditiveBlending for normal alpha: additive is invisible
+against a light page (white plus anything is white), which is exactly what the
+light theme showed. The rain readout note is hidden inside the hero because
+the field's HUD already owns that corner.
+
+**Opt-in rain and thunder, synthesised with the Web Audio API** — no audio
+files to ship or license. Rain is looped white noise through a high-pass /
+low-pass pair; thunder is a darkening noise burst over a sub-bass sine.
+Nothing is created until the toggle is pressed (browsers block autoplay, and
+doing it anyway would be hostile); the first clap arrives within 2.5–5 s so
+the button is audibly connected to an effect; later claps are sparse (9–22 s,
+cadence pinned in `frontend/src/domain/ambience.ts` and tested); turning it off
+closes the AudioContext rather than muting it; and the context is suspended
+while the tab is hidden. The toggle is a real button with `aria-pressed`,
+labelled in all four locales (new `hero.sound.on/off` keys behind the existing
+placeholder-parity test).
+
+### PROOF
+
+- `npm test` → 173 passed (13 files), including 3 new `ambience` tests
+- `npm run build` → clean (verified from a clean worktree of this commit)
+- Push to `main`; Vercel bundle checked after deploy (toggle markup + CSS
+  present in the served assets)
+
+### NEXT
+
+- On-chain queue unchanged: waits on the StudioNet quota window.
+
+### BLOCKED
+
+- Nothing on this change.
+
+---
+
 ## Home hero: the supplied three.js evidence field
 
 ### DONE

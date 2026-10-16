@@ -336,6 +336,8 @@ export const fr: Dictionary = {
   "hero.threshold": "seuil {value} {unit}",
   "hero.drag": "faites glisser pour pivoter",
   "hero.split": "{day} : les sources divergent · faites glisser pour pivoter",
+  "hero.sound.off": "pluie : sans son",
+  "hero.sound.on": "pluie : avec son",
 
   "how.h1": "Comment une décision est prise",
   "how.lede":

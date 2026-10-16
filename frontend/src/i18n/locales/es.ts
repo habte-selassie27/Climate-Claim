@@ -335,6 +335,8 @@ export const es: Dictionary = {
   "hero.threshold": "umbral {value} {unit}",
   "hero.drag": "arrastra para girar",
   "hero.split": "{day}: las fuentes discrepan · arrastra para girar",
+  "hero.sound.off": "lluvia: sin sonido",
+  "hero.sound.on": "lluvia: con sonido",
 
   "how.h1": "Cómo se alcanza una decisión",
   "how.lede":
