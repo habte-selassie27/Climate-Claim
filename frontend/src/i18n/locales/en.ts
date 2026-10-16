@@ -228,6 +228,7 @@ export const en = {
   "evidence.chart": "Evidence chart",
   "evidence.showTable": "Show as table",
   "evidence.showChart": "Show chart",
+  "evidence.replay": "Replay",
   // Summary sentence. Split into singular/plural variants because the four
   // locales pluralise differently and a naive `{days} days` is wrong in most of
   // them; these are chosen in code rather than by concatenating a suffix.

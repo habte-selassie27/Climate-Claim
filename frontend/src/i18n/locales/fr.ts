@@ -215,6 +215,7 @@ export const fr: Dictionary = {
   "evidence.chart": "Graphique des preuves",
   "evidence.showTable": "Afficher sous forme de tableau",
   "evidence.showChart": "Afficher le graphique",
+  "evidence.replay": "Rejouer",
   "evidence.summaryCrossedOne": "{label} a franchi le seuil {days} jour",
   "evidence.summaryCrossedMany": "{label} a franchi le seuil {days} jours",
   "evidence.summaryMissingOne": "{days} relevé manque et n’est pas estimé.",

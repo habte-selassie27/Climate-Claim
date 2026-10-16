@@ -216,6 +216,7 @@ export const de: Dictionary = {
   "evidence.chart": "Nachweisdiagramm",
   "evidence.showTable": "Als Tabelle anzeigen",
   "evidence.showChart": "Diagramm anzeigen",
+  "evidence.replay": "Erneut abspielen",
   "evidence.summaryCrossedOne": "{label} hat den Schwellenwert an {days} Tag überschritten",
   "evidence.summaryCrossedMany": "{label} hat den Schwellenwert an {days} Tagen überschritten",
   "evidence.summaryMissingOne": "{days} Messwert fehlt und wird nicht geschätzt.",

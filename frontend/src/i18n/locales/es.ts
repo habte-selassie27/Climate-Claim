@@ -215,6 +215,7 @@ export const es: Dictionary = {
   "evidence.chart": "Gráfico de evidencia",
   "evidence.showTable": "Ver como tabla",
   "evidence.showChart": "Ver gráfico",
+  "evidence.replay": "Repetir",
   "evidence.summaryCrossedOne": "{label} superó el umbral {days} día",
   "evidence.summaryCrossedMany": "{label} superó el umbral {days} días",
   "evidence.summaryMissingOne": "Falta {days} lectura y no se estima.",

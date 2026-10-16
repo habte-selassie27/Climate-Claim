@@ -1,4 +1,5 @@
 import type * as React from "react";
+import type { CSSProperties } from "react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { DemoSeries } from "../fixtures/demoScenarios";
 import { comparatorSymbol } from "../domain/copy";
@@ -6,6 +7,7 @@ import { formatTick, niceScale } from "../domain/chartScale";
 import { dateRange, fromScaled } from "../domain/format";
 import { meetsThreshold } from "../domain/sourceCompare";
 import { useI18n } from "../i18n/I18nProvider";
+import { useChartReveal } from "../hooks/useChartReveal";
 
 interface Props {
   series: DemoSeries[];
@@ -183,6 +185,25 @@ export function EvidenceChart({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [series, dates, thresholdNum, comparator, yMax, t, unit]);
 
+  // Arms the reveal sequence once the chart scrolls into view.
+  const reveal = useChartReveal<HTMLElement>();
+  /**
+   * Exact length of a polyline built from the same points the trace uses.
+   *
+   * Used as the `stroke-dasharray` for the draw-on animation. Computing it
+   * beats a guessed constant: too long and the line appears to finish early,
+   * too short and the tail never draws at all.
+   */
+  const traceLength = (points: { x: number; y: number }[]) => {
+    let total = 0;
+    for (let i = 1; i < points.length; i += 1) {
+      const a = points[i - 1]!;
+      const b = points[i]!;
+      total += Math.hypot(b.x - a.x, b.y - a.y);
+    }
+    return Math.ceil(total) + 2;
+  };
+
   const [activeIndex, setActiveIndex] = useState(0);
   const pointRefs = useRef<Array<SVGGElement | null>>([]);
   const pendingFocus = useRef(false);
@@ -241,7 +262,7 @@ export function EvidenceChart({
   }, [series, dates, crossingCount, conflictDays.size, empty, t]);
 
   return (
-    <section className="chart-shell" aria-labelledby={titleId}>
+    <section className={`chart-shell ${reveal.className}`} aria-labelledby={titleId}>
       <div className="panel-head">
         <h3 id={titleId}>{t("evidence.chart")}</h3>
         <button
@@ -252,6 +273,18 @@ export function EvidenceChart({
         >
           {showTable ? t("evidence.showChart") : t("evidence.showTable")}
         </button>
+        {/* Replay is hidden when motion is reduced, because then there is no
+            sequence to replay and the button would do nothing. */}
+        {reveal.animated && !showTable ? (
+          <button
+            type="button"
+            className="copy-btn"
+            onClick={reveal.replay}
+            data-testid="chart-replay"
+          >
+            {t("evidence.replay")}
+          </button>
+        ) : null}
       </div>
 
       {empty ? (
@@ -415,10 +448,14 @@ export function EvidenceChart({
                 traces separable, which is the entire point of the chart. */}
             {series.map((s, si) => {
               const seg: string[] = [];
+              const pts: { x: number; y: number }[] = [];
               dates.forEach((d, i) => {
                 const v = s.daily[d];
                 if (typeof v !== "number") return;
-                seg.push(`${seg.length === 0 ? "M" : "L"}${xFor(i, dates.length)},${yFor(v)}`);
+                const x = xFor(i, dates.length);
+                const y = yFor(v);
+                pts.push({ x, y });
+                seg.push(`${seg.length === 0 ? "M" : "L"}${x},${y}`);
               });
               if (seg.length === 0) return null;
 
@@ -446,6 +483,7 @@ export function EvidenceChart({
                           width={bw}
                           height={h}
                           rx={2}
+                          style={{ "--i": i } as CSSProperties}
                           className={crosses ? "chart-bar chart-bar-cross" : "chart-bar"}
                         />
                       );
@@ -466,6 +504,9 @@ export function EvidenceChart({
                   ) : null}
                   <path
                     className={`chart-trace chart-trace-${si}`}
+                    style={
+                      { "--trace-len": traceLength(pts) } as CSSProperties
+                    }
                     d={seg.join(" ")}
                     fill="none"
                   />
@@ -507,7 +548,12 @@ export function EvidenceChart({
                 {p.crosses ? (
                   <circle cx={p.x} cy={p.y} r={9} className="chart-crossed" opacity={0.18} />
                 ) : null}
-                {SHAPE_MARKER[p.shape](p.x, p.y)}
+                <g
+                  className="chart-marker"
+                  style={{ "--i": i } as CSSProperties}
+                >
+                  {SHAPE_MARKER[p.shape](p.x, p.y)}
+                </g>
                 <title>{p.label}</title>
                 {/* Value labels only where they change the answer.
 
@@ -520,6 +566,7 @@ export function EvidenceChart({
                     x={p.x}
                     y={p.y + (p.shape === "triangle" ? 20 : -12)}
                     textAnchor="middle"
+                    style={{ "--i": i } as CSSProperties}
                     className="chart-value-label"
                   >
                     {fromScaled(Math.round(p.value * 100))}

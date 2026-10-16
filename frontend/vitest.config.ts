@@ -12,7 +12,10 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    // `.tsx` so component tests can render markup. The node environment has no
+    // DOM, which suits renderToStaticMarkup and the IntersectionObserver hook
+    // degrades to the settled frame rather than throwing.
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     // The service layer imports a JSON snapshot and a lazily-created SDK
     // client; neither is exercised here, but keep the pool small and quiet.
     pool: "threads",

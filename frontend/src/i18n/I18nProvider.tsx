@@ -76,16 +76,21 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Module `t` reads the module-level locale, which `applyLocale` keeps in step
+  // with React state. Rebinding on each locale change guarantees a re-render
+  // whenever the dictionary in use actually changes.
+  //
+  // This useCallback MUST sit at the top level, not inside the useMemo below:
+  // a hook called from within a memo violates the rules of hooks and React logs
+  // a warning. It only became visible once a test rendered the provider.
+  const t = useCallback(
+    (key: MessageKey, vars?: Vars) => translate(key, vars),
+    [locale],
+  );
+
   const value = useMemo<I18nContextValue>(
-    () => ({
-      locale,
-      setLocale,
-      // Module `t` reads the module-level locale, which `applyLocale` keeps in
-      // step with React state. Binding it per-locale also guarantees a re-render
-      // whenever the dictionary in use actually changes.
-      t: useCallback((key: MessageKey, vars?: Vars) => translate(key, vars), [locale]),
-    }),
-    [locale, setLocale],
+    () => ({ locale, setLocale, t }),
+    [locale, setLocale, t],
   );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
