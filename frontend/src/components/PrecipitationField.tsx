@@ -93,33 +93,43 @@ export function PrecipitationField({ series, unit }: Props) {
         // Each source gets its own band, so the two readings are separable.
         const bands = series.slice(0, 2).map((_, i) => {
           const share = peaks[i]! / total;
-          // 900 total drops; the busier source gets the larger share.
-          const count = Math.max(80, Math.round(900 * share));
-          const positions = new Float32Array(count * 3);
+          // Line segments rather than points: rain reads as streaks, and the
+          // first attempt (sparse points) looked like dust on the screen.
+          const count = Math.max(220, Math.round(1100 * share));
+          // Two vertices per drop, so each can be stretched along Y.
+          const positions = new Float32Array(count * 6);
           const speeds = new Float32Array(count);
+          const lengths = new Float32Array(count);
           for (let n = 0; n < count; n += 1) {
-            positions[n * 3 + 0] = (Math.random() - 0.5) * 44;
-            positions[n * 3 + 1] = (Math.random() - 0.5) * 26;
-            positions[n * 3 + 2] = -6 + i * 5 + (Math.random() - 0.5) * 4;
-            // Faster fall for the wetter source, scaled by its own peak.
-            speeds[n] = 3.2 + (peaks[i]! / maxPeak) * 9;
+            const x = (Math.random() - 0.5) * 46;
+            const y = (Math.random() - 0.5) * 26;
+            const z = -6 + i * 5 + (Math.random() - 0.5) * 4;
+            // Faster fall and longer streak for the wetter source.
+            const speed = 3.6 + (peaks[i]! / maxPeak) * 11;
+            // Streak length tracks speed, the way a real drop does.
+            const len = 0.5 + (peaks[i]! / maxPeak) * 1.5;
+            positions[n * 6 + 0] = x;
+            positions[n * 6 + 1] = y;
+            positions[n * 6 + 2] = z;
+            positions[n * 6 + 3] = x;
+            positions[n * 6 + 4] = y + len;
+            positions[n * 6 + 5] = z;
+            speeds[n] = speed;
+            lengths[n] = len;
           }
           const geo = new THREE.BufferGeometry();
           geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
 
-          const mat = new THREE.PointsMaterial({
-            color: new THREE.Color(i === 0 ? "#8fb8d8" : "#c9d8e4"),
-            size: i === 0 ? 0.17 : 0.23,
+          const mat = new THREE.LineBasicMaterial({
+            color: new THREE.Color(i === 0 ? "#7ba6c6" : "#b9cfdf"),
             transparent: true,
-            // The wetter source reads slightly brighter, so the divergence is
-            // legible without relying on colour alone (density carries it too).
-            opacity: 0.34 + share * 0.3,
+            opacity: 0.26 + share * 0.34,
             depthWrite: false,
             blending: THREE.AdditiveBlending,
           });
-          const points = new THREE.Points(geo, mat);
-          scene.add(points);
-          return { points, positions, speeds, count, geo, mat };
+          const lines = new THREE.LineSegments(geo, mat);
+          scene.add(lines);
+          return { points: lines, positions, speeds, lengths, count, geo, mat };
         });
 
         const resize = () => {
@@ -145,14 +155,16 @@ export function PrecipitationField({ series, unit }: Props) {
           last = now;
           for (const band of bands) {
             for (let n = 0; n < band.count; n += 1) {
-              const y = band.positions[n * 3 + 1]! - band.speeds[n]! * dt;
+              const y = band.positions[n * 6 + 1]! - band.speeds[n]! * dt;
               // Wrap around the bottom rather than respawning, so density stays
-              // constant and the loop reads as continuous rain.
-              band.positions[n * 3 + 1] = y < -13 ? 13 : y;
+              // constant and the loop reads as continuous rain. The tail vertex
+              // follows the head, which is what keeps the streak intact.
+              const ny = y < -13 ? 13 : y;
+              band.positions[n * 6 + 1] = ny;
+              band.positions[n * 6 + 4] = ny + band.lengths[n]!;
             }
             const attr = band.geo.getAttribute("position") as BufferAttribute;
             attr.needsUpdate = true;
-            band.points.rotation.z += dt * 0.02;
           }
           renderer.render(scene, camera);
           if (!painted) {

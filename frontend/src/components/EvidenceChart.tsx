@@ -18,7 +18,9 @@ interface Props {
 }
 
 const W = 720;
-const H = 300;
+/* Taller than it was (300): with precipitation values clustered near zero, a
+   short plot left most of the frame empty and the series unreadable. */
+const H = 380;
 const M = { top: 30, right: 28, bottom: 52, left: 58 };
 const PW = W - M.left - M.right;
 const PH = H - M.top - M.bottom;
@@ -51,6 +53,10 @@ interface ChartPoint {
   crosses: boolean;
   shape: DemoSeries["shape"];
   label: string;
+  /** ISO day, so a point can be matched against the conflict-day set. */
+  day: string;
+  /** The recorded reading, for the on-chart value label. */
+  value: number;
 }
 
 /**
@@ -157,6 +163,8 @@ export function EvidenceChart({
           y: yFor(v),
           crosses,
           shape: s.shape,
+          day: d,
+          value: v,
           label: crosses
             ? t("evidence.pointPass", { source: s.label, date: d, value: v.toFixed(2), unit })
             : t("evidence.pointFail", { source: s.label, date: d, value: v.toFixed(2), unit }),
@@ -341,6 +349,35 @@ export function EvidenceChart({
               Day of {period.start} → {period.end} ({period.timezone})
             </text>
 
+            {/* The days where the sources actually disagree. This is the claim's whole
+                subject, so they are shaded rather than left for the reader to
+                infer from two dots at different heights. */}
+            {[...conflictDays].map((d) => {
+              const i = dates.indexOf(d);
+              if (i === -1) return null;
+              const cx = xFor(i, dates.length);
+              const half = Math.min((PW / Math.max(dates.length, 1)) / 2, 40);
+              return (
+                <g key={`conflict-${d}`}>
+                  <rect
+                    x={cx - half}
+                    y={M.top + 2}
+                    width={half * 2}
+                    height={PH - 2}
+                    className="chart-conflict-band"
+                  />
+                  <text
+                    x={cx}
+                    y={M.top + 16}
+                    textAnchor="middle"
+                    className="chart-conflict-label"
+                  >
+                    {t("evidence.legend.disagree")}
+                  </text>
+                </g>
+              );
+            })}
+
             {/* threshold line — the only use of --threshold-ink */}
             {thresholdNum <= yMax ? (
               <g>
@@ -361,6 +398,39 @@ export function EvidenceChart({
                 </text>
               </g>
             ) : null}
+
+            {/* Connecting lines, drawn UNDER the markers.
+
+                Without these the series read as loose scatter: nothing showed
+                which points belonged to the same source, or the shape of the
+                week. A polyline through each source's own points makes the two
+                traces separable, which is the entire point of the chart. */}
+            {series.map((s, si) => {
+              const seg: string[] = [];
+              dates.forEach((d, i) => {
+                const v = s.daily[d];
+                if (typeof v !== "number") return;
+                seg.push(`${seg.length === 0 ? "M" : "L"}${xFor(i, dates.length)},${yFor(v)}`);
+              });
+              if (seg.length === 0) return null;
+              return (
+                <g key={`line-${s.sourceId}`}>
+                  {/* A soft area under the trace gives the week a body without
+                      competing with the markers. */}
+                  {seg.length > 1 ? (
+                    <path
+                      className={`chart-area chart-area-${si}`}
+                      d={`${seg.join(" ")}L${xFor(dates.length - 1, dates.length)},${M.top + PH}L${xFor(0, dates.length)},${M.top + PH}Z`}
+                    />
+                  ) : null}
+                  <path
+                    className={`chart-trace chart-trace-${si}`}
+                    d={seg.join(" ")}
+                    fill="none"
+                  />
+                </g>
+              );
+            })}
 
             {/* gaps first, so markers draw on top */}
             {series.map((s) =>
@@ -398,6 +468,22 @@ export function EvidenceChart({
                 ) : null}
                 {SHAPE_MARKER[p.shape](p.x, p.y)}
                 <title>{p.label}</title>
+                {/* Value labels only where they change the answer.
+
+                    On most days the two traces lie almost on top of each other,
+                    so labelling every point would be clutter and would still not
+                    help. These are the points the decision turns on: a crossing,
+                    or a day the sources disagree about. */}
+                {(p.crosses || conflictDays.has(p.day)) ? (
+                  <text
+                    x={p.x}
+                    y={p.y + (p.shape === "triangle" ? 20 : -12)}
+                    textAnchor="middle"
+                    className="chart-value-label"
+                  >
+                    {fromScaled(Math.round(p.value * 100))}
+                  </text>
+                ) : null}
               </g>
             ))}
 

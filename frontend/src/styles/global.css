@@ -1868,3 +1868,108 @@ caption {
     display: none;
   }
 }
+
+/* ==========================================================================
+   Chart visual layer.
+
+   The chart previously drew markers with nothing connecting them, so a week of
+   readings read as loose scatter: the eye could not tell which points belonged
+   to the same source, nor see the shape of the week. These rules add the trace,
+   a soft body under it, and a shaded band on the days the sources disagree --
+   the claim's entire subject, which was previously left to be inferred from two
+   dots at different heights.
+   ========================================================================== */
+
+.chart-trace {
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.chart-trace-0 {
+  stroke: var(--isobar);
+}
+
+.chart-trace-1 {
+  stroke: var(--lichen);
+}
+
+/* A third source would otherwise have no colour; the series list is bounded at
+   four by the contract, and later traces share the fallback ink. */
+.chart-trace-2,
+.chart-trace-3 {
+  stroke: var(--amber-flag);
+}
+
+/* Very light: the area is body, not data. It must never compete with the
+   markers or the threshold line. */
+.chart-area {
+  stroke: none;
+  opacity: 0.1;
+}
+
+.chart-area-0 {
+  fill: var(--isobar);
+}
+
+.chart-area-1 {
+  fill: var(--lichen);
+}
+
+.chart-area-2,
+.chart-area-3 {
+  fill: var(--amber-flag);
+}
+
+/* The disagreement band. Tinted rather than outlined so it reads as a region
+   of the plot, not as another data series. */
+.chart-conflict-band {
+  fill: var(--amber-wash);
+  opacity: 0.75;
+}
+
+.chart-conflict-label {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  fill: var(--amber-flag);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Markers sit on the trace now, so they need a little more presence and a
+   surface-coloured halo to lift them off the area fill. */
+.chart-marker-pass,
+.chart-marker-fail {
+  stroke-width: 2.5;
+  paint-order: stroke;
+}
+
+/* Gridlines recede so the data leads. The axis baseline stays firmer, because
+   zero is the reference every reading is judged against. */
+.chart-grid {
+  stroke: var(--hail-soft);
+  stroke-width: 1;
+}
+
+.chart-axis {
+  stroke: var(--rain-slate-45);
+  stroke-width: 1.5;
+}
+
+/* Value labels for the points the decision turns on. Deliberately muted: these
+   annotate the marks, they do not replace the axis, and the full value is still
+   available to assistive tech through each point's accessible name. */
+.chart-value-label {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  fill: var(--rain-slate);
+  /* A surface-coloured halo so the label stays readable where it sits over a
+     trace, a marker or the disagreement band. */
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
