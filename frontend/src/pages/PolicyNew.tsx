@@ -255,6 +255,19 @@ export function PolicyNew() {
   const notOwner =
     Boolean(wallet.address) && Boolean(owner) && wallet.address?.toLowerCase() !== owner.toLowerCase();
 
+  /**
+   * A gate banner must not outlive the condition it describes. It is set when
+   * Create policy is pressed, so connecting a wallet, switching to the right
+   * network or connecting as the owner afterwards would otherwise leave a dead
+   * message ("Connect a wallet first") on screen and the form looks broken.
+   * Clearing is always safe: the banner disables nothing, and submit() re-checks
+   * every gate when it runs, so the next click re-explains any blocker that is
+   * still present.
+   */
+  useEffect(() => {
+    setSubmitBlock(null);
+  }, [wallet.connected, wallet.wrongNetwork, notOwner]);
+
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((f) => {
       const next = { ...f, [key]: value };

@@ -5,6 +5,35 @@ gaps are stated plainly; nothing is claimed that was not run.
 
 ---
 
+## Clear the stale wallet-gate banner on Create policy
+
+### DONE
+
+The "Connect a wallet first" banner (and the wrong-network and owner-only
+variants) was set when Create policy was pressed and never cleared, so
+connecting the wallet afterwards left a dead message on screen and the form
+looked broken even though the gate would now pass. `PolicyNew.tsx` now clears
+the banner whenever the wallet connection, network or owner state changes.
+
+Clearing is always safe: the banner disables nothing, and `submit()` re-checks
+every gate on each click, so the next click re-explains any blocker that is
+still present.
+
+### PROOF
+
+- `npm run build` (tsc + vite) in `frontend/` — clean, built in 3.45s.
+- `npm test` in `frontend/` — 6 files, **93 tests passed**.
+
+### NEXT
+
+- Deployed by the push that carries this entry; verify on the live site.
+
+### BLOCKED
+
+None.
+
+---
+
 ## Fix SPA deep links on the Vercel deployment (root directory = frontend)
 
 ### DONE
