@@ -393,7 +393,7 @@ export const de: Dictionary = {
   "how.limits.l2":
     "Reanalyse-Quellen nennen die verwendete Rasterzelle, die mehrere Kilometer vom angefragten Punkt entfernt liegen kann. Eine enge Distanztoleranz führt zu unbestimmten Ergebnissen.",
   "how.limits.l3":
-    "Der öffentliche StudioNet-Endpunkt ist auf 30 Anfragen pro Minute begrenzt, daher werden Reads zeitlich verteilt und dedupliziert.",
+    "Der öffentliche StudioNet-Endpunkt erlaubt eine begrenzte Anzahl von Reads pro Stunde, daher werden Reads zeitlich verteilt und dedupliziert.",
   "how.limits.l4ok":
     "Claims in den öffentlichen Testnetzwerken werden nicht mit echtem Wert abgerechnet.",
   "how.limits.l4down":

@@ -391,7 +391,7 @@ export const es: Dictionary = {
   "how.limits.l2":
     "Las fuentes de reanálisis informan de la celda de la cuadrícula que usaron, que puede situarse a varios kilómetros del punto solicitado. Una tolerancia de distancia estricta producirá resultados inconcluyentes.",
   "how.limits.l3":
-    "El endpoint público de StudioNet está limitado a 30 peticiones por minuto, así que las lecturas se espacian y se deduplican.",
+    "El endpoint público de StudioNet permite un número limitado de lecturas por hora, así que las lecturas se espacian y se deduplican.",
   "how.limits.l4ok":
     "Las reclamaciones en las redes de prueba públicas no se liquidan por valor real.",
   "how.limits.l4down":

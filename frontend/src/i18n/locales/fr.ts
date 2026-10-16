@@ -392,7 +392,7 @@ export const fr: Dictionary = {
   "how.limits.l2":
     "Les sources de réanalyse rapportent la cellule de grille utilisée, qui peut se situer à plusieurs kilomètres du point demandé. Une tolérance de distance serrée produira des résultats inconclusants.",
   "how.limits.l3":
-    "Le point d’accès public StudioNet est limité à 30 requêtes par minute : les lectures sont espacées et dédupliquées.",
+    "Le point d’accès public StudioNet autorise un nombre limité de lectures par heure : les lectures sont espacées et dédupliquées.",
   "how.limits.l4ok":
     "Les réclamations sur les réseaux de test publics ne sont pas réglées en valeur réelle.",
   "how.limits.l4down":

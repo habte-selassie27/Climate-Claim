@@ -25,8 +25,10 @@ export interface ReadState<T> {
  * Run a read once on mount, and again whenever `deps` change.
  *
  * `seed` is optional snapshot data painted on the very first frame, before any
- * network round trip. StudioNet allows only 30 RPC requests per minute, so a
- * page needing several reads can legitimately take ten seconds. Seeding means
+ * network round trip. StudioNet's public endpoint serves a limited number of
+ * reads per hour and the client spaces them out (see MIN_INTERVAL_MS in
+ * services/rpc.ts), so a page needing several reads legitimately takes a while
+ * to upgrade to live data. Seeding means
  * the reviewer sees real recorded data immediately and it is transparently
  * upgraded to live data when the chain answers. The origin badge always says
  * which of the two is on screen, so seeding never misrepresents stale data.

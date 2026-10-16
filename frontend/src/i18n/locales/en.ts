@@ -404,7 +404,7 @@ export const en = {
   "how.limits.l2":
     "Reanalysis sources report the grid cell they used, which can sit several kilometres from the point you asked for. A tight distance tolerance will produce inconclusive results.",
   "how.limits.l3":
-    "The public StudioNet endpoint is rate limited to 30 requests per minute, so reads are spaced out and de-duplicated.",
+    "The public StudioNet endpoint allows a limited number of reads per hour, so reads are spaced out and de-duplicated.",
   "how.limits.l4ok":
     "Claims on the public test networks are not settled for real value.",
   "how.limits.l4down":

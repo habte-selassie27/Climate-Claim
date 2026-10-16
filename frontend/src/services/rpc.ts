@@ -42,9 +42,36 @@ export interface ReadResult<T> {
 export const SNAPSHOT_CAPTURED_AT = (snapshotData as { capturedAt: string }).capturedAt;
 export const SNAPSHOT = snapshotData as unknown as SnapshotShape;
 
-// StudioNet allows 30 requests per minute. Spacing reads at ~2.2s keeps a
-// sequential page of reads comfortably inside that.
-const MIN_INTERVAL_MS = 2200;
+/**
+ * Minimum spacing between reads, in ms.
+ *
+ * DERIVED, not guessed. StudioNet's observed `standard` bucket is 500 requests
+ * per hour, which is 8.3 per minute -- one read every ~7.2s. This used to be
+ * 2200ms, derived from a "30 requests per minute" figure that the endpoint no
+ * longer honours: at 2200ms the app issued ~27 reads/min, roughly 3.3x over the
+ * real ceiling, so a single browse session could exhaust the bucket for
+ * everyone behind the same address and lock out the writes that need it.
+ *
+ * Verified against the live endpoint 2026-10-17:
+ *   {"bucket":"standard","window":"hour","limit":500,"current":500}
+ */
+const STUDIONET_READS_PER_HOUR = 500;
+/**
+ * Deliberately slower than the ceiling (8.3/min). Headroom absorbs the retry
+ * that `liveRead` performs after a 429, so a throttled read plus its retry
+ * cannot cross the line. Raising this trades page latency for headroom; the
+ * snapshot seeding in `useRead` means the page is already showing recorded data
+ * while these queue up.
+ */
+const READS_PER_MINUTE_BUDGET = 6;
+const MIN_INTERVAL_MS = Math.ceil(60_000 / READS_PER_MINUTE_BUDGET);
+
+if (MIN_INTERVAL_MS > 60_000 / (STUDIONET_READS_PER_HOUR / 60)) {
+  throw new Error(
+    `read budget is under the endpoint's ceiling: ${MIN_INTERVAL_MS}ms exceeds ` +
+      `${Math.ceil(60_000 / (STUDIONET_READS_PER_HOUR / 60))}ms`,
+  );
+}
 let lastRequestAt = 0;
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
