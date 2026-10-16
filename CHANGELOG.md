@@ -5,6 +5,70 @@ gaps are stated plainly; nothing is claimed that was not run.
 
 ---
 
+## Claim audit receipt export (JSON) + status-panel label fixes
+
+### DONE
+
+The claim page now exports its **audit receipt**: one JSON file carrying
+everything the page showed — policy terms, per-source evidence, per-check
+results, decision + reason code, dispute history, settlement state — plus a
+provenance block (record version, contract address, network, chain id, data
+mode, record origin live/mixed/recorded-snapshot with capture time and any
+live-read error, and the session's transaction hash + explorer link). The
+record is assembled only from the bundle the page renders, so the export can
+never contain data the screen did not show.
+
+- `frontend/src/domain/auditExport.ts` — `buildAuditRecord()` (pure,
+  versioned: `climateclaim-audit-record-1`), `auditRecordFilename()` (ids
+  sanitised), `downloadAuditRecord()` (browser download; returns false instead
+  of throwing when browser APIs are absent);
+- `ClaimDetail.tsx` — "Export receipt (JSON)" button in the audit panel head;
+- new i18n keys `audit.export` / `audit.exportHint` in all four locales.
+
+Two claim-page honesty fixes found while wiring this up:
+
+- the shared transaction status panel was hardcoded to label every write
+  "Request evaluation" and retried `request_evaluation` no matter which action
+  had failed — it now remembers the action sent (`lastWrite`) and labels and
+  retries *that* write, so a dispute or payout is never reported as an
+  evaluation;
+- a `t(...)` call sat inside a JSX comment, so the payout-help sentence was
+  never rendered and two locale keys (`claimDetail.settle.emittedHelp`,
+  `…emittedHelp2`) existed only for that dead reference — comment rewritten,
+  both keys removed from en/es/fr/de.
+
+Also: `scripts/dispute-claim.sh` added for the live dispute round
+(`open_dispute` → readback → `resolve_dispute` → readback, receipts saved to
+`artifacts/studionet-v2/`), and the README honesty-rules list gained the export
+bullet.
+
+### PROOF
+
+- `npm run build` in `frontend/` — clean (tsc + vite, built in 3.22s).
+- `npm test` in `frontend/` — **7 files, 105 tests passed** (12 new in
+  `auditExport.test.ts`; the suite was 93 before).
+- `grep -rn "emittedHelp" frontend/src` — no references remain;
+  the i18n parity tests still pass across en/es/fr/de.
+
+### NEXT
+
+- After the RPC quota reset (~19:15 UTC): create the London Set 3 policy
+  (draft restored in the browser), then run `scripts/dispute-claim.sh` on a
+  decided claim and `scripts/seed-v2-phase-d.sh` for the finalize → settle
+  walk. Note v2 settles in one phase; `confirm_settlement` exists only in the
+  current source, so the two-phase demo needs the redeploy.
+- `scripts/dispute-claim.sh` has not been executed yet — it is written to the
+  verified CLI pattern of the seed scripts, and its first run is the real test.
+- Push this entry; verify the live bundle carries `climateclaim-audit-record-1`.
+
+### BLOCKED
+
+- StudioNet public RPC: `-32029 Rate limit exceeded: 5000 requests per day`,
+  resets ~19:15 UTC on 2026-10-16. All on-chain writes (London policy, live
+  dispute, finalize, settle) wait for the reset or a different IP.
+
+---
+
 ## Point explorer links at the live official StudioNet explorer
 
 ### DONE

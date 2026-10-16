@@ -23,8 +23,9 @@ import { OriginBadge } from "../components/OriginBadge";
 import { TxStatusPanel } from "../components/TxStatusPanel";
 import { DEMO_SCENARIOS } from "../fixtures/demoScenarios";
 import { policySentence } from "../domain/copy";
+import { buildAuditRecord, downloadAuditRecord } from "../domain/auditExport";
 import { activeNetwork } from "../config/network";
-import { DEPLOYER_ADDRESS } from "../config/contracts";
+import { CONTRACT_ADDRESS, DEPLOYER_ADDRESS } from "../config/contracts";
 import type { SourceDef } from "../domain/types";
 import { useI18n } from "../i18n/I18nProvider";
 
@@ -37,6 +38,30 @@ const net = activeNetwork();
  */
 const DISPUTE_GROUNDS_MAX = 300;
 
+/** Writes this screen can send; used to label the shared status panel. */
+type WriteKind =
+  | "request_evaluation"
+  | "open_dispute"
+  | "resolve_dispute"
+  | "finalize_decision"
+  | "settle_claim"
+  | "confirm_settlement"
+  | "fail_settlement";
+
+/**
+ * Panel labels match the button that was pressed, so a dispute is never
+ * reported as "Request evaluation" (the file's buttons use these same words).
+ */
+const WRITE_LABELS: Record<WriteKind, string> = {
+  request_evaluation: "Request evaluation",
+  open_dispute: "Open dispute",
+  resolve_dispute: "Re-evaluate disputed claim",
+  finalize_decision: "Mark decision final",
+  settle_claim: "Emit payout",
+  confirm_settlement: "Confirm payout delivered",
+  fail_settlement: "Mark payout failed",
+};
+
 /**
  * The main screen. Everything rendered here comes from the deployed contract:
  * the claim, its policy, the evidence, the per-check results, the dispute
@@ -47,6 +72,9 @@ export function ClaimDetail() {
   const { id = "" } = useParams();
   const wallet = useWallet();
   const [tx, setTx] = useState<TxState>(IDLE);
+  // The write most recently sent from this screen; the status panel labels its
+  // phases with this action and retries THIS write, never a different one.
+  const [lastWrite, setLastWrite] = useState<{ kind: WriteKind; args: unknown[] } | null>(null);
   // Dispute grounds. The contract requires non-empty grounds (max 300 chars) and
   // records them in the dispute history, so the user must supply their own
   // reason rather than the app sending a fixed string.
@@ -66,24 +94,18 @@ export function ClaimDetail() {
   const scenario = DEMO_SCENARIOS.find((s) => s.onChainClaimId === id);
 
   const doWrite = useCallback(
-    async (
-      kind:
-        | "request_evaluation"
-        | "open_dispute"
-        | "resolve_dispute"
-        | "finalize_decision"
-        | "settle_claim"
-        | "confirm_settlement"
-        | "fail_settlement",
-      args: unknown[],
-    ) => {
+    async (kind: WriteKind, args: unknown[]) => {
       setTx(IDLE);
+      // Remember what was sent: the shared status panel labels phases with this
+      // action's name and retries THIS write, never a different one.
+      setLastWrite({ kind, args });
       const result = await runWrite(kind, args, { onPhase: setTx });
       // Any write can move the claim (state, round, finalized, settlement), so
       // re-read once it lands rather than leaving stale data on screen.
       if (result.phase === "accepted" || result.phase === "finalized") {
         bundle.refresh();
       }
+      return result;
     },
     [bundle],
   );
@@ -109,13 +131,14 @@ export function ClaimDetail() {
       return;
     }
     setGroundsError("");
-    const result = await runWrite("open_dispute", [id, text], { onPhase: setTx });
+    // Through doWrite so the status panel shows "Open dispute" and retries the
+    // dispute rather than some other action; doWrite already refreshes the read.
+    const result = await doWrite("open_dispute", [id, text]);
     if (result.phase === "accepted" || result.phase === "finalized") {
       setDisputeOpen(false);
       setGrounds("");
-      bundle.refresh();
     }
-  }, [grounds, id]);
+  }, [grounds, id, doWrite]);
 
   if (bundle.loading) {
     return (
@@ -437,9 +460,9 @@ export function ClaimDetail() {
               </p>
             ) : null}
 
-            {/* A payout message is deducted from the contract immediately but is
-                {t("claimDetail.settle.emittedHelp")}
-                So the UI must show an unverified payout as unverified. */}
+            {/* A payout message is deducted from the contract immediately but
+                reaches the recipient only when its child transaction activates,
+                so the UI must show an unverified payout as unverified. */}
             {inFlight ? (
               <div className="alert alert-warn" role="status" style={{ marginTop: "var(--space-3)" }}>
                 <strong>{t("claimDetail.settle.emitted")}</strong>
@@ -478,12 +501,12 @@ export function ClaimDetail() {
               </p>
             ) : null}
 
-            {tx.phase !== "idle" ? (
+            {tx.phase !== "idle" && lastWrite ? (
               <div style={{ marginTop: "var(--space-3)" }}>
                 <TxStatusPanel
                   state={tx}
-                  actionLabel="Request evaluation"
-                  onRetry={() => void doWrite("request_evaluation", [claim.id])}
+                  actionLabel={WRITE_LABELS[lastWrite.kind]}
+                  onRetry={() => void doWrite(lastWrite.kind, lastWrite.args)}
                   onRefresh={bundle.refresh}
                 />
               </div>
@@ -493,9 +516,37 @@ export function ClaimDetail() {
           <div className="panel">
             <div className="panel-head">
               <h2>{t("audit.heading")}</h2>
-              <Link className="small" to="/how-it-works">
-                How this is decided
-              </Link>
+              <div className="btn-row">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  title={t("audit.exportHint")}
+                  onClick={() => {
+                    // Same data the page renders, plus provenance: the download
+                    // can never contain anything the screen did not show.
+                    downloadAuditRecord(
+                      buildAuditRecord(value, {
+                        origin: bundle.origin,
+                        capturedAt: bundle.capturedAt,
+                        liveError: bundle.liveError,
+                        contractAddress: CONTRACT_ADDRESS,
+                        networkLabel: net.label,
+                        chainId: net.chainId,
+                        sessionTxHash: tx.hash,
+                        explorerUrl:
+                          tx.hash && net.explorerAvailable
+                            ? `${net.explorerUrl}${net.txPath}${tx.hash}`
+                            : null,
+                      }),
+                    );
+                  }}
+                >
+                  {t("audit.export")}
+                </button>
+                <Link className="small" to="/how-it-works">
+                  How this is decided
+                </Link>
+              </div>
             </div>
             <AuditPanel claim={claim} policy={policy} txHash={tx.hash} />
           </div>

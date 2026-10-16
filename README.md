@@ -324,7 +324,12 @@ Honesty rules the UI enforces:
 - explorer links are built from verified routes (`/tx/<hash>`) and shown **disabled
   with a reason** if an explorer is down, rather than as dead links;
 - contract error prefixes map to actionable messages, with the stable string behind a
-  "Details" disclosure.
+  "Details" disclosure;
+- every claim exports its **audit receipt as JSON** (policy, evidence, checks, decision,
+  disputes, settlement) with its own provenance block — record origin (live / mixed /
+  recorded snapshot), snapshot capture time, network, contract address and the session's
+  transaction link — assembled from the same data the page renders, so nothing can be
+  exported that the screen did not show.
 
 **Demo mode** (`/demo`) walks eight scenarios — threshold crossed, not reached,
 exactly at the threshold, conflicting sources, missing observations, location mismatch,

@@ -262,6 +262,9 @@ export const en = {
   "evidence.noSeries":
     "No recorded daily series backs this claim yet. The aggregated evidence the contract evaluated is in the evidence table below.",
   "audit.heading": "Audit",
+  "audit.export": "Export receipt (JSON)",
+  "audit.exportHint":
+    "Download the full audit record — policy, evidence, checks, decision, disputes and settlement — as a JSON file.",
   "audit.criteriaVersion": "Criteria version",
   "audit.round": "Evaluation round",
   "audit.reasonCode": "Reason code",
@@ -528,10 +531,6 @@ export const en = {
   "claimDetail.settle.emit": "Emit payout",
   "claimDetail.settle.emitted":
     "Payout emitted - delivery not yet verified",
-  "claimDetail.settle.emittedHelp":
-    "The value leaves this contract immediately but reaches the recipient only when the message's child transaction activates.",
-  "claimDetail.settle.emittedHelp2":
-    "credited to the recipient only when its child transaction activates.",
   "claimDetail.settle.emittedFull":
     "The payout message is out, so the claim is not settled yet. On GenLayer the value leaves this contract immediately but reaches the recipient only when the message's child transaction activates, and that transaction can still fail. Confirm it in the contract to record the outcome. Never infer delivery from a recipient's balance.",
   "claimDetail.settle.markFailed": "Mark payout failed (retryable)",

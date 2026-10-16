@@ -248,6 +248,9 @@ export const de: Dictionary = {
   "evidence.noSeries":
     "Für diesen Claim gibt es noch keine aufgezeichnete Tagesreihe. Die aggregierten Nachweise, die der Vertrag bewertet hat, stehen in der Nachweistabelle unten.",
   "audit.heading": "Audit",
+  "audit.export": "Beleg exportieren (JSON)",
+  "audit.exportHint":
+    "Lädt das vollständige Prüfprotokoll als JSON-Datei herunter — Richtlinie, Belege, Prüfungen, Entscheidung, Einsprüche und Abwicklung.",
   "audit.criteriaVersion": "Kriterienversion",
   "audit.round": "Bewertungsrunde",
   "audit.reasonCode": "Grundcode",
@@ -519,10 +522,6 @@ export const de: Dictionary = {
   "claimDetail.settle.ownerOnly": "Nur für den Eigentümer.",
   "claimDetail.settle.emit": "Auszahlung auslösen",
   "claimDetail.settle.emitted": "Auszahlung ausgelöst – Zustellung noch nicht bestätigt",
-  "claimDetail.settle.emittedHelp":
-    "Der Wert verlässt diesen Vertrag sofort, erreicht den Begünstigten aber erst, wenn die Kind-Transaktion der Nachricht aktiviert wird.",
-  "claimDetail.settle.emittedHelp2":
-    "dem Begünstigten erst gutgeschrieben, wenn dessen Kind-Transaktion aktiviert wird.",
   "claimDetail.settle.emittedFull":
     "Die Auszahlungsnachricht ist unterwegs, der Claim ist daher noch nicht abgerechnet. Auf GenLayer verlässt der Wert diesen Vertrag sofort, erreicht den Begünstigten aber erst, wenn die Kind-Transaktion der Nachricht aktiviert wird – und diese kann weiterhin fehlschlagen. Bestätigen Sie sie im Vertrag, um das Ergebnis zu protokollieren. Leiten Sie die Zustellung niemals aus dem Saldo des Begünstigten ab.",
   "claimDetail.settle.markFailed": "Auszahlung als fehlgeschlagen markieren (erneut möglich)",

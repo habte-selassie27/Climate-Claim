@@ -247,6 +247,9 @@ export const fr: Dictionary = {
   "evidence.noSeries":
     "Aucune série quotidienne enregistrée ne soutient encore cette réclamation. Les preuves agrégées évaluées par le contrat figurent dans le tableau ci-dessous.",
   "audit.heading": "Audit",
+  "audit.export": "Exporter le reçu (JSON)",
+  "audit.exportHint":
+    "Télécharge le dossier d’audit complet — politique, preuves, vérifications, décision, litiges et règlement — dans un fichier JSON.",
   "audit.criteriaVersion": "Version des critères",
   "audit.round": "Tour d’évaluation",
   "audit.reasonCode": "Code de motif",
@@ -518,10 +521,6 @@ export const fr: Dictionary = {
   "claimDetail.settle.ownerOnly": "Propriétaire uniquement.",
   "claimDetail.settle.emit": "Émettre le paiement",
   "claimDetail.settle.emitted": "Paiement émis — livraison pas encore vérifiée",
-  "claimDetail.settle.emittedHelp":
-    "La valeur quitte ce contrat immédiatement, mais n’atteint le bénéficiaire que lorsque la transaction enfant du message est activée.",
-  "claimDetail.settle.emittedHelp2":
-    "crédité au bénéficiaire uniquement lorsque sa transaction enfant est activée.",
   "claimDetail.settle.emittedFull":
     "Le message de paiement est parti : la réclamation n’est donc pas encore réglée. Sur GenLayer, la valeur quitte ce contrat immédiatement, mais n’atteint le bénéficiaire que lorsque la transaction enfant du message est activée, et cette transaction peut encore échouer. Confirmez-la dans le contrat pour enregistrer le résultat. Ne déduisez jamais la livraison du solde du bénéficiaire.",
   "claimDetail.settle.markFailed": "Marquer le paiement comme échoué (réessayable)",

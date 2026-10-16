@@ -246,6 +246,9 @@ export const es: Dictionary = {
   "evidence.noSeries":
     "Todavía no hay una serie diaria registrada que respalde esta reclamación. La evidencia agregada que evaluó el contrato está en la tabla de evidencia de abajo.",
   "audit.heading": "Auditoría",
+  "audit.export": "Exportar recibo (JSON)",
+  "audit.exportHint":
+    "Descarga el registro de auditoría completo — la política, la evidencia, las comprobaciones, la decisión, las disputas y la liquidación — como archivo JSON.",
   "audit.criteriaVersion": "Versión de criterios",
   "audit.round": "Ronda de evaluación",
   "audit.reasonCode": "Código de motivo",
@@ -516,10 +519,6 @@ export const es: Dictionary = {
   "claimDetail.settle.ownerOnly": "Solo el propietario.",
   "claimDetail.settle.emit": "Emitir pago",
   "claimDetail.settle.emitted": "Pago emitido: entrega aún no verificada",
-  "claimDetail.settle.emittedHelp":
-    "El valor sale de este contrato de inmediato, pero solo llega al beneficiario cuando se activa la transacción secundaria del mensaje.",
-  "claimDetail.settle.emittedHelp2":
-    "acreditado al beneficiario solo cuando se activa su transacción secundaria.",
   "claimDetail.settle.emittedFull":
     "El mensaje de pago ha salido, así que la reclamación aún no está liquidada. En GenLayer el valor abandona este contrato de inmediato, pero solo llega al beneficiario cuando se activa la transacción secundaria del mensaje, y esa transacción aún puede fallar. Confírmala en el contrato para registrar el resultado. Nunca deduzcas la entrega del saldo del beneficiario.",
   "claimDetail.settle.markFailed": "Marcar el pago como fallido (reintentable)",
