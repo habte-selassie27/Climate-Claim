@@ -24,7 +24,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AMB_GAINS, DUCK, WIND_BAND, thunderDelayMs, thunderShape, windGustMs } from "../domain/ambience";
+import { AMB_GAINS, DUCK, WIND_BAND, thunderShape, windGustMs } from "../domain/ambience";
+import { audioDelayMs, stormClock } from "../domain/stormClock";
 import { useI18n } from "../i18n/I18nProvider";
 
 type AudioContextCtor = new () => AudioContext;
@@ -49,7 +50,18 @@ function noiseBuffer(ctx: AudioContext): AudioBuffer {
 interface Running {
   ctx: AudioContext;
   master: GainNode;
-  timer: number;
+  /**
+   * The clap, exposed so the storm clock can fire it.
+   *
+   * The clap used to own its own timer. It cannot any more: the thunder has to
+   * land on the SAME event as the lightning, a distance-based delay behind it,
+   * which means something outside this closure decides when it fires.
+   */
+  clap: () => void;
+  /** Cleared on stop, so a queued thunder cannot fire after sound is off. */
+  pending: number[];
+  /** Detaches the clock subscription. */
+  unsubscribe: () => void;
 }
 
 export function WeatherSound() {
@@ -61,7 +73,12 @@ export function WeatherSound() {
     const running = runningRef.current;
     if (!running) return;
     runningRef.current = null;
-    window.clearTimeout(running.timer);
+    // Detach first, then drain any thunder already in flight. Without the drain
+    // a strike that landed a moment before the toggle would still be heard
+    // seconds later, after the user turned the sound off.
+    running.unsubscribe();
+    for (const id of running.pending) window.clearTimeout(id);
+    running.pending.length = 0;
     const { ctx, master } = running;
     try {
       master.gain.setTargetAtTime(0, ctx.currentTime, 0.08);
@@ -178,7 +195,15 @@ export function WeatherSound() {
     swellLfo.start();
     bed.start();
 
-    const running: Running = { ctx, master, timer: 0 };
+    // clap/pending/unsubscribe are filled in below, once the graph that they
+    // drive exists.
+    const running: Running = {
+      ctx,
+      master,
+      clap: () => {},
+      pending: [],
+      unsubscribe: () => {},
+    };
 
     const clap = () => {
       const now = ctx.currentTime;
@@ -254,15 +279,32 @@ export function WeatherSound() {
       echo.stop(now + s.echoDelay + decay + 0.2);
     };
 
-    const schedule = (first: boolean) => {
-      running.timer = window.setTimeout(() => {
+    /**
+     * THUNDER FOLLOWS THE FLASH.
+     *
+     * The storm clock emits one strike; the bolt is already drawn by then. The
+     * clap waits out the travel time of the light from `strike.distanceM`, so a
+     * near strike cracks almost on top of the flash and a far one rolls in
+     * seconds later. Light is instant and sound is not, and that gap is most of
+     * what makes a storm sound far away.
+     *
+     * The old code scheduled the clap off its own `thunderDelayMs` cadence,
+     * which is now the clock's cadence instead -- so the rhythm is unchanged, it
+     * is just finally the same rhythm the light uses.
+     */
+    const unsubscribe = stormClock.subscribe((strike) => {
+      if (runningRef.current !== running) return;
+      const id = window.setTimeout(() => {
+        running.pending.splice(running.pending.indexOf(id), 1);
         if (runningRef.current !== running) return;
         clap();
-        schedule(false);
-      }, thunderDelayMs(Math.random, first));
-    };
-    schedule(true);
+      }, audioDelayMs(strike.distanceM));
+      running.pending.push(id);
+    });
 
+    running.clap = clap;
+    running.pending = [];
+    running.unsubscribe = unsubscribe;
     runningRef.current = running;
     void ctx.resume().catch(() => {});
   }, []);

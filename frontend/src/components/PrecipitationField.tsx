@@ -34,6 +34,8 @@ import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeome
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { RAIN_WIDTH } from "../domain/ambience";
 import { useTheme } from "../theme/ThemeProvider";
+import { LightningBolt } from "./LightningBolt";
+import { stormClock } from "../domain/stormClock";
 
 interface Props {
   /** The two recorded source series, so density follows the real readings. */
@@ -92,9 +94,12 @@ export function PrecipitationField({ series, unit }: Props) {
   // The fallback is visible until the canvas has actually painted a frame, so
   // there is never a flash of empty background.
   const [live, setLive] = useState(false);
-  // Visual lightning. A key change re-runs the CSS animation. Independent
-  // of the audio schedule on purpose: sound is opt-in and this is not,
-  // so coupling them would make the visual depend on a user toggle.
+  /**
+   * Strike index. A change re-runs the CSS animation and re-seeds the bolt, so
+   * it is also the generator seed -- two strikes can never draw the same shape.
+   *
+   * Zero means "no strike yet", which is what LightningBolt treats as idle.
+   */
   const [flash, setFlash] = useState(0);
   /**
    * Wind gust, 0..1, driving how far the rain leans over so the wind is VISIBLE
@@ -106,6 +111,25 @@ export function PrecipitationField({ series, unit }: Props) {
    * accessible.
    */
   const gustRef = useRef(0);
+
+  /**
+   * THE STRIKE SCHEDULE, on the shared storm clock.
+   *
+   * Deliberately at component level rather than inside the WebGL effect below:
+   * lightning has to keep working when WebGL is unavailable or when the field
+   * bails out early, and the thunder shares this exact event. Previously the
+   * flash ran on a private 9-22s timer while the thunder ran on its own 9-22s
+   * timer -- two independent draws from the same range, so a clap almost never
+   * landed under a bolt.
+   *
+   * Under reduced motion the clock is never subscribed, so nothing is drawn and
+   * no timer exists. A full-screen luminance change is exactly what that
+   * setting suppresses, and rapid flicker is a seizure risk.
+   */
+  useEffect(() => {
+    if (prefersReducedMotion() || series.length === 0) return;
+    return stormClock.subscribe((strike) => setFlash(strike.index + 1));
+  }, [series.length]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -304,18 +328,6 @@ export function PrecipitationField({ series, unit }: Props) {
         document.addEventListener("visibilitychange", onVisibility);
         start();
 
-        // Occasional double-strike flash. Deliberately sparse: a flash on a
-        // timer is an accessibility hazard if it fires often, so it is spaced
-        // like the thunder claps and never flickers rapidly.
-        let flashTimer = 0;
-        const scheduleFlash = () => {
-          flashTimer = window.setTimeout(() => {
-            setFlash((n) => n + 1);
-            scheduleFlash();
-          }, 9000 + Math.random() * 13000);
-        };
-        scheduleFlash();
-
         /**
          * Gust target: a slow sine, not per-drop randomness, so the whole field
          * agrees on which way the wind is blowing at any moment. Two
@@ -325,7 +337,6 @@ export function PrecipitationField({ series, unit }: Props) {
         let gustRate = 0.055 + Math.random() * 0.05;
 
         cleanup = () => {
-          window.clearTimeout(flashTimer);
           stop();
           io?.disconnect();
           ro?.disconnect();
@@ -357,8 +368,12 @@ export function PrecipitationField({ series, unit }: Props) {
       aria-hidden="true"
     >
       <div className="precip-fallback" ref={hostRef} />
-      <div className="precip-veil" />
+      {/* The ILLUMINATION half of a strike. It lives OUTSIDE .precip because a
+          layer inside it sits at z-index 0, behind the 3D evidence scene at
+          z-index 1 -- where it was invisible. */}
       <div key={flash} className="precip-flash" data-testid="precip-flash" />
+      <LightningBolt strike={flash} />
+      <div className="precip-veil" />
       {/* A CSS-only drift stands in when motion is reduced or WebGL is
           unavailable, so the field still reads as weather rather than a void. */}
       <span className="precip-note">

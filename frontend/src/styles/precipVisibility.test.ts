@@ -25,6 +25,17 @@ const fieldSrc = readFileSync(
   "utf8",
 );
 
+const soundSrc = readFileSync(
+  fileURLToPath(new URL("../components/WeatherSound.tsx", import.meta.url)),
+  "utf8",
+);
+
+/** The one place a strike cadence is allowed to exist. */
+const cadenceSrc = readFileSync(
+  fileURLToPath(new URL("../domain/ambience.ts", import.meta.url)),
+  "utf8",
+);
+
 // --- colour maths ------------------------------------------------------------
 
 function luminance(rgb: number[]): number {
@@ -131,10 +142,45 @@ describe("lightning flash", () => {
     expect(block).toMatch(/opacity:\s*0/);
   });
 
+  /**
+   * Repointed from the component to `ambience.ts` when the flash schedule moved
+   * onto the shared storm clock. The old assertion scraped the literal
+   * `9000 + Math.random() * 13000` out of PrecipitationField.tsx and FAILED when
+   * it was moved -- which is the point: the cadence cannot quietly vanish or be
+   * re-tuned in one of two places without a test noticing.
+   */
   it("is scheduled sparsely, not as a strobe", () => {
-    // A flash more often than this is an accessibility hazard.
-    const m = /(\d{4,})\s*\+\s*Math\.random\(\)\s*\*\s*(\d+)/.exec(fieldSrc);
+    // The STEADY-STATE arm, not the opening one: thunderDelayMs branches on
+    // `first`, and the opening strike is deliberately sooner (~2.5-5s) because a
+    // page that waits 9s to show anything reads as broken. It is a single
+    // one-off, so it is not what this guard is about.
+    const m = /:\s*(\d{4,})\s*\+\s*r\s*\*\s*(\d+)/.exec(cadenceSrc);
     expect(m).not.toBeNull();
+    // A flash more often than this is an accessibility hazard.
     expect(Number(m![1])).toBeGreaterThanOrEqual(8000);
+  });
+
+  it("opens sooner than the steady state, so the hero is not dead on arrival", () => {
+    // `first` may be earlier than the steady state, but not so early the first
+    // strike lands before the page has settled.
+    const m = /\?\s*(\d{3,})\s*\+\s*r\s*\*\s*(\d+)/.exec(cadenceSrc);
+    expect(m).not.toBeNull();
+    expect(Number(m![1])).toBeGreaterThanOrEqual(1000);
+  });
+
+  it("has exactly one cadence, shared by the light and the sound", () => {
+    // Two schedules reading the same range are uncorrelated: a clap then lands
+    // under no bolt, and a bolt under no clap. One owner is the fix.
+    expect(fieldSrc).not.toMatch(/\d{4,}\s*\+\s*Math\.random\(\)/);
+    expect(soundSrc).not.toMatch(/\d{4,}\s*\+\s*Math\.random\(\)/);
+    expect(fieldSrc).toContain("stormClock.subscribe");
+    expect(soundSrc).toContain("stormClock.subscribe");
+  });
+
+  it("puts the thunder after the flash, by the strike's distance", () => {
+    // Light is instant and sound is not. If the clap were scheduled with zero
+    // delay the storm would be wrong in a way people notice without being able
+    // to say why.
+    expect(soundSrc).toContain("audioDelayMs(strike.distanceM)");
   });
 });

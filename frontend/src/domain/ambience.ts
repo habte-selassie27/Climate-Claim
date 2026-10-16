@@ -141,3 +141,81 @@ export const DUCK = {
  * `LineSegments2` from three's addons, which expands each segment into a quad.
  */
 export const RAIN_WIDTH = { px: 2.4 } as const;
+/**
+ * A forked lightning bolt, as an SVG path plus the strike's placement.
+ *
+ * WHY GENERATED RATHER THAN DRAWN: a hand-authored bolt would repeat identically
+ * every strike, which reads as a loop. Real lightning forks irregularly, so the
+ * path is built from a seeded pseudo-random walk that always starts at the top,
+ * always reaches the ground, and always branches downward-outward.
+ *
+ * The seed is the strike index, so a given strike is reproducible in a test but
+ * differs from the one before it on screen.
+ */
+export interface Strike {
+  /** `d` for the main channel, drawn as the bright core. */
+  main: string;
+  /** `d` for each branch, drawn dimmer and thinner. */
+  branches: string[];
+  /** Strike origin, as a percentage of the overlay box. */
+  x: number;
+  /** Ground point, as a percentage of the overlay height. */
+  y: number;
+  /** Horizontal lean of the whole channel, in percent. */
+  lean: number;
+}
+
+/** Deterministic 0..1 from an integer seed; mulberry32. */
+function seeded(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Build one strike in a 100x100 box, so the caller can scale it to any size. */
+export function lightningStrike(seed: number): Strike {
+  const rand = seeded(seed);
+  const x = 12 + rand() * 76;
+  const lean = (rand() - 0.5) * 34;
+  const y = 42 + rand() * 48;
+
+  // Main channel: a jagged descent, jitter shrinking toward the ground so it
+  // converges instead of wandering off the box.
+  const steps = 7 + Math.floor(rand() * 4);
+  const main: string[] = [];
+  let cx = x;
+  for (let i = 0; i <= steps; i += 1) {
+    const t = i / steps;
+    const jitter = (rand() - 0.5) * 22 * (1 - t * 0.65);
+    // Jitter accumulates, so without a clamp the channel walks off the side of
+    // the box after a few steps.
+    cx = Math.min(Math.max(cx + jitter, 4), 96);
+    const px = cx;
+    const py = t * y;
+    main.push(`${i === 0 ? "M" : "L"}${px.toFixed(2)},${py.toFixed(2)}`);
+  }
+
+  // Branches peel off the channel partway down and fall away from it.
+  const branches: string[] = [];
+  const count = 2 + Math.floor(rand() * 3);
+  for (let b = 0; b < count; b += 1) {
+    const segs = 2 + Math.floor(rand() * 3);
+    const dir = rand() < 0.5 ? -1 : 1;
+    const seg: string[] = [];
+    let bx = x + lean * 0.4;
+    let by = y * (0.25 + rand() * 0.5);
+    for (let i = 0; i <= segs; i += 1) {
+      bx = Math.min(Math.max(bx + dir * (3 + rand() * 5), 3), 97);
+      by += 6 + rand() * 7;
+      seg.push(`${i === 0 ? "M" : "L"}${bx.toFixed(2)},${by.toFixed(2)}`);
+    }
+    branches.push(seg.join(" "));
+  }
+
+  return { main: main.join(" "), branches, x, y, lean };
+}

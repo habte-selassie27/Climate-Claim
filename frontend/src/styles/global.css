@@ -1934,8 +1934,9 @@ caption {
 
 .hero-inner {
   position: relative;
-  /* Above both canvases: .precip (z 0) and .evidence-field (z 1). */
-  z-index: 2;
+  /* Top of the hero stack, so the strike never covers the headline or the
+     buttons even at the brightest frame. */
+  z-index: 4;
   max-width: 62ch;
 }
 
@@ -2571,7 +2572,14 @@ textarea {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 0;
+  /* Hero stacking, strictly back to front:
+       0 rain canvas   1 3D evidence scene
+       2 strike glow   3 the bolt itself
+       4 the hero copy
+     The glow and bolt must sit above BOTH canvases -- a layer inside .precip is
+     z 0 and therefore behind the 3D scene, which is why the earlier flash was
+     invisible -- and below the copy, or they would wash out the headline. */
+  z-index: 2;
   background:
     radial-gradient(120% 90% at 70% 0%, color-mix(in srgb, var(--amber-flag) 30%, transparent) 0%, transparent 65%),
     linear-gradient(180deg, color-mix(in srgb, var(--isobar) 16%, transparent) 0%, transparent 70%);
@@ -2596,4 +2604,84 @@ textarea {
     animation: none;
     opacity: 0;
   }
+}
+
+/* ==========================================================================
+   Lightning strike.
+
+   Layered ABOVE the rain canvas and the 3D evidence scene, below the hero copy.
+   The earlier flash sat inside .precip at z-index 0, i.e. behind the scene at
+   z-index 1, so it rendered as a faint gradient nobody could see.
+   ========================================================================== */
+
+.lightning {
+  position: absolute;
+  inset: 0;
+  /* Above the glow (z 2) so the bolt is never washed out by its own flash. */
+  z-index: 3;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.lightning-branches path {
+  fill: none;
+  stroke: var(--amber-flag);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  /* The viewBox is stretched to the hero, so widths would scale with it.
+     This pins them to real pixels. */
+  vector-effect: non-scaling-stroke;
+  opacity: 0.85;
+}
+
+.lightning-core path {
+  fill: none;
+  /* Near-white core with an amber cast, so it reads as lightning rather than
+     as a wire. */
+  stroke: #fff8e6;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Draw-on, then fade. The bolt is on screen for well under a second: a
+   stationary bolt reads as a graphic, a flash of one reads as an event. */
+.lightning .lightning-core path,
+.lightning .lightning-branches path {
+  stroke-dasharray: 240;
+  stroke-dashoffset: 240;
+}
+
+.lightning-armed .lightning-core path {
+  animation: bolt-strike 620ms cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+}
+
+.lightning-armed .lightning-branches path {
+  animation: bolt-branch 560ms ease-out forwards;
+}
+
+/* The second strike lands a beat after the first, which is what makes it read
+   as one discharge with a restrike rather than two unrelated bolts. */
+.lightning-armed .lightning-core path:nth-child(2) { animation-delay: 190ms; }
+.lightning-armed .lightning-branches path:nth-child(n + 4) { animation-delay: 190ms; }
+
+@keyframes bolt-strike {
+  0%   { stroke-dashoffset: 240; opacity: 0; }
+  8%   { opacity: 1; }
+  22%  { stroke-dashoffset: 0; opacity: 1; }
+  55%  { stroke-dashoffset: 0; opacity: 0.95; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+
+@keyframes bolt-branch {
+  0%   { stroke-dashoffset: 240; opacity: 0; }
+  40%  { opacity: 0.85; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+
+/* Reduced motion: no strike, no flash. Rapid full-screen luminance change is
+   both a seizure risk and precisely what this setting suppresses. */
+@media (prefers-reduced-motion: reduce) {
+  .lightning { display: none; }
 }
