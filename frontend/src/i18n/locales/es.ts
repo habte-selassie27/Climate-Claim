@@ -6,6 +6,9 @@ export const es: Dictionary = {
   "common.no": "no",
   "common.details": "Detalles",
   "common.loading": "Cargando",
+  "policyNew.prereq.wallet": "Necesita un monedero conectado en {network}. Las lecturas funcionan sin él.",
+  "policyNew.prereq.noWallet": "No se detectó monedero del navegador, así que no se puede enviar. Las lecturas siguen funcionando.",
+
   "common.retry": "Intentar de nuevo",
   "common.chain": "cadena {id}",
   "common.optional": "opcional",

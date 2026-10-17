@@ -6,6 +6,9 @@ export const de: Dictionary = {
   "common.no": "nein",
   "common.details": "Details",
   "common.loading": "Wird geladen",
+  "policyNew.prereq.wallet": "Benötigt eine verbundene Wallet auf {network}. Reads funktionieren ohne.",
+  "policyNew.prereq.noWallet": "Keine Browser-Wallet erkannt, daher nicht sendbar. Reads funktionieren weiterhin.",
+
   "common.retry": "Erneut versuchen",
   "common.chain": "Chain {id}",
   "common.optional": "optional",

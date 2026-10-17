@@ -18,6 +18,9 @@ export const en = {
   "common.no": "no",
   "common.details": "Details",
   "common.loading": "Loading",
+  "policyNew.prereq.wallet": "Needs a connected wallet on {network}. Reads work without one.",
+  "policyNew.prereq.noWallet": "No browser wallet detected, so this cannot be sent. Reads still work.",
+
   "common.retry": "Try again",
   "common.chain": "chain {id}",
   "common.optional": "optional",

@@ -814,6 +814,23 @@ export function PolicyNew() {
           >
             Create policy
           </button>
+          {/*
+            Says what is still needed BEFORE the click.
+
+            The button deliberately stays enabled -- the ownership and wallet
+            gates run inside submit(), after form validation, so an incomplete
+            form reports its own field errors instead of presenting a dead
+            button. But leaving no visible hint meant a fully-styled primary
+            button that looked ready and then produced a red banner, which reads
+            as the form being broken rather than as a prerequisite being unmet.
+          */}
+          {!wallet.connected && !busy && (
+            <p className="small muted" style={{ margin: 0 }} data-testid="create-prereq">
+              {wallet.available
+                ? t("policyNew.prereq.wallet", { network: net.label })
+                : t("policyNew.prereq.noWallet")}
+            </p>
+          )}
           {/* "Cancel" only leaves the page; the draft stays saved on purpose.
               This is the explicit way to throw it away, so a restored draft is
               never a trap the user cannot escape. */}

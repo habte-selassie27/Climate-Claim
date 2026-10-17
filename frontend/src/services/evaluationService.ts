@@ -124,7 +124,12 @@ export function extractErrorString(err: unknown): string {
   for (const candidate of candidates) {
     if (typeof candidate === "string" && candidate.trim()) return candidate.trim().slice(0, 300);
   }
-  return "Unknown error";
+  // Nothing usable anywhere on the error. On this endpoint that is not an
+  // abstract failure: a 429 from StudioNet arrives WITHOUT CORS headers, so the
+  // browser aborts it and the SDK hands back an error object with no message at
+  // all. Saying "Unknown error" for that is technically true and practically
+  // useless -- it reads like a bug in the app rather than a full read budget.
+  return "the request was blocked before it could be read (the public endpoint returns a rate-limit response without CORS headers, so the browser discards it)";
 }
 
 export { phaseForStatus };
