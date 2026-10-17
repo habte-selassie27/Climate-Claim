@@ -1382,3 +1382,40 @@ BLOCKED
 - StudioNet eval smoke was slow to time out this session due to HTTP 503 from the
   OM historical endpoint during the attempted live eval window. The endpoint is
   reachable now — claim-4 and claim-5 both evaluated successfully through it.
+
+## Bradbury deploys small contracts — the gas ceiling is size-dependent
+
+BREAKTHROUGH. A 2-method probe contract deployed and ran a full lifecycle on
+Bradbury, which no ClimateClaim attempt had achieved. Verified end to end:
+
+- Deploy: `FINISHED_WITH_RETURN`, consensus `AGREE`, status `ACCEPTED`
+- View read returned the constructor value (`hello`)
+- Write `put` returned `AGREE` / `ACCEPTED` / `FINISHED_WITH_RETURN`
+- Read back returned `from_genlayer`
+
+Contract: `0xA1b9D5BF918237dD0C3c04a97059c08410d8c348`
+Deploy tx: `0xec99492527cd07c2b23a565f4279a287a784c8aec34c4959a089b915dbb1287a`
+Write tx:  `0x...` (put -> from_genlayer)
+
+CONSEQUENCE: issue #419's "gas limit too high" is not a blanket Bradbury limit.
+It is size-dependent, so SPLITTING ClimateClaim into smaller contracts is a
+viable route to a public Bradbury deployment — which is what the single-file
+design had ruled out.
+
+Two lessons found the hard way:
+
+- A class must inherit `gl.Contract`. A bare `class Probe:` deploys to
+  consensus and then fails execution with `Exception: no contract defined`, and
+  the CLI still reports "Contract deployed successfully" because consensus agreed.
+  Always trace a `FINISHED_WITH_ERROR` rather than trusting the CLI's success line.
+- `genlayer write <addr> <method> <value>` is rejected by the CLI ("too many
+  arguments"). Arguments go after `--args`: `genlayer write <addr> <method> --args <value>`.
+
+Cross-contract read (the gate for the split) is NOT yet working. A proxy stored
+in contract state fails with:
+
+    TypeError: class is not marked for usage within storage,
+    please, annotate it with @allow_storage
+
+That is a fixable pattern issue, not yet evidence that IC-to-IC calls are
+unsupported. Unresolved.
