@@ -40,6 +40,15 @@ export interface ReadResult<T> {
 }
 
 export const SNAPSHOT_CAPTURED_AT = (snapshotData as { capturedAt: string }).capturedAt;
+/**
+ * The contract the recorded snapshot was actually read from.
+ *
+ * NOT the same as the configured CONTRACT_ADDRESS. The snapshot predates the
+ * current deployment, so any page that says "this data is on chain" must name
+ * this one. Printing the configured address instead asserts that the data
+ * lives on a contract that has never held it.
+ */
+export const SNAPSHOT_CONTRACT = (snapshotData as { contract: string }).contract;
 export const SNAPSHOT = snapshotData as unknown as SnapshotShape;
 
 /**

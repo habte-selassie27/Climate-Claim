@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useRead } from "../hooks/useRead";
 import { listClaims, snapshotClaims } from "../services/claimService";
+import { SNAPSHOT_CONTRACT } from "../services/rpc";
 import { OriginBadge } from "../components/OriginBadge";
 import { decisionCopy, stateCopy } from "../domain/copy";
 import {
@@ -12,7 +13,6 @@ import {
   type DecisionFilter,
 } from "../domain/claimsQuery";
 import { activeNetwork } from "../config/network";
-import { CONTRACT_ADDRESS } from "../config/contracts";
 import type { Claim } from "../domain/types";
 import { useI18n } from "../i18n/I18nProvider";
 
@@ -82,7 +82,14 @@ export function Claims() {
       <header>
         <h1>{t("claims.h1")}</h1>
         <p className="lede">
-          {t("claims.lede", { address: CONTRACT_ADDRESS, network: net.label })}
+          {/*
+            The address must be the one the data was actually READ from, not the
+            one currently configured. The recorded snapshot was captured from an
+            earlier deployment, so printing CONTRACT_ADDRESS here asserted these
+            claims live on a contract that has never held them. On an evidence
+            platform that is the one claim that must not be wrong.
+          */}
+          {t("claims.lede", { address: SNAPSHOT_CONTRACT, network: net.label })}
         </p>
         <OriginBadge
           mode={claims.origin}

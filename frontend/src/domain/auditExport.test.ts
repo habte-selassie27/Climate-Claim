@@ -96,7 +96,7 @@ function sampleBundle(overrides: Partial<ClaimBundle> = {}): ClaimBundle {
 
 const CTX: AuditRecordContext = {
   origin: "live",
-  contractAddress: "0x6e085313b65962e0Dd6930AFB9B548Ab23a50C6F",
+  contractAddress: "0x6E4BD06bD969E745546A7957d818eDaD47882ea8",
   networkLabel: "StudioNet",
   chainId: 61999,
   generatedAt: "2026-10-16T14:00:00.000Z",
