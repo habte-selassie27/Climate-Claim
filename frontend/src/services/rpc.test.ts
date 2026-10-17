@@ -56,9 +56,15 @@ describe("StudioNet read budget", () => {
     expect(rpcSrc).not.toMatch(/~\s*2\.2s/);
   });
 
-  it("fails loudly at import time if the budget is ever set above the ceiling", () => {
-    // The module throws rather than silently over-consuming. Assert the guard
-    // exists, since it is the thing that catches a bad future edit.
-    expect(rpcSrc).toContain("read budget is under the endpoint's ceiling");
-  });
+  /**
+   * DELETED, and deliberately not replaced here.
+   *
+   * This used to assert that the guard's *message* appeared in the source, which
+   * is why an inverted comparison shipped: a backwards guard still contains its
+   * message, so the test passed while the deployed app threw on import and every
+   * route rendered "This screen stopped working".
+   *
+   * The guard is now covered behaviourally in rpc.budget.test.ts, which calls
+   * assertReadBudgetSafe with both a safe and an unsafe configuration.
+   */
 });

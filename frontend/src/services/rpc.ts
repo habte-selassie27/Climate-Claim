@@ -66,12 +66,33 @@ const STUDIONET_READS_PER_HOUR = 500;
 const READS_PER_MINUTE_BUDGET = 6;
 const MIN_INTERVAL_MS = Math.ceil(60_000 / READS_PER_MINUTE_BUDGET);
 
-if (MIN_INTERVAL_MS > 60_000 / (STUDIONET_READS_PER_HOUR / 60)) {
-  throw new Error(
-    `read budget is under the endpoint's ceiling: ${MIN_INTERVAL_MS}ms exceeds ` +
-      `${Math.ceil(60_000 / (STUDIONET_READS_PER_HOUR / 60))}ms`,
-  );
+/**
+ * Smallest safe spacing: one read per `ms`.
+ *
+ * Ceiling spacing is the FASTEST safe rate, so a safe configuration is one
+ * whose spacing is AT LEAST the ceiling's. It is a mistake to read the safety
+ * condition backwards -- an earlier version of this file compared the wrong
+ * direction and threw on the correct configuration, which blanked every screen
+ * in the deployed app. Hence the explicit intervalMs/ceilingMs parameters and
+ * the tests below, which execute this rather than grep for it.
+ */
+export function assertReadBudgetSafe(
+  intervalMs: number,
+  ceilingMs: number,
+): void {
+  if (intervalMs < ceilingMs) {
+    throw new Error(
+      `read budget is above the endpoint's ceiling: ${intervalMs}ms is faster than ` +
+        `the ${Math.ceil(ceilingMs)}ms the endpoint allows ` +
+        `(${STUDIONET_READS_PER_HOUR} reads/hour)`,
+    );
+  }
 }
+
+/** Fastest spacing the observed limit permits: one read per this many ms. */
+export const READ_CEILING_MS = 60_000 / (STUDIONET_READS_PER_HOUR / 60);
+
+assertReadBudgetSafe(MIN_INTERVAL_MS, READ_CEILING_MS);
 let lastRequestAt = 0;
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
