@@ -6,12 +6,20 @@ shows you the readings that produced the answer — including when the honest an
 "we cannot tell".**
 
 Deployed on GenLayer StudioNet at
-[`0x6E4BD06bD969E745546A7957d818eDaD47882ea8`](artifacts/DEPLOYMENT.md)
-(deploy tx
-`0x85748a90fe90c0b4c92ef7810be643935cd1fadce04dc7f9a425f8c66cc8809f`,
-consensus 5/5 AGREE). The earlier v1 deployment
-(`0xE16032420e3155C0822e9150a98c6B1163869F0c`) and its artifacts are preserved
-under [`artifacts/deployment-v1/`](artifacts/deployment-v1/).
+[`0x6e085313b65962e0Dd6930AFB9B548Ab23a50C6F`](https://explorer-studio.genlayer.com/address/0x6e085313b65962e0Dd6930AFB9B548Ab23a50C6F)
+(manual deployment of `contracts/climateclaim.py`).
+
+> **Deployment not yet independently verified.** StudioNet's daily read quota
+> (5000/day) was exhausted when this address was adopted, so its schema could not
+> be captured and compared against the source. Unconfirmed: the method surface
+> (the UI maps 32 methods) and the owner address (`create_policy` is owner-only).
+> The previously verified deployment was
+> `0x6E4BD06bD969E745546A7957d818eDaD47882ea8` (deploy tx
+> `0x85748a90fe90c0b4c92ef7810be643935cd1fadce04dc7f9a425f8c66cc8809f`,
+> consensus 5/5 AGREE); its artifacts are under
+> [`artifacts/studionet-v2/`](artifacts/studionet-v2/), and v1
+> (`0xE16032420e3155C0822e9150a98c6B1163869F0c`) under
+> [`artifacts/deployment-v1/`](artifacts/deployment-v1/).
 
 ---
 
@@ -90,8 +98,8 @@ python3.12 -m pytest tests/direct/ -q
 
 ```bash
 genlayer network set studionet
-genlayer schema 0x6E4BD06bD969E745546A7957d818eDaD47882ea8
-genlayer call 0x6E4BD06bD969E745546A7957d818eDaD47882ea8 get_claim --args claim-2
+genlayer schema 0x6e085313b65962e0Dd6930AFB9B548Ab23a50C6F
+genlayer call 0x6e085313b65962e0Dd6930AFB9B548Ab23a50C6F get_claim --args claim-2
 genlayer receipt 0x85748a90fe90c0b4c92ef7810be643935cd1fadce04dc7f9a425f8c66cc8809f
 ```
 

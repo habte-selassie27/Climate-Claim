@@ -3,22 +3,37 @@ import { ENV_CONTRACT_ADDRESS } from "./env";
 /**
  * Deployed contract addresses and schema-derived method names.
  *
- * ADDRESS VERIFICATION: `0x6E4BD06bD969E745546A7957d818eDaD47882ea8` is the v2
- * StudioNet deployment (deploy tx 0x85748a90fe90c0b4c92ef7810be643935cd1fadce04dc7f9a425f8c66cc8809f,
- * consensus 5/5 AGREE, ACCEPTED), confirmed live by calling view methods
- * (list_policies -> 7, list_claims -> 6, list_sources -> 5). The v1 deployment
- * (0xE160...0c) and its artifacts are preserved under artifacts/deployment-v1/.
+ * CURRENT ADDRESS: `0x6e085313b65962e0Dd6930AFB9B548Ab23a50C6F` on StudioNet
+ * (chain 61999), supplied as the manual deployment of contracts/climateclaim.py
+ * and adopted on 2026-10-17.
  *
- * METHOD NAMES: taken from `genlayer schema 0x6E4B...ea8`, saved verbatim at
- * docs/schema.genlayer-cli.txt. Not from memory.
+ * UNVERIFIED -- READ THIS BEFORE TRUSTING THE WRITE PATH
  *
- * STALENESS WARNING: the contract source has changed since that capture. The
- * audit fixes (claim-scoped windows, frozen per-policy source snapshots,
- * data-mode enforcement, round-specific finality, two-phase settlement, the
- * aggregation/unit rules) add `confirm_settlement`, `fail_settlement`,
- * `get_in_flight`, `get_refunds`, `get_payouts` and `get_source_count`, and
- * remove nothing. The deployed v2 contract predates them, so it must be
- * redeployed and re-captured before the write path below is trusted against it.
+ * The new address has NOT been verified against the source, because the StudioNet
+ * daily bucket (5000/day) is exhausted and resets in ~8.6h, so `gen_getContractSchema`
+ * cannot be called. Specifically UNCONFIRMED:
+ *
+ *   1. Its schema. docs/schema.genlayer-cli.txt still holds the PREVIOUS
+ *      deployment's schema (0x6E4BD06b...82ea8) and is deliberately NOT edited,
+ *      because it is a factual record of what that contract returned. It must be
+ *      re-captured against the current address once the quota resets.
+ *   2. Whether it exposes all 32 methods the UI maps. If any are missing, the
+ *      calls that reference them will fail at runtime.
+ *   3. Whether the owner is the DEPLOYER_ADDRESS below. create_policy is
+ *      owner-only and reverts with "EXPECTED: not owner" otherwise, which is the
+ *      single most likely thing to be wrong here.
+ *
+ * The METHOD NAMES block below is therefore inherited from the previous
+ * deployment and is a hypothesis about this address, not a fact about it.
+ *
+ * PREVIOUS DEPLOYMENT: 0x6E4BD06bD969E745546A7957d818eDaD47882ea8 (deploy tx
+ * 0x85748a90fe90c0b4c92ef7810be643935cd1fadce04dc7f9a425f8c66cc8809f, consensus 5/5
+ * AGREE, ACCEPTED), confirmed live at the time by view methods (list_policies -> 7,
+ * list_claims -> 6, list_sources -> 5). Its artifacts are preserved under
+ * artifacts/studionet-v2/. The v1 deployment (0xE160...0c) is under
+ * artifacts/deployment-v1/. Both predated the audit fixes, which add
+ * `confirm_settlement`, `fail_settlement`, `get_in_flight`, `get_refunds`,
+ * `get_payouts` and `get_source_count`.
  */
 
 /**
@@ -27,12 +42,13 @@ import { ENV_CONTRACT_ADDRESS } from "./env";
  * `VITE_CLIMATECLAIM_ADDRESS` in the repository-root `.env` overrides this when
  * set to a valid 0x-prefixed address (see `env.ts`); otherwise this literal is
  * used. The override exists so a redeployment can be pointed at without a code
- * change, but note that METHOD NAMES below are captured from the v2 schema —
- * a redeployed address with a changed method surface must have this file's
- * staleness notes revisited too.
+ * change. That is how the current address was adopted. The caution is sharper
+ * than it was: METHOD NAMES below were captured from the PREVIOUS deployment, so
+ * changing the address without re-capturing the schema leaves this file
+ * asserting a method surface it has not checked. See the UNVERIFIED block above.
  */
 export const CONTRACT_ADDRESS =
-  ENV_CONTRACT_ADDRESS || "0x6E4BD06bD969E745546A7957d818eDaD47882ea8";
+  ENV_CONTRACT_ADDRESS || "0x6e085313b65962e0Dd6930AFB9B548Ab23a50C6F";
 /** Owner / claimant address of the deployed contract (local `rabby` account). */
 export const DEPLOYER_ADDRESS = "0x5B3661C576c7001e6d6279C67F3779705d334c89";
 
