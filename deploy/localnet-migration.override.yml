@@ -1,0 +1,40 @@
+# Localnet override: point the database migration at the postgres service.
+#
+# WHY THIS EXISTS (a bug in genlayer's own localnet, not in ClimateClaim):
+#
+# docker-compose.yml passes the migration container a complete connection string:
+#
+#   database-migration:
+#     environment:
+#       - DB_URL=postgresql://postgres:postgres@postgres/simulator_db
+#
+# The image ignores DB_URL entirely. backend/database_handler/migration/env.py
+# rebuilds the URL from individual variables:
+#
+#   db_host = os.environ.get("DBHOST", "localhost")   # never set by compose
+#   db_name = os.environ.get("DBNAME", "genlayer")     # postgres creates simulator_db
+#   DB_URL = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+#
+# So it dials postgresql://postgres:postgres@localhost:5432/genlayer inside the
+# migration container -- itself, not the postgres service, and the wrong database
+# name -- and `genlayer up` always fails with:
+#
+#   connection to server at "localhost" (::1), port 5432 failed: Connection refused
+#
+# Both variables have to be supplied, because the host and the database name are
+# each wrong on their own.
+#
+# This is an override file rather than an edit to
+# node_modules/genlayer/docker-compose.yml so that a reinstall, or any `npm i -g
+# genlayer`, cannot silently undo the fix. scripts/localnet-up.sh applies it.
+services:
+  database-migration:
+    environment:
+      # `localhost` inside the container is the container itself; the postgres
+      # service is reachable by its compose service name.
+      - DBHOST=postgres
+      # postgres provisions ${DBNAME:-simulator_db}; the migration defaults to
+      # `genlayer`, which does not exist and would fail even with the right host.
+      - DBNAME=${DBNAME:-simulator_db}
+      - DBUSER=${DBUSER:-postgres}
+      - DBPASSWORD=${DBPASSWORD:-postgres}
