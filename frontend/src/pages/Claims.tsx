@@ -51,7 +51,10 @@ const DECISION_OPTIONS: DecisionFilter[] = [
  */
 export function Claims() {
   const { t } = useI18n();
-  const claims = useRead(() => listClaims(), []);
+  // Read on mount: this page is the claim list, so showing "no claims yet" for
+  // a contract that holds claims (because nothing was read) is the same defect
+  // the Policies page had.
+  const claims = useRead(() => listClaims(), [], { autoLive: true });
   const rows = (claims.data ?? []) as Claim[];
 
   const [text, setText] = useState("");
@@ -99,7 +102,7 @@ export function Claims() {
         <OriginBadge
           mode={claims.origin}
           liveError={claims.liveError}
-            pending={claims.refreshing}
+          pending={claims.loading || claims.refreshing}
           networkLabel={net.label}
           onRefresh={claims.refresh}
           readCost={1}
@@ -111,6 +114,22 @@ export function Claims() {
           {[0, 1, 2].map((i) => (
             <div key={i} className="skeleton" style={{ marginBottom: 10 }} />
           ))}
+        </div>
+      ) : claims.origin === "idle" ? (
+        // Not read yet is not the same as empty: say the list has not been
+        // read, and leave the Create claim action in place.
+        <div className="empty" data-testid="claims-idle">
+          <p>{t("claims.notRead")}</p>
+          <Link className="btn" to="/claims/new">
+            {t("claimNew.h1")}
+          </Link>
+        </div>
+      ) : claims.origin === "error" ? (
+        <div className="empty" data-testid="claims-error">
+          <p>{t("claims.cantRead")}</p>
+          {claims.liveError ? (
+            <p className="small mono">{t("origin.unreachable", { error: claims.liveError })}</p>
+          ) : null}
         </div>
       ) : rows.length === 0 ? (
         <div className="empty" data-testid="claims-empty">

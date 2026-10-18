@@ -41,6 +41,29 @@ export function StartClaimPanel({ policy, onChanged }: Props) {
 
   const retired = policy.status !== "active";
   const busy = tx.phase === "submitted" || tx.phase === "pending";
+  // Sending needs a connected wallet. Rather than leaving the primary button
+  // disabled (a click that does nothing and looks broken), the same button
+  // connects first when there is a wallet to connect.
+  const needsWallet = !wallet.connected;
+  const canConnect = wallet.available && Boolean(wallet.selected);
+  const primaryDisabled =
+    retired ||
+    busy ||
+    wallet.busy ||
+    wallet.wrongNetwork ||
+    (needsWallet && !canConnect);
+  const primaryLabel = needsWallet
+    ? wallet.busy
+      ? t("wallet.waiting")
+      : t("wallet.connect")
+    : t("startClaim.heading");
+  const primaryAction = () => {
+    if (needsWallet) {
+      void wallet.connect();
+      return;
+    }
+    void submit();
+  };
 
   const validate = (): string => {
     if (!DATE_RE.test(periodStart) || !DATE_RE.test(periodEnd)) {
@@ -143,23 +166,48 @@ export function StartClaimPanel({ policy, onChanged }: Props) {
         </div>
       ) : null}
 
+      {wallet.error ? (
+        <p className="field-error" role="alert">
+          {wallet.error}
+        </p>
+      ) : null}
+
       <div className="btn-row" style={{ marginTop: "var(--space-3)" }}>
         <button
           type="button"
           className="btn"
-          disabled={retired || busy || wallet.wrongNetwork || !wallet.connected}
-          onClick={() => void submit()}
+          disabled={primaryDisabled}
+          onClick={primaryAction}
+          title={
+            needsWallet && !canConnect
+              ? wallet.available
+                ? t("wallet.chooseFirst")
+                : t("wallet.noneFound")
+              : undefined
+          }
         >
-          {t("startClaim.heading")}
+          {primaryLabel}
         </button>
+        {wallet.connected && wallet.wrongNetwork ? (
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => void wallet.switchNetwork()}
+            disabled={wallet.switching}
+          >
+            {wallet.switching ? t("wallet.switching") : t("wallet.switchNetwork")}
+          </button>
+        ) : null}
       </div>
 
-      {!wallet.connected && !retired ? (
-        <p className="small muted" style={{ marginTop: "var(--space-3)" }}>
+      {needsWallet && !retired ? (
+        <p className="small muted" style={{ marginTop: "var(--space-3)" }} role="status">
           {wallet.available
-            ? "Connect your wallet to send this transaction."
-            : "No browser wallet was detected. Reading works; starting a claim needs a wallet."}
-          {net.gasless ? ` ${net.label} is gasless, so a transaction costs nothing.` : ""}
+            ? canConnect
+              ? t("startClaim.needsWallet")
+              : t("wallet.chooseFirst")
+            : t("startClaim.noWallet")}
+          {net.gasless ? ` ${t("startClaim.gasless", { network: net.label })}` : ""}
         </p>
       ) : null}
 

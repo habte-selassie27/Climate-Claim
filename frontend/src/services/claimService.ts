@@ -311,7 +311,10 @@ let policyListCache: ReadResult<Policy[]> | null = null;
  * `addressFor` rather than a single configured address.
  */
 export async function listPolicies(force = false): Promise<ReadResult<Policy[]>> {
-  if (!force && policyListCache) return policyListCache;
+  // Only a successful read is reused. Caching a failure made every later
+  // "Refresh from chain" return the same error without touching the chain, so
+  // the page could never recover.
+  if (!force && policyListCache?.origin === "live") return policyListCache;
   const result = await readLive<Policy[]>(METHODS.list_policies);
   const normalised = {
     ...result,
@@ -327,7 +330,7 @@ export async function listPolicies(force = false): Promise<ReadResult<Policy[]>>
       claim_count: toNumber(p.claim_count ?? 0),
     })),
   };
-  policyListCache = normalised;
+  if (normalised.origin === "live") policyListCache = normalised;
   return normalised;
 }
 

@@ -173,6 +173,8 @@ export const de: Dictionary = {
   "origin.recordedTitle": "Aufgezeichnete Wiedergabe einer dokumentierten Quellantwort. Keine Transaktion.",
   "origin.recordedUnreachable": " (Netzwerk nicht erreichbar)",
   "origin.unreachable": " Das Netzwerk war nicht erreichbar ({error}).",
+  "origin.idle": "Noch nicht gelesen",
+  "origin.idleTitle": "Von {network} wurde noch nichts gelesen.",
   "origin.networkDefault": "das Netzwerk",
 
   "tx.idle": "Noch nicht gesendet",
@@ -251,6 +253,11 @@ export const de: Dictionary = {
   "startClaim.heading": "Claim starten",
   "startClaim.periodStart": "Beginn des Claim-Zeitraums",
   "startClaim.periodEnd": "Ende des Claim-Zeitraums",
+  "startClaim.needsWallet":
+    "Lesen funktioniert ohne Wallet. Verbinde eines, um den Anspruch zu senden — es öffnet sich die Freigabeabfrage deines Wallets.",
+  "startClaim.noWallet":
+    "Kein Browser-Wallet gefunden. Lesen funktioniert; zum Starten eines Anspruchs wird eine Wallet-Erweiterung benötigt.",
+  "startClaim.gasless": "{network} ist gebührenfrei, die Transaktion kostet also nichts.",
   "startClaim.retired":
     "Diese Bedingung ist zurückgezogen, daher können darauf keine neuen Claims gestartet werden.",
   "wallet.heading": "Wallet",
@@ -308,6 +315,8 @@ export const de: Dictionary = {
   "wallet.disconnect": "Trennen",
   "wallet.copyAddress": "Adresse kopieren",
   "wallet.switchNetwork": "Netzwerk wechseln",
+  "wallet.switching": "Wechsle…",
+  "wallet.waiting": "Warte auf Freigabe…",
   "wallet.noneFound": "Keine injizierte Wallet gefunden",
   "wallet.noneFoundBody":
     "Eine Webseite kann installierte Browser-Erweiterungen nicht auflisten – sie sieht nur Wallets, die sich selbst melden. Installieren oder entsperren Sie eine Wallet-Erweiterung (MetaMask, Rabby, Brave und andere) und laden Sie neu.",
@@ -417,6 +426,8 @@ export const de: Dictionary = {
   "claims.h1": "Claims",
   "claims.lede":
     "Alle Claims unten existieren im bereitgestellten Vertrag unter {address} in {network}.",
+  "claims.notRead": "Die Ansprüche wurden noch nicht von der Chain gelesen.",
+  "claims.cantRead": "Die Anspruchsliste konnte nicht gelesen werden",
   "claims.empty":
     "Noch keine Claims. Starten Sie einen über eine Bedingung auf der Seite für Bedingungen.",
   "claims.emptyLink": "Seite für Bedingungen",
@@ -436,6 +447,8 @@ export const de: Dictionary = {
   "policies.h1": "Bedingungen",
   "policies.lede":
     "Eine Bedingung legt Ort, Zeitraum, Schwellenwert, Aggregationsregel und zulässige Quellen fest. Sobald ein Claim darauf verweist, kann sie nicht mehr geändert werden.",
+  "policies.notRead": "Die Richtlinien wurden noch nicht von der Chain gelesen.",
+  "policies.cantRead": "Die Richtlinienliste konnte nicht gelesen werden",
   "policies.empty": "Noch keine Bedingungen. Öffnen Sie die Demo, um zu sehen, was eine Bedingung bewirkt.",
   "policies.caption": "{count} Bedingungen im bereitgestellten Vertrag.",
   "policies.col.policy": "Bedingung",
@@ -601,6 +614,8 @@ export const de: Dictionary = {
   "demo.network": "Netzwerk: {network} (Chain {id}).",
   "demo.explorerLive": "Die Explorer-Links sind aktiv.",
   "demo.explorerDown": "Der Explorer ist pausiert; die Links sind deaktiviert.",
+  "demo.replayNotRun": "Die Wiederholung wurde noch nicht auf dem Vertrag ausgeführt.",
+  "demo.replayFailed": "Die Wiederholung konnte nicht vom Vertrag gelesen werden",
 
   // --- claims filtering and pagination -------------------------------------
   "claims.filter.h": "Filtern und suchen",

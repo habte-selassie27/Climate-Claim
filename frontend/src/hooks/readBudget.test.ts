@@ -98,6 +98,51 @@ describe("OriginBadge offers the live read", () => {
   });
 });
 
+describe("an unread page is not a failed read", () => {
+  const page = (rel: string) =>
+    readFileSync(fileURLToPath(new URL(`../pages/${rel}`, import.meta.url)), "utf8");
+
+  it("starts from idle rather than error, so a page reports no failure before it asks", () => {
+    // The regression: origin defaulted to "error", so Create claim painted "the
+    // policy list could not be read" on a first view and never rendered the
+    // form, even though the chain was fine.
+    expect(hookSrc).toContain('useState<ReadOrigin>("idle")');
+    expect(hookSrc).not.toContain('useState<DataOrigin>("error")');
+  });
+
+  it("gives the badge a distinct idle label", () => {
+    expect(badgeSrc).toContain("origin.idle");
+  });
+
+  it("reads the policy list on mount for Claims -> Create claim", () => {
+    // The form is built from list_policies, so waiting for a click would leave
+    // the page with nothing to render. The forced read also bypasses a cached
+    // list that may predate the policy the user just created.
+    expect(page("ClaimNew.tsx")).toMatch(/listPolicies\(true\)[\s\S]{0,80}autoLive: true/);
+  });
+
+  it("runs the demo replay on mount instead of waiting for a click", () => {
+    expect(page("Demo.tsx")).toMatch(/computeEvaluation[\s\S]{0,240}autoLive: true/);
+  });
+
+  it("reads the policy list on mount for Policies, so it cannot say 'none' before reading", () => {
+    expect(page("Policies.tsx")).toMatch(/listPolicies\(true\)[\s\S]{0,80}autoLive: true/);
+  });
+
+  it("reads the claim list on mount for Claims", () => {
+    expect(page("Claims.tsx")).toMatch(/listClaims\(\)[\s\S]{0,80}autoLive: true/);
+  });
+
+  it("never caches a failed policy read, or refresh could never recover", () => {
+    const svc = readFileSync(
+      fileURLToPath(new URL("../services/claimService.ts", import.meta.url)),
+      "utf8",
+    );
+    expect(svc).toContain('if (normalised.origin === "live") policyListCache = normalised;');
+    expect(svc).toContain('policyListCache?.origin === "live"');
+  });
+});
+
 describe("every live-reading page offers the control", () => {
   const pages = ["Policies.tsx", "Claims.tsx", "ClaimDetail.tsx", "Demo.tsx", "PolicyNew.tsx"];
 

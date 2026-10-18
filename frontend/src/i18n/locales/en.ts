@@ -185,6 +185,8 @@ export const en = {
   "origin.recordedTitle": "A recorded replay of a documented source response. Not a transaction.",
   "origin.recordedUnreachable": " (network unreachable)",
   "origin.unreachable": " The network could not be reached ({error}).",
+  "origin.idle": "Not read yet",
+  "origin.idleTitle": "Nothing has been read from {network} yet.",
   "origin.networkDefault": "the network",
 
   // --- transaction phases --------------------------------------------------
@@ -268,6 +270,11 @@ export const en = {
   "startClaim.periodStart": "Claim period start",
   "startClaim.periodEnd": "Claim period end",
   "startClaim.retired": "This policy is retired, so no new claims can be started on it.",
+  "startClaim.needsWallet":
+    "Reading works without a wallet. Connect one to send the claim — this opens your wallet's own approval prompt.",
+  "startClaim.noWallet":
+    "No browser wallet was detected. Reading works; starting a claim needs a wallet extension.",
+  "startClaim.gasless": "{network} is gasless, so the transaction costs nothing.",
   "wallet.heading": "Wallet",
   "wallet.detected": "Detected wallets",
   "wallet.account": "Account",
@@ -322,6 +329,8 @@ export const en = {
   "wallet.disconnect": "Disconnect",
   "wallet.copyAddress": "Copy address",
   "wallet.switchNetwork": "Switch network",
+  "wallet.switching": "Switching…",
+  "wallet.waiting": "Waiting for approval…",
   "wallet.noneFound": "No injected wallet found",
   "wallet.noneFoundBody":
     "A web page cannot list installed browser extensions — it can only see wallets that announce themselves. Install or unlock a wallet extension (MetaMask, Rabby, Brave and others) and reload.",
@@ -430,6 +439,8 @@ export const en = {
   "claims.h1": "Claims",
   "claims.lede": "Every claim below exists on the deployed contract at {address} on {network}.",
   "claims.empty": "No claims yet. Start one from a policy on the policies page.",
+  "claims.notRead": "Claims have not been read from the chain yet.",
+  "claims.cantRead": "The claims list could not be read",
   "claims.emptyLink": "policies page",
   "claims.caption.one": "{count} claim read from the chain{suffix}.",
   "claims.caption.many": "{count} claims read from the chain{suffix}.",
@@ -447,6 +458,8 @@ export const en = {
   "policies.h1": "Policies",
   "policies.lede":
     "A policy fixes the location, period, threshold, aggregation rule and eligible sources. Once a claim references it, it cannot be changed.",
+  "policies.notRead": "Policies have not been read from the chain yet.",
+  "policies.cantRead": "The policy list could not be read",
   "policies.empty": "No policies yet. Open the demo to see what a policy produces.",
   "policies.caption": "{count} policies on the deployed contract.",
   "policies.col.policy": "Policy",
@@ -611,6 +624,8 @@ export const en = {
   "demo.network": "Network: {network} (chain {id}).",
   "demo.explorerLive": "Explorer links are live.",
   "demo.explorerDown": "The explorer is paused, so links are disabled.",
+  "demo.replayNotRun": "The replay has not been run against the contract yet.",
+  "demo.replayFailed": "The replay could not be read from the contract",
 
   // --- claims filtering and pagination -------------------------------------
   "claims.filter.h": "Filter and search",

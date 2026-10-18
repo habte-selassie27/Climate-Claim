@@ -1,7 +1,8 @@
 import { useI18n } from "../i18n/I18nProvider";
 
 interface Props {
-  mode: "live" | "recorded" | "error";
+  /** "idle" = nothing has been asked of the chain yet — not a failure. */
+  mode: "live" | "recorded" | "error" | "idle";
   /** Why the live read failed, when it did. */
   liveError?: string;
   /** A live read is still in flight, so this may yet become live. */
@@ -48,6 +49,32 @@ export function OriginBadge({
         </span>
       );
     }
+    // Still checking: say so, before the idle/error branches can claim anything
+    // about a result that has not landed yet.
+    if (pending && !liveError) {
+      return (
+        <span
+          className="badge badge-origin"
+          data-testid="origin-badge"
+          title={t("origin.checkingTitle", { network })}
+        >
+          <span aria-hidden="true">▤</span> {t("origin.checking", { network })}
+        </span>
+      );
+    }
+    // Nothing has been asked of the chain yet. Saying "read failed" here would
+    // report a failure that never happened.
+    if (mode === "idle") {
+      return (
+        <span
+          className="badge badge-origin"
+          data-testid="origin-badge"
+          title={t("origin.idleTitle", { network })}
+        >
+          <span aria-hidden="true">▤</span> {t("origin.idle")}
+        </span>
+      );
+    }
     // A composite read where some sub-reads landed and some failed. Say so.
     if (mode === "error") {
       return (
@@ -57,18 +84,6 @@ export function OriginBadge({
           title={t("origin.errorTitle", { network })}
         >
           <span aria-hidden="true">◑</span> {t("origin.error")}
-        </span>
-      );
-    }
-    // Still checking: say so, rather than implying the network has already failed.
-    if (pending && !liveError) {
-      return (
-        <span
-          className="badge badge-origin"
-          data-testid="origin-badge"
-          title={t("origin.checkingTitle", { network })}
-        >
-          <span aria-hidden="true">▤</span> {t("origin.checking", { network })}
         </span>
       );
     }

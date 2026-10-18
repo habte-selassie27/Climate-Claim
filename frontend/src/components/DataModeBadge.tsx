@@ -4,8 +4,12 @@ import { useI18n } from "../i18n/I18nProvider";
 
 interface Props {
   mode: DataMode | "";
-  /** Where the values shown actually came from (chain read vs replay vs both). */
-  origin?: "live" | "recorded" | "error";
+  /**
+   * Where the values shown actually came from (chain read vs replay). "idle"
+   * means nothing has been read yet, which is not a failure and gets no
+   * suffix: the badge already says which data mode the policy declares.
+   */
+  origin?: "live" | "recorded" | "error" | "idle";
 }
 
 /**

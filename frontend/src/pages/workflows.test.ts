@@ -61,6 +61,14 @@ describe("claim creation", () => {
     expect(src).toContain('runWrite("start_claim", [policy.id, periodStart, periodEnd]');
   });
 
+  it("connects the wallet from the primary action instead of a dead disabled button", () => {
+    // Before this, a disconnected visitor clicked Start a claim and nothing
+    // happened: the button was disabled, which reads as a broken page.
+    const src = read("components/StartClaimPanel.tsx");
+    expect(src).toContain("void wallet.connect()");
+    expect(src).toContain('t("wallet.connect")');
+  });
+
   it("is reachable from the claims page through a Create Claim action", () => {
     expect(read("pages/Claims.tsx")).toContain('to="/claims/new"');
     expect(read("App.tsx")).toContain('path="/claims/new"');
@@ -75,7 +83,9 @@ describe("claim creation", () => {
 
   it("lists live policies rather than assuming one", () => {
     const src = read("pages/ClaimNew.tsx");
-    expect(src).toContain("listPolicies()");
+    // Forced read on mount: the page is the form, and a cached list could
+    // predate a policy the user just created.
+    expect(src).toContain("listPolicies(true)");
     // No fabricated default policy: the choice comes from what was read.
     expect(src).not.toMatch(/useState\("[^"]*policy-\d/);
     expect(src).toContain("active[0].id");

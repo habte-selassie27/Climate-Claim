@@ -172,6 +172,8 @@ export const fr: Dictionary = {
   "origin.recordedTitle": "Rejeu enregistré d'une réponse de source documentée. Ce n'est pas une transaction.",
   "origin.recordedUnreachable": " (réseau injoignable)",
   "origin.unreachable": " Le réseau n’a pas pu être joint ({error}).",
+  "origin.idle": "Pas encore lu",
+  "origin.idleTitle": "Rien n'a encore été lu sur {network}.",
   "origin.networkDefault": "le réseau",
 
   "tx.idle": "Pas encore envoyé",
@@ -250,6 +252,11 @@ export const fr: Dictionary = {
   "startClaim.heading": "Lancer une réclamation",
   "startClaim.periodStart": "Début de la période de la réclamation",
   "startClaim.periodEnd": "Fin de la période de la réclamation",
+  "startClaim.needsWallet":
+    "La lecture fonctionne sans portefeuille. Connectez-en un pour envoyer la réclamation : l'invite d'approbation de votre portefeuille s'ouvrira.",
+  "startClaim.noWallet":
+    "Aucun portefeuille de navigateur détecté. La lecture fonctionne ; démarrer une réclamation nécessite une extension de portefeuille.",
+  "startClaim.gasless": "{network} est sans frais, donc la transaction ne coûte rien.",
   "startClaim.retired":
     "Cette policy est retirée : aucune nouvelle réclamation ne peut y être lancée.",
   "wallet.heading": "Portefeuille",
@@ -307,6 +314,8 @@ export const fr: Dictionary = {
   "wallet.disconnect": "Déconnecter",
   "wallet.copyAddress": "Copier l’adresse",
   "wallet.switchNetwork": "Changer de réseau",
+  "wallet.switching": "Changement…",
+  "wallet.waiting": "En attente d'approbation…",
   "wallet.noneFound": "Aucun portefeuille détecté",
   "wallet.noneFoundBody":
     "Une page web ne peut pas lister les extensions installées : elle ne voit que les portefeuilles qui se déclarent. Installez ou déverrouillez une extension (MetaMask, Rabby, Brave et autres), puis rechargez.",
@@ -416,6 +425,8 @@ export const fr: Dictionary = {
   "claims.h1": "Réclamations",
   "claims.lede":
     "Toutes les réclamations ci-dessous existent sur le contrat déployé à {address} sur {network}.",
+  "claims.notRead": "Les réclamations n'ont pas encore été lues depuis la chaîne.",
+  "claims.cantRead": "La liste des réclamations n'a pas pu être lue",
   "claims.empty":
     "Aucune réclamation pour l’instant. Lancez-en une depuis une policy sur la page des policies.",
   "claims.emptyLink": "page des policies",
@@ -435,6 +446,8 @@ export const fr: Dictionary = {
   "policies.h1": "Policies",
   "policies.lede":
     "Une policy fixe le lieu, la période, le seuil, la règle d’agrégation et les sources éligibles. Dès qu’une réclamation la référence, elle ne peut plus changer.",
+  "policies.notRead": "Les politiques n'ont pas encore été lues depuis la chaîne.",
+  "policies.cantRead": "La liste des politiques n'a pas pu être lue",
   "policies.empty": "Aucune policy pour l’instant. Ouvrez la démo pour voir ce qu’une policy produit.",
   "policies.caption": "{count} policies sur le contrat déployé.",
   "policies.col.policy": "Policy",
@@ -600,6 +613,8 @@ export const fr: Dictionary = {
   "demo.network": "Réseau : {network} (chaîne {id}).",
   "demo.explorerLive": "Les liens vers l’explorateur sont actifs.",
   "demo.explorerDown": "L’explorateur est en pause ; les liens sont désactivés.",
+  "demo.replayNotRun": "La relecture n'a pas encore été exécutée sur le contrat.",
+  "demo.replayFailed": "La relecture n'a pas pu être lue depuis le contrat",
 
   // --- claims filtering and pagination -------------------------------------
   "claims.filter.h": "Filtrer et rechercher",

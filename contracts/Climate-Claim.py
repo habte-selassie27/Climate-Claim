@@ -128,48 +128,61 @@ class ClimateClaim(gl.Contract):
         if gl.message.sender_address != c.claimant and gl.message.sender_address != self.owner:
             raise gl.vm.UserError("EXPECTED: claimant or owner only")
 
-    # Owner copies the result of ClimatePolicy.get_policy(policy_id) here.
-    # This owner-mediated bridge avoids assuming an unsupported cross-contract ABI.
+    # The policy is read from ClimatePolicy itself, cross-contract, at the moment
+    # the claim is opened. Verified on Bradbury 2026-10-18 by a deployed probe that
+    # read list_policies and get_policy from this contract's peer: `gl.get_contract_at`
+    # takes an `Address`, and given a plain string it raises TypeError.
+    # `self.policy_contract` is already an `Address`, so it is passed as-is.
+    #
+    # This replaces an owner-only `register_policy_snapshot` bridge that had to be
+    # run by hand before any claim could exist. Reading the authoritative policy
+    # means a claim cannot be opened against terms nobody agreed to, and it costs
+    # one read instead of a privileged write.
+    def _authoritative_policy(self, policy_id: str) -> dict:
+        if not isinstance(policy_id, str) or not policy_id or len(policy_id) > 64:
+            raise gl.vm.UserError("EXPECTED: invalid policy id")
+        try:
+            proxy = gl.get_contract_at(self.policy_contract)
+        except Exception:
+            raise gl.vm.UserError("EXTERNAL: policy address rejected")
+        try:
+            p = proxy.view().get_policy(policy_id)
+        except Exception:
+            raise gl.vm.UserError("EXTERNAL: policy contract unreachable")
+        if not isinstance(p, dict) or not p or not p.get("id"):
+            raise gl.vm.UserError("EXPECTED: unknown policy")
+        if p.get("status") != "active":
+            raise gl.vm.UserError("EXPECTED: policy is not active")
+        if not isinstance(p.get("sources"), list) or not p["sources"]:
+            raise gl.vm.UserError("EXPECTED: policy has no frozen sources")
+        if not _date_ok(str(p.get("period_start", ""))) or not _date_ok(str(p.get("period_end", ""))):
+            raise gl.vm.UserError("EXPECTED: policy has an invalid period")
+        return p
+
+    # Kept for callers that want to pre-register, and now permissionless: the
+    # snapshot is only a cache. `start_claim` re-reads the authoritative policy
+    # and refuses to use anything but that, so a wrong entry here cannot affect a
+    # claim. It exists so existing tooling and the UI keep working.
     @gl.public.write
     def register_policy_snapshot(self, policy_json: str) -> str:
-        self._only_owner()
         if len(policy_json) > 12000:
             raise gl.vm.UserError("EXPECTED: policy snapshot too large")
         try:
             p = json.loads(policy_json)
         except Exception:
             raise gl.vm.UserError("EXPECTED: invalid policy JSON")
-        required = ("id", "version", "status", "period_start", "period_end",
-                    "payout_amount", "beneficiary", "sources", "metric",
-                    "comparator", "threshold_scaled", "aggregation")
-        if not isinstance(p, dict) or any(k not in p for k in required):
-            raise gl.vm.UserError("EXPECTED: incomplete policy snapshot")
-        if p["status"] != "active":
-            raise gl.vm.UserError("EXPECTED: policy is not active")
-        if not _date_ok(p["period_start"]) or not _date_ok(p["period_end"]):
-            raise gl.vm.UserError("EXPECTED: invalid policy period")
-        if p["period_start"] > p["period_end"] or _ordinal(p["period_end"]) - _ordinal(p["period_start"]) + 1 > MAX_PERIOD_DAYS:
-            raise gl.vm.UserError("EXPECTED: invalid policy period")
-        if not isinstance(p["sources"], list) or not p["sources"] or len(p["sources"]) > 4:
-            raise gl.vm.UserError("EXPECTED: invalid policy sources")
-        if int(p["payout_amount"]) < 0 or int(p["payout_amount"]) > MAX_PAYOUT:
-            raise gl.vm.UserError("EXPECTED: payout out of range")
-        ben = str(p["beneficiary"] or "")
-        if ben:
-            try:
-                Address(ben)
-            except Exception:
-                raise gl.vm.UserError("EXPECTED: invalid beneficiary in snapshot")
+        if not isinstance(p, dict) or not isinstance(p.get("id"), str) or not p["id"]:
+            raise gl.vm.UserError("EXPECTED: invalid policy snapshot")
+        if len(p["id"]) > 64:
+            raise gl.vm.UserError("EXPECTED: invalid policy id")
         self.policy_snapshots[p["id"]] = json.dumps(p, separators=(",", ":"))
         return p["id"]
 
     @gl.public.write
     def start_claim(self, policy_id: str, period_start: str, period_end: str) -> str:
-        if policy_id not in self.policy_snapshots:
-            raise gl.vm.UserError("EXPECTED: policy snapshot not registered")
-        p = json.loads(self.policy_snapshots[policy_id])
-        if not isinstance(p, dict) or p.get("status") != "active":
-            raise gl.vm.UserError("EXPECTED: active policy snapshot required")
+        # Anyone may open a claim. The terms come from ClimatePolicy, not from
+        # anything the caller supplied and nothing the owner pre-registered.
+        p = self._authoritative_policy(policy_id)
         if not _date_ok(period_start) or not _date_ok(period_end) or period_start > period_end:
             raise gl.vm.UserError("EXPECTED: invalid claim period")
         if period_start < p.get("period_start", "") or period_end > p.get("period_end", ""):

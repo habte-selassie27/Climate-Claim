@@ -147,7 +147,9 @@ describe("the configured deployment is the current one", () => {
     const { CONTRACT_ADDRESS: addr } = await import(
       pathToFileURL(join(SRC, "config", "contracts.ts")).href
     );
-    expect(addr).toBe("0x07C1c5740eD73576deF939bb938556761738dA03");
+    // Redeployed 2026-10-18 with cross-contract start_claim; see
+    // config/contracts.ts for the deploy tx.
+    expect(addr).toBe("0xb80eC5aEa3A62a5F282DB19bA1ccE311b642bC51");
   });
 
   it("the policy contract is the deployed ClimatePolicy", () => {

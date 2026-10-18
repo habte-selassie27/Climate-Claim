@@ -172,6 +172,8 @@ export const es: Dictionary = {
   "origin.recordedTitle": "Reproducción grabada de una respuesta de fuente documentada. No es una transacción.",
   "origin.recordedUnreachable": " (red inaccesible)",
   "origin.unreachable": " No se pudo contactar con la red ({error}).",
+  "origin.idle": "Sin leer todavía",
+  "origin.idleTitle": "Todavía no se ha leído nada de {network}.",
   "origin.networkDefault": "la red",
 
   "tx.idle": "Aún no enviado",
@@ -251,6 +253,11 @@ export const es: Dictionary = {
   "startClaim.periodStart": "Inicio del periodo de la reclamación",
   "startClaim.periodEnd": "Fin del periodo de la reclamación",
   "startClaim.retired": "Esta póliza está retirada, así que no se pueden iniciar nuevas reclamaciones sobre ella.",
+  "startClaim.needsWallet":
+    "Leer funciona sin cartera. Conecta una para enviar la reclamación: se abrirá el aviso de aprobación de tu cartera.",
+  "startClaim.noWallet":
+    "No se detectó ninguna cartera del navegador. Leer funciona; para iniciar una reclamación hace falta una extensión de cartera.",
+  "startClaim.gasless": "{network} no cobra gas, así que la transacción no cuesta nada.",
   "wallet.heading": "Cartera",
   "wallet.detected": "Carteras detectadas",
   "wallet.account": "Cuenta",
@@ -306,6 +313,8 @@ export const es: Dictionary = {
   "wallet.disconnect": "Desconectar",
   "wallet.copyAddress": "Copiar dirección",
   "wallet.switchNetwork": "Cambiar de red",
+  "wallet.switching": "Cambiando…",
+  "wallet.waiting": "Esperando aprobación…",
   "wallet.noneFound": "No se encontró cartera inyectada",
   "wallet.noneFoundBody":
     "Una página web no puede listar extensiones instaladas: solo puede ver carteras que se anuncian. Instala o desbloquea una extensión de cartera (MetaMask, Rabby, Brave y otras) y recarga.",
@@ -416,6 +425,8 @@ export const es: Dictionary = {
   "claims.lede":
     "Todas las reclamaciones siguientes existen en el contrato desplegado en {address} en {network}.",
   "claims.empty": "Aún no hay reclamaciones. Inicia una desde una póliza en la página de pólizas.",
+  "claims.notRead": "Todavía no se han leído las reclamaciones de la cadena.",
+  "claims.cantRead": "No se pudo leer la lista de reclamaciones",
   "claims.emptyLink": "página de pólizas",
   "claims.caption.one": "{count} reclamación leída de la cadena{suffix}.",
   "claims.caption.many": "{count} reclamaciones leídas de la cadena{suffix}.",
@@ -433,6 +444,8 @@ export const es: Dictionary = {
   "policies.h1": "Pólizas",
   "policies.lede":
     "Una póliza fija la ubicación, el periodo, el umbral, la regla de agregación y las fuentes elegibles. Una vez que una reclamación la referencia, no puede cambiarse.",
+  "policies.notRead": "Las políticas aún no se han leído de la cadena.",
+  "policies.cantRead": "No se pudo leer la lista de políticas",
   "policies.empty": "Aún no hay pólizas. Abre la demo para ver qué produce una póliza.",
   "policies.caption": "{count} pólizas en el contrato desplegado.",
   "policies.col.policy": "Póliza",
@@ -598,6 +611,8 @@ export const es: Dictionary = {
   "demo.network": "Red: {network} (cadena {id}).",
   "demo.explorerLive": "Los enlaces al explorador están activos.",
   "demo.explorerDown": "El explorador está en pausa, así que los enlaces están desactivados.",
+  "demo.replayNotRun": "La repetición aún no se ha ejecutado en el contrato.",
+  "demo.replayFailed": "No se pudo leer la repetición desde el contrato",
 
   // --- claims filtering and pagination -------------------------------------
   "claims.filter.h": "Filtrar y buscar",

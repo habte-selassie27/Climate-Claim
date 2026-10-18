@@ -7,13 +7,13 @@ Two files live here. Both are deployed. Nothing else in this repository is.
 | File | Bytes | Methods | Address |
 |---|---|---|---|
 | `Climate-Policy.py` | 16,829 | 8 | `0xeebb68aEDB14A4184A0C36bAc5528D5f70B8a807` |
-| `Climate-Claim.py` | 18,600 | 16 | `0x07C1c5740eD73576deF939bb938556761738dA03` |
+| `Climate-Claim.py` | 19,333 | 16 | `0xb80eC5aEa3A62a5F282DB19bA1ccE311b642bC51` |
 
 Both on GenLayer Bradbury (chain 4221), deployed by
 `0x04e0353B7218b66D6803725ce7342E6e1225DB1b`, both ACCEPTED / AGREE /
 FINISHED_WITH_RETURN. Deploy transactions:
 `0x8f704bc3bab2578a5c66981ba922dfb349a65f6817acac475af68d046889f658` (policy)
-and `0xa7deeaceb6ef12ca8b2a226c45b5502b062b344942859930300d52d5c2c7c631` (claim).
+and `0xf3104e7bf5cea37819ea43c06100fabf12f1a98d0210f8028126410f1a1b2c1c` (claim).
 Superseded addresses and their txs are in
 `docs/deployment-bradbury-2026-10-18.md`.
 

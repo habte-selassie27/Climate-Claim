@@ -10,7 +10,7 @@ Deployed on GenLayer **Bradbury** (chain 4221) as two contracts:
 | Contract | Address | Bytes | Methods |
 |---|---|---|---|
 | `Climate-Policy.py` | [`0xeebb68aEDB14A4184A0C36bAc5528D5f70B8a807`](https://explorer-bradbury.genlayer.com/address/0xeebb68aEDB14A4184A0C36bAc5528D5f70B8a807) | 16,829 | 8 |
-| `Climate-Claim.py` | [`0x07C1c5740eD73576deF939bb938556761738dA03`](https://explorer-bradbury.genlayer.com/address/0x07C1c5740eD73576deF939bb938556761738dA03) | 18,600 | 16 |
+| `Climate-Claim.py` | [`0xb80eC5aEa3A62a5F282DB19bA1ccE311b642bC51`](https://explorer-bradbury.genlayer.com/address/0xb80eC5aEa3A62a5F282DB19bA1ccE311b642bC51) | 19,333 | 16 |
 
 Both reached consensus **AGREE** with `FINISHED_WITH_RETURN`. Deploy tx hashes,
 per-method schemas read back from chain, current contents and the verification
@@ -150,9 +150,9 @@ genlayer call   0xeebb68aEDB14A4184A0C36bAc5528D5f70B8a807 list_policies
 genlayer call   0xeebb68aEDB14A4184A0C36bAc5528D5f70B8a807 list_sources
 
 # Claim contract: claims, disputes, settlement
-genlayer schema 0x07C1c5740eD73576deF939bb938556761738dA03
-genlayer call   0x07C1c5740eD73576deF939bb938556761738dA03 get_claim_count
-genlayer call   0x07C1c5740eD73576deF939bb938556761738dA03 list_claims
+genlayer schema 0xb80eC5aEa3A62a5F282DB19bA1ccE311b642bC51
+genlayer call   0xb80eC5aEa3A62a5F282DB19bA1ccE311b642bC51 get_claim_count
+genlayer call   0xb80eC5aEa3A62a5F282DB19bA1ccE311b642bC51 list_claims
 
 # The deploy, on the explorer
 genlayer receipt 0x6130f4f929c1612a52b49c2e8ce7c2f02260c41afa10fb965ddfa28c667309ff

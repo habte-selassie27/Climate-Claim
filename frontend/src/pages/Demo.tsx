@@ -9,7 +9,7 @@ import { OriginBadge } from "../components/OriginBadge";
 import { mapError } from "../domain/copy";
 import { CONTRACT_ADDRESS, POLICY_ADDRESS } from "../config/contracts";
 import { activeNetwork } from "../config/network";
-import type { Claim } from "../domain/types";
+import type { CheckName, CheckStatus, Claim } from "../domain/types";
 import { useI18n } from "../i18n/I18nProvider";
 
 const net = activeNetwork();
@@ -39,7 +39,10 @@ export function Demo() {
   const [params, setParams] = useSearchParams();
   const selectedClaim = params.get("claim") ?? "";
   const scenarioId = params.get("scenario") ?? "";
-  const claims = useRead(() => listClaims(), []);
+  // Read on mount: this page exists to show live claims and to run recorded
+  // replays through the deployed engine, so an unread page would show nothing
+  // but an empty state that looks like an empty chain.
+  const claims = useRead(() => listClaims(), [], { autoLive: true });
   const rows = (claims.data ?? []) as Claim[];
 
   const active: Claim | undefined =
@@ -47,6 +50,7 @@ export function Demo() {
   const detail = useRead(
     () => (active ? getClaimBundle(active.id) : Promise.resolve({ data: undefined, origin: "error" as const })),
     [active?.id ?? ""],
+    { autoLive: true },
   );
 
   const scenario = useMemo(
@@ -69,7 +73,7 @@ export function Demo() {
         <OriginBadge
           mode={claims.origin}
           liveError={claims.liveError}
-          pending={claims.refreshing}
+          pending={claims.loading || claims.refreshing}
           networkLabel={net.label}
           onRefresh={claims.refresh}
           readCost={1}
@@ -87,9 +91,13 @@ export function Demo() {
 
         {claims.loading ? (
           <div className="skeleton" style={{ height: 64 }} />
+        ) : claims.origin === "idle" ? (
+          <div className="empty" data-testid="demo-claims-idle">
+            <p>{t("claims.notRead")}</p>
+          </div>
         ) : claims.origin === "error" ? (
-          <div className="empty">
-            <p>{t("claims.empty")}</p>
+          <div className="empty" data-testid="demo-claims-error">
+            <p>{t("claims.cantRead")}</p>
             {claims.liveError ? (
               <p className="small mono">{t("origin.unreachable", { error: claims.liveError })}</p>
             ) : null}
@@ -236,13 +244,24 @@ function ReplayOutcome({ scenario }: { scenario: DemoScenario }) {
     [scenario],
   );
 
-  const engine = useRead(() => computeEvaluation(policyJson, rows, days), [policyJson]);
+  // The replay is the point of this section, and it is a read against the
+  // deployed engine, so it runs on mount instead of waiting to be asked.
+  const engine = useRead(() => computeEvaluation(policyJson, rows, days), [policyJson], {
+    autoLive: true,
+  });
 
   if (engine.loading) return <div className="skeleton" style={{ height: 90 }} />;
+  if (engine.origin === "idle") {
+    return (
+      <div className="empty" data-testid="replay-idle">
+        <p>{t("demo.replayNotRun")}</p>
+      </div>
+    );
+  }
   if (engine.origin === "error" || !engine.data) {
     return (
-      <div className="empty">
-        <p>{t("claims.empty")}</p>
+      <div className="empty" data-testid="replay-error">
+        <p>{t("demo.replayFailed")}</p>
         {engine.liveError ? (
           <p className="small mono">{t("origin.unreachable", { error: mapError(engine.liveError).message })}</p>
         ) : null}
@@ -276,24 +295,20 @@ function EngineOutcome({ result }: { result: EngineResult }) {
           : ""}
         . The engine recomputed each crossing from the raw values.
       </p>
-      <ul className="stack" style={{ listStyle: "none", padding: 0, margin: 0 }}>
-        {result.checks.map((c) => (
-          <li key={c.name} className="check-row">
-            <span className="mono">{c.name}</span>
-            <span
-              className={
-                c.status === "pass"
-                  ? "finality-chip finality-final"
-                  : c.status === "fail"
-                    ? "finality-chip finality-pending"
-                    : "finality-chip finality-accepted"
-              }
-            >
-              {c.status}
-            </span>
-          </li>
-        ))}
-      </ul>
+      {/*
+        Same row treatment as every other check list in the app. The previous
+        custom <li className="check-row"> reused a two-column grid meant for
+        icon + content, so the first column (24px) cut the check name down to
+        "thre"/"peri" and the second column stretched the status chip across the
+        whole row.
+      */}
+      <CheckList
+        checks={result.checks.map((c) => ({
+          name: c.name as CheckName,
+          status: c.status as CheckStatus,
+          detail: "",
+        }))}
+      />
     </div>
   );
 }

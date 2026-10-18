@@ -31,7 +31,10 @@ const net = activeNetwork();
 export function ClaimNew() {
   const { t } = useI18n();
   const navigate = useNavigate();
-  const policies = useRead(() => listPolicies(), []);
+  // Read on mount: this page IS the form built from the policy list, so an
+  // unread page has nothing to show. One read, and a fresh one — the cached
+  // list may predate a policy the user just created.
+  const policies = useRead(() => listPolicies(true), [], { autoLive: true });
   const rows = (policies.data ?? []) as Policy[];
   const active = rows.filter((p) => p.status === "active");
   const [selected, setSelected] = useState("");
@@ -54,7 +57,7 @@ export function ClaimNew() {
         <OriginBadge
           mode={policies.origin}
           liveError={policies.liveError}
-          pending={policies.refreshing}
+          pending={policies.loading || policies.refreshing}
           networkLabel={net.label}
           onRefresh={policies.refresh}
           readCost={1}
@@ -62,11 +65,31 @@ export function ClaimNew() {
       </header>
 
       {policies.loading ? (
-        <div className="skeleton" style={{ height: 120 }} />
+        <div className="panel" aria-busy="true">
+          <p className="small muted">{t("data.refreshing")}</p>
+          <div className="skeleton" style={{ height: 90 }} />
+        </div>
+      ) : policies.origin === "idle" ? (
+        // Reachable only if the read is turned off again; say what is true
+        // rather than reporting a failure that has not happened.
+        <div className="empty" data-testid="claim-new-idle">
+          <p>{t("origin.idle")}</p>
+          <button type="button" className="btn" onClick={policies.refresh}>
+            {t("data.refreshLive")}
+          </button>
+        </div>
       ) : policies.origin === "error" ? (
-        <div className="alert alert-warn">
+        <div className="alert alert-warn" data-testid="claim-new-read-error">
           <strong>{t("claimNew.cantRead")}</strong>
-          <p>{policies.liveError}</p>
+          {policies.liveError ? <p className="small mono">{policies.liveError}</p> : null}
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={policies.refresh}
+            disabled={policies.refreshing}
+          >
+            {t("data.refreshLive")}
+          </button>
         </div>
       ) : active.length === 0 ? (
         <div className="empty" data-testid="claim-new-no-policies">

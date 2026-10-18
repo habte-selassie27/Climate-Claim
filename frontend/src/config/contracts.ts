@@ -15,17 +15,25 @@ import { ENV_CONTRACT_ADDRESS, ENV_POLICY_ADDRESS } from "./env";
  * CURRENT DEPLOYMENT — GenLayer Bradbury, chain 4221
  *   ClimatePolicy  0xeebb68aEDB14A4184A0C36bAc5528D5f70B8a807  (16,829 B, 8 methods)
  *     deploy tx 0x8f704bc3bab2578a5c66981ba922dfb349a65f6817acac475af68d046889f658
- *   ClimateClaim   0x07C1c5740eD73576deF939bb938556761738dA03  (18,600 B, 16 methods)
- *     deploy tx 0xa7deeaceb6ef12ca8b2a226c45b5502b062b344942859930300d52d5c2c7c631
+ *   ClimateClaim   0xb80eC5aEa3A62a5F282DB19bA1ccE311b642bC51  (19,333 B, 16 methods)
+ *     deploy tx 0xf3104e7bf5cea37819ea43c06100fabf12f1a98d0210f8028126410f1a1b2c1c
  *   Both ACCEPTED / AGREE / FINISHED_WITH_RETURN. Schemas read back from chain and
  *   saved at docs/schema/*.bradbury.txt.
  *
- * THE TWO CONTRACTS DO NOT CALL EACH OTHER. GenLayer storage cannot hold a
- * contract proxy, so the split uses an owner-mediated bridge: the owner copies a
- * policy across with `register_policy_snapshot`, and the claim then references it
- * by id. `register_policy_snapshot` is OWNER-ONLY, so creating a claim against a
- * policy the owner has not bridged yet will revert — see ClaimNew.tsx, which
- * reports that rather than pretending otherwise.
+ * THE CONTRACTS DO CALL EACH OTHER, in one direction. `start_claim` reads the
+ * authoritative policy straight from ClimatePolicy with a cross-contract view, so
+ * a claim is always opened against the terms ClimatePolicy actually holds and
+ * nobody has to pre-register a copy. Two facts made this possible, both measured
+ * on Bradbury 2026-10-18 rather than assumed:
+ *   - `gl.get_contract_at` requires an `Address`. Given a plain string it raises
+ *     TypeError, which surfaced as `EXTERNAL: policy contract unreachable` until
+ *     the double-wrapped `Address(Address(...))` was removed.
+ *   - A view read inside a write can transiently fail, so `start_claim` is not
+ *     atomic in practice: a submission sometimes lands only on a retry. Nothing
+ *     depends on a single attempt.
+ * `register_policy_snapshot` is still present but is now only a cache, and it is
+ * permissionless: `start_claim` re-reads the authoritative policy and ignores the
+ * cache, so a wrong entry there cannot affect a claim.
  *
  * WHAT THIS DEPLOYMENT DOES NOT DO, stated plainly because the UI must not imply
  * otherwise:
@@ -52,7 +60,7 @@ export type ContractKey = "policy" | "claim";
  * used.
  */
 export const CONTRACT_ADDRESS =
-  ENV_CONTRACT_ADDRESS || "0x07C1c5740eD73576deF939bb938556761738dA03";
+  ENV_CONTRACT_ADDRESS || "0xb80eC5aEa3A62a5F282DB19bA1ccE311b642bC51";
 
 /** Address of the POLICY contract. `VITE_CLIMATEPOLICY_ADDRESS` overrides it. */
 export const POLICY_ADDRESS =

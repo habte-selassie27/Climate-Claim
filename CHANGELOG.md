@@ -5,6 +5,246 @@ gaps are stated plainly; nothing is claimed that was not run.
 
 ---
 
+## On-chain: ClimateClaim redeployed with cross-contract policy reads; 5 claims decided
+
+### DONE
+
+- **Cross-contract reads verified, not assumed.** Four probe contracts measured
+  what `gl.get_contract_at` accepts. It requires an `Address`; a plain string
+  raises `TypeError`, which had surfaced as `EXTERNAL: policy contract
+  unreachable`. A second bug — `Address(self.policy_contract)` double-wrapping an
+  already-typed value — was found the same way and removed.
+- **ClimateClaim redeployed** at `0xb80eC5aEa3A62a5F282DB19bA1ccE311b642bC51`
+  (19,333 B, 16 methods), tx
+  `0xf3104e7bf5cea37819ea43c06100fabf12f1a98d0210f8028126410f1a1b2c1c`,
+  AGREE / FINISHED_WITH_RETURN. It supersedes `0x07C1c574…38dA03`.
+- `start_claim` now reads the authoritative policy from ClimatePolicy at the
+  moment the claim opens, so it is **permissionless**: no owner bridge step, and
+  no caller-supplied copy can be substituted. `register_policy_snapshot` remains
+  but is only a cache that `start_claim` ignores.
+- **5 policies and 5 claims seeded on Bradbury.** Policies vary comparator
+  (`gt`/`gte`), agreement (`unanimous`/`majority`), aggregation and sign of the
+  coordinates; one claim per policy.
+- **All 5 claims decided.** `record_evaluation` cannot be called from the
+  `genlayer` CLI — it takes `evidence_json` as a string, and `--args` strips
+  every inner double quote (the contract reverted `EXPECTED: invalid evidence
+  JSON` on valid JSON; an object-looking argument is sent as a dict and fails
+  `Missing or invalid parameters`). Arrays pass through, which is why
+  `create_policy`'s `source_ids` works. `frontend/scripts/evaluate-claim.mjs`
+  signs with genlayer-js instead, and every decision is **derived by
+  `compute_evaluation` first and recorded exactly as returned** — nothing is
+  chosen by hand:
+
+  | Claim | Decision | Reason | Observed |
+  |---|---|---|---|
+  | claim-1 | `confirmed` | `threshold_crossed` | 127 |
+  | claim-2 | `not_confirmed` | `threshold_not_crossed` | 85 |
+  | claim-3 | `inconclusive` | `source_conflict` | 107 |
+  | claim-4 | `inconclusive` | `missing_observations` | 0 |
+  | claim-5 | `confirmed` | `threshold_crossed` | 275 |
+
+- Repointed `frontend/src/config/contracts.ts`, `.env`, `.env.example`,
+  `contracts/README.md`, `README.md` and the stale-data test to the new address;
+  regenerated `docs/schema/*.bradbury.txt` from chain; updated
+  `docs/deployment-bradbury-2026-10-18.md` (the superseded bridge-era address is
+  kept as history, not erased).
+- `scripts/seed-bradbury.sh`: step 3's mandatory bridge removed (it is not
+  needed), the JSON-through-CLI step replaced with an honest pointer to
+  `evaluate-claim.mjs`, and the period defined once for both policy and claim.
+- **Mistake, stated plainly:** `policy-6` was retired believing it a malformed
+  stray. It was not — it was the deliberate live-mode policy created earlier in
+  this session (tx `0xf91700eb…58d63`). The contract has no un-retire method, so
+  the call is irreversible. `policy-7` was created with identical terms as the
+  replacement and verified `active`. Both facts are in the deployment doc.
+- The contract's module docstring still describes the old owner-mediated bridge.
+  It is inside the deployed artifact (GenVM deploys the source), so it was left
+  as deployed rather than drifted out of sync with `genlayer code`.
+
+### PROOF
+
+- `genvm-lint check contracts/Climate-Claim.py --json` → `"ok":true`, 16 methods.
+  Same for `Climate-Policy.py`, 8 methods.
+- `python3.12 -m pytest tests/direct -q` → **33 passed**.
+- `npx tsc --noEmit` → exit 0; `npx vitest run` → **27 files, 364 tests passed**;
+  `npx vite build` → built in 1m 5s.
+- Read-back with genlayer-js after seeding: 5 policies, 5 claims, every claim in
+  a terminal state with the decision/reason/observed values in the table above.
+- No `tests/integration/` exists in this repository, so that gate is not claimed.
+
+### NEXT
+
+- Update the Portal draft (new explorer links, claim-1 observed 127, 4 engine
+  checks) and trigger the Vercel rebuild.
+
+### BLOCKED
+
+- Key rotation for the two keys pasted into chat earlier (Bradbury
+  `0x4b2e4c71…`, StudioNet `0xd64e58bf…`) requires the owner: the deployer is
+  baked into the deployed contracts and the balances sit at that address.
+
+---
+
+## Fix: the Claims page reads on mount
+
+### DONE
+
+- `/claims` now reads `list_claims` on mount (`autoLive`), so it shows the table
+  instead of "Claims have not been read from the chain yet." A failed read is a
+  separate state with its own message and the error text, rather than rendering
+  as an empty chain.
+
+### PROOF
+
+- `npm run typecheck` — exit 0.
+- `npx vitest run` — exit 0, 27 files, 364 tests, including an assertion that
+  Claims reads on mount.
+- Headless Chrome `/claims` renders `claims-table` with claim-1 through claim-5
+  and no idle/empty copy.
+
+---
+
+## Fix: the Policies page reads on mount instead of claiming it is empty
+
+### DONE
+
+- `/policies` now reads `list_policies` on mount (`listPolicies(true)`, `autoLive`),
+  so clicking Policies shows the table instead of "No policies yet. Open the demo
+  to see what a policy produces." The forced read bypasses a cached list that
+  could predate a newly created policy.
+- `/policies/<id>` likewise reads policies, claims and sources on mount, so a
+  direct visit no longer reports "policy not found" before reading.
+- Both pages now distinguish idle and error from a genuinely empty chain, and
+  the list's refresh control reports one read (it was labelled three).
+- New keys in `en`, `es`, `fr`, `de`: `policies.notRead`, `policies.cantRead`.
+
+### PROOF
+
+- `npm run typecheck` — exit 0.
+- `npx vitest run` — exit 0, 27 files, 363 tests, including a new assertion that
+  the Policies page reads on mount.
+- Headless Chrome `/policies` renders the table with `6 policies on the deployed
+  contract` and no "No policies yet" / "Not read yet"; `/policies/policy-6`
+  renders the policy with the Open-Meteo Forecast source and the Start a claim
+  panel.
+
+---
+
+## Fix: the replay check rows used the wrong layout
+
+### DONE
+
+`Demo.tsx` rendered the engine's checks as `<li className="check-row">` with two
+bare spans. `.check-row` is a two-column grid of `24px + content`, sized for
+CheckList's icon + text rows, so the name column cut each label to its first
+four characters ("thre", "peri", "data", "sour") and the status chip stretched
+across the remaining width. The replay now renders the same `CheckList` every
+other surface uses, with full labels, status chips, required/supporting tags and
+the localized explanations.
+
+Also updated the deployment pin in `services/staleData.test.ts` to the
+redeployed claim contract `0xb80eC5aEa3A62a5F282DB19bA1ccE311b642bC51`, which
+`config/contracts.ts` now points at. The test was pinning the superseded
+`0x07C1…` address and failing for that reason, not because of the UI change.
+
+### PROOF
+
+- `npm run typecheck` — exit 0.
+- `npx vitest run` — exit 0, 27 files, 362 tests.
+- Headless Chrome `/demo?scenario=location-mismatch`: the replay renders
+  `Threshold crossed`, `Period covered`, `Data completeness`, `Source agreement`
+  with `Failed`/`Passed` status chips inside `.check-name` / `.check-status`
+  rows.
+
+### NOTE
+
+The repository-root `.env` still has `VITE_CLIMATECLAIM_ADDRESS=0x07C1…`, which
+OVERRIDES the new address in `config/contracts.ts` for the dev server and the
+build. The app keeps reading the old claim contract until that line is updated
+and the dev server restarted.
+
+---
+
+## On-chain: a future-dated live policy for testing
+
+### DONE
+
+- Registered `om_forecast_precip` (Open-Meteo Forecast API, CC BY 4.0, kind
+  `open_meteo_forecast`) on ClimatePolicy `0xeebb68aEDB14A4184A0C36bAc5528D5f70B8a807`.
+  A `live` policy may only use forecast-kind sources, and the registry held only
+  archive sources. Receipt: AGREE / FINISHED_WITH_RETURN.
+- Created `policy-6`: Paris (48.85, 2.35, 25 km tolerance), live,
+  2026-10-18 → 2026-10-28, UTC, precipitation, > 0.50 mm, `max_single`, one
+  source, payout 0.
+  Tx `0xf91700ebe46f55f79ca672d3a9f8eb3069c3cae88627aee0b6bbb69a4fd58d63` —
+  AGREE / FINISHED_WITH_RETURN.
+- Bridged it into ClimateClaim with `register_policy_snapshot`.
+  Tx `0xdea02f3691a44d6215b1fbc4aa95b73836aad51a29c7d2e96f04d98109d76e25` —
+  AGREE / FINISHED_WITH_RETURN.
+
+### PROOF
+
+- `list_policies` (CLI) returns policy-6 `live 2026-10-18 2026-10-28 active`.
+- Headless Chrome on `/claims/new` shows "6 active of 6 policy", including
+  `policy-6 — Paris, France — Any single day above 0.50 mm between 2026-10-18 and 2026-10-28.`
+
+### BLOCKED
+
+None.
+
+---
+
+## Fix: Create claim no longer reports a read failure before it has read anything
+
+### DONE
+
+`useRead` initialised `origin` to `"error"`, and reads are opt-in. So on a first
+visit `/claims/new` painted "The policy list could not be read" with no error
+text and never rendered the form — no read had been attempted. `"idle"` is now a
+third origin, distinct from `"error"`, and `OriginBadge` says "Not read yet"
+for it. A read that throws still sets `"error"`.
+
+- `/claims/new` reads `list_policies` on mount (`autoLive`), because the page is
+the form built from that list. The error state now shows the actual error and a
+  retry button.
+- `/demo` reads `list_claims` and runs the recorded replay through
+  `compute_evaluation` on mount. The replay previously showed "No claims yet."
+  because its read also waited for a click.
+- `/claims` distinguishes "not read yet" from "no claims": it no longer asserts
+  an empty chain before reading one.
+- `listPolicies` caches only successful reads. A cached failure made every later
+  "Refresh from chain" return the same error without touching the chain.
+- The Start a claim button is no longer a disabled, apparently broken control for
+  a disconnected visitor: it reads "Connect wallet" and opens the wallet's own
+  approval prompt (`wallet.connect()`). The wallet error is shown inline, and a
+  wrong-network wallet gets a switch action next to it.
+- New keys in `en`, `es`, `fr`, `de`: `origin.idle`, `origin.idleTitle`,
+  `claims.notRead`, `claims.cantRead`, `demo.replayNotRun`, `demo.replayFailed`,
+  `startClaim.needsWallet`, `startClaim.noWallet`, `startClaim.gasless`,
+  `wallet.switching`, `wallet.waiting`.
+
+### PROOF
+
+- `npm run typecheck` — clean.
+- `npx vitest run` — 27 files, 362 tests passed, including new structural
+  assertions that the hook starts idle, that these pages read on mount, and that
+  the claim CTA connects the wallet instead of doing nothing.
+- `npm run build` — built.
+- Headless Chrome against the dev server: `/claims/new` renders
+  `policy-1 — Paris, France — Any single day above 1.00 mm.` with a
+  `Start a claim` button and `Live from Bradbury`; with no wallet installed the
+  primary action reads `Connect wallet` and states that a wallet extension is
+  needed; `/demo` renders `claim-1` from chain and a replay outcome of
+  `confirmed`, observed `1.2`.
+
+### NEXT
+
+Claims and Policies still read only when asked, by design (shared 500 reads/hour
+endpoint); their idle state is now honest instead of empty.
+
+### BLOCKED
+
+None.
+
 ---
 
 ## Refactor: the app follows the two deployed contracts, and no stale record remains

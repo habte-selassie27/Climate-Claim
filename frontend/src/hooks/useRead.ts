@@ -1,11 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DataOrigin, ReadResult } from "../services/rpc";
 
+/**
+ * Where the data on screen came from, including "nothing asked for yet".
+ *
+ * "idle" matters: reads are not automatic, so before the first request there is
+ * nothing to report. Calling that "error" told visitors a read had failed when
+ * none had been attempted — which is what hid the Create claim form behind a
+ * bogus "policy list could not be read" alert on a first page view.
+ */
+export type ReadOrigin = DataOrigin | "idle";
+
 export interface ReadState<T> {
   data: T | undefined;
   /** Where the data on screen came from: "live" from the chain, "error" when a
-   *  read failed. There is no recorded-data origin — see services/rpc.ts. */
-  origin: DataOrigin;
+   *  read failed, "idle" when no read has been asked for. There is no
+   *  recorded-data origin — see services/rpc.ts. */
+  origin: ReadOrigin;
   liveError?: string;
   loading: boolean;
   /** True while refreshing with data already on screen (no skeleton flash). */
@@ -50,7 +61,7 @@ export function useRead<T>(
 ): ReadState<T> {
   const autoLive = options.autoLive ?? false;
   const [data, setData] = useState<T | undefined>(undefined);
-  const [origin, setOrigin] = useState<DataOrigin>("error");
+  const [origin, setOrigin] = useState<ReadOrigin>("idle");
   const [liveError, setLiveError] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(autoLive);
   const [refreshing, setRefreshing] = useState(false);
@@ -81,6 +92,9 @@ export function useRead<T>(
         hasData.current = true;
       } catch (err) {
         if (cancelled) return;
+        // A read that threw is a failed read, not a still-live one. Leaving the
+        // previous origin in place would keep labelling stale data as live.
+        setOrigin("error");
         setLiveError(err instanceof Error ? err.message : String(err));
       } finally {
         if (!cancelled) {

@@ -19,7 +19,13 @@ const net = activeNetwork();
 
 export function Policies() {
   const { t } = useI18n();
-  const policies = useRead(() => listPolicies(), []);
+  // Read on mount: this page is the policy list, so an unread page would show a
+  // misleading "no policies yet" for a contract that has six. The service
+  // returns its cached live list when one exists, so navigating here from
+  // another page costs no extra read.
+  // Forced read: the cached list can predate a policy the owner just created,
+  // which would make this page disagree with PolicyDetail.
+  const policies = useRead(() => listPolicies(true), [], { autoLive: true });
   const rows = (policies.data ?? []) as Policy[];
 
   return (
@@ -32,10 +38,10 @@ export function Policies() {
         <OriginBadge
           mode={policies.origin}
           liveError={policies.liveError}
-            pending={policies.refreshing}
+          pending={policies.loading || policies.refreshing}
           networkLabel={net.label}
           onRefresh={policies.refresh}
-          readCost={3}
+          readCost={1}
         />
         <div className="btn-row" style={{ marginTop: "var(--space-3)" }}>
           <Link className="btn" to="/policies/new">
@@ -51,8 +57,17 @@ export function Policies() {
             <div key={i} className="skeleton" style={{ marginBottom: 10 }} />
           ))}
         </div>
+      ) : policies.origin === "idle" ? (
+        <div className="empty" data-testid="policies-idle">{t("policies.notRead")}</div>
+      ) : policies.origin === "error" ? (
+        <div className="empty" data-testid="policies-error">
+          <p>{t("policies.cantRead")}</p>
+          {policies.liveError ? (
+            <p className="small mono">{t("origin.unreachable", { error: policies.liveError })}</p>
+          ) : null}
+        </div>
       ) : rows.length === 0 ? (
-        <div className="empty">{t("policies.empty")}</div>
+        <div className="empty" data-testid="policies-empty">{t("policies.empty")}</div>
       ) : (
         <div className="panel panel-flush">
           <div className="table-wrap">
@@ -108,15 +123,17 @@ export function Policies() {
 export function PolicyDetail() {
   const { t } = useI18n();
   const { id = "" } = useParams();
-  const policies = useRead(() => listPolicies(), []);
+  // Same reasoning as the list: a direct visit to /policies/<id> must read, or
+  // it reports "policy not found" for a policy that exists.
+  const policies = useRead(() => listPolicies(true), [], { autoLive: true });
   const policy = (policies.data ?? []).find((p: Policy) => p.id === id);
 
   // Claims on this policy, read from the contract.
-  const claims = useRead(() => listClaims(), []);
+  const claims = useRead(() => listClaims(), [], { autoLive: true });
   const onPolicy = ((claims.data ?? []) as Claim[]).filter((c) => c.policy_id === id);
 
   // The registry entries this policy draws from, for the source cards.
-  const sources = useRead(() => listSources(), []);
+  const sources = useRead(() => listSources(), [], { autoLive: true });
   const policySources = ((sources.data ?? []) as SourceDef[]).filter((s) =>
     policy ? policy.source_ids.includes(s.id) : false,
   );
@@ -157,7 +174,7 @@ export function PolicyDetail() {
           <OriginBadge
             mode={policies.origin}
             liveError={policies.liveError}
-            pending={policies.refreshing}
+            pending={policies.loading || policies.refreshing}
             networkLabel={net.label}
           onRefresh={policies.refresh}
           readCost={3}
