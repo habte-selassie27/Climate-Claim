@@ -5,6 +5,86 @@ gaps are stated plainly; nothing is claimed that was not run.
 
 ---
 
+---
+
+## Decision engine moved into Climate-Policy; the evaluator contract is deleted
+
+### DONE
+
+**Deleted `reference/Climate-Evaluator.py` and renamed `Climate-Claim-Small.py` to
+`Climate-Claim.py`.** The evaluator was never going to deploy: both testnets cap
+a deploy at roughly 19 KB of source and that file was 26 KB. Two rejected deploy
+attempts are on the record, so this was measured rather than assumed.
+
+**The engine it contained now lives in `Climate-Policy.py` as
+`compute_evaluation`** -- a pure function of (frozen policy, evidence rows) that
+returns the decision, reason code, per-check statuses and observed value.
+
+This closes the single largest gap in the deployed pair. `ClimateClaim`'s
+`record_evaluation` is owner-only and stored whatever decision the owner supplied
+while verifying nothing, so "confirmed" was an assertion. It is now a derivation:
+a row's `crossed` flag is recomputed from the raw scaled value and the frozen
+threshold, and a decision that contradicts those numbers cannot be produced.
+
+It lives in Climate-Policy for two reasons: ClimateClaim sits exactly at the
+ceiling with no room for anything, and an engine with no storage reads and no
+clock can be called from inside a non-deterministic round without version skew.
+
+**Two things were cut, both deliberately.**
+
+1. *The equivalence layer.* It existed to reconcile leader/validator disagreement,
+   which only arises when the engine fetches the web or calls a model. This
+   engine is pure, so both compute identical results and `run_nondet` would
+   reconcile nothing. Removing it freed ~3 KB, which is the difference between
+   deploying and not.
+2. *The `location_match` check.* Evidence rows carry no coordinates, so the check
+   could only ever return `unclear`. Dropping a check that cannot resolve is
+   smaller and more honest than reporting it forever as unknown.
+
+### PROOF
+
+Deployed to Bradbury by `0x04e0353B7218b66D6803725ce7342E6e1225DB1b`, both
+ACCEPTED / AGREE / FINISHED_WITH_RETURN:
+
+- ClimatePolicy `0xeebb68aEDB14A4184A0C36bAc5528D5f70B8a807` (16,829 B, 8 methods)
+  deploy tx `0x8f704bc3bab2578a5c66981ba922dfb349a65f6817acac475af68d046889f658`
+- ClimateClaim `0x07C1c5740eD73576deF939bb938556761738dA03` (18,600 B, 16 methods)
+  deploy tx `0xa7deeaceb6ef12ca8b2a226c45b5502b062b344942859930300d52d5c2c7c631`
+
+`compute_evaluation` exercised on chain through genlayer-js, threshold 1.00 mm,
+two sources:
+
+| Case | Decision | Reason | Observed |
+|---|---|---|---|
+| both sources above | confirmed | threshold_crossed | 140 |
+| both sources below | not_confirmed | threshold_not_crossed | 85 |
+| exactly at threshold, `gt` | not_confirmed | threshold_not_crossed | 100 |
+| exactly at threshold, `gte` | confirmed | threshold_crossed | 100 |
+| sources disagree | inconclusive | source_conflict | 105 |
+| majority, 1 of 2 | inconclusive | source_conflict | 105 |
+| `any` rule, one crosses | confirmed | threshold_crossed | 105 |
+| partial period | inconclusive | missing_observations | 140 |
+| one source unreachable | inconclusive | missing_observations | 150 |
+| `min_sources` satisfied by 1 | confirmed | threshold_crossed | 150 |
+| `lt` policy, values below | confirmed | threshold_crossed | 45 |
+| `min_sources` unmet | reverts `EXPECTED` | | |
+
+Gates: `genvm-lint` 3/3 clean (7 + 16 + 8 methods), `pytest tests/direct` 33
+passed.
+
+### NEXT
+
+Wire the frontend to the two new addresses and surface `compute_evaluation` in
+the claim detail view, so a decision is shown as derived from evidence rather
+than entered by the owner.
+
+### BLOCKED
+
+Web retrieval from on-chain code. Fetching a live source needs a model call or
+web access inside a non-deterministic round, and the space for both is gone.
+Evidence rows are supplied by the caller and their provenance is not provable on
+chain. This is stated plainly rather than papered over.
+
 ## The deploy ceiling, measured in bytes — and why the evaluator has no home on chain yet
 
 ### DONE
