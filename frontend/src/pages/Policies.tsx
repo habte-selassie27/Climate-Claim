@@ -4,9 +4,6 @@ import {
   listClaims,
   listPolicies,
   listSources,
-  snapshotClaims,
-  snapshotPolicies,
-  snapshotSources,
 } from "../services/claimService";
 import { DataModeBadge } from "../components/DataModeBadge";
 import { OriginBadge } from "../components/OriginBadge";
@@ -22,7 +19,7 @@ const net = activeNetwork();
 
 export function Policies() {
   const { t } = useI18n();
-  const policies = useRead(() => listPolicies(), [], snapshotPolicies());
+  const policies = useRead(() => listPolicies(), []);
   const rows = (policies.data ?? []) as Policy[];
 
   return (
@@ -34,7 +31,6 @@ export function Policies() {
         </p>
         <OriginBadge
           mode={policies.origin}
-          capturedAt={policies.capturedAt}
           liveError={policies.liveError}
             pending={policies.refreshing}
           networkLabel={net.label}
@@ -112,15 +108,15 @@ export function Policies() {
 export function PolicyDetail() {
   const { t } = useI18n();
   const { id = "" } = useParams();
-  const policies = useRead(() => listPolicies(), [], snapshotPolicies());
+  const policies = useRead(() => listPolicies(), []);
   const policy = (policies.data ?? []).find((p: Policy) => p.id === id);
 
   // Claims on this policy, read from the contract.
-  const claims = useRead(() => listClaims(), [], snapshotClaims());
+  const claims = useRead(() => listClaims(), []);
   const onPolicy = ((claims.data ?? []) as Claim[]).filter((c) => c.policy_id === id);
 
   // The registry entries this policy draws from, for the source cards.
-  const sources = useRead(() => listSources(), [], snapshotSources());
+  const sources = useRead(() => listSources(), []);
   const policySources = ((sources.data ?? []) as SourceDef[]).filter((s) =>
     policy ? policy.source_ids.includes(s.id) : false,
   );
@@ -160,7 +156,6 @@ export function PolicyDetail() {
           <DataModeBadge mode={policy.data_mode} />
           <OriginBadge
             mode={policies.origin}
-            capturedAt={policies.capturedAt}
             liveError={policies.liveError}
             pending={policies.refreshing}
             networkLabel={net.label}

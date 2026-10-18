@@ -170,22 +170,19 @@ export const en = {
   "data.reads": "reads",
   "data.rateLimited": "Read budget spent on the public endpoint — showing the recorded snapshot.",
   "data.liveFailed": "Live read failed — showing the recorded snapshot.",
-
-  "datamode.mixed": "· mixed",
+  "datamode.error": "Read failed",
+  "datamode.errorTitle": "The chain could not be read, so this is not confirmed on-chain.",
   "datamode.recordedTitle": "Read from a captured snapshot, not the live chain.",
-  "datamode.mixedTitle": "Some of this was read live; some came from the captured snapshot.",
 
   // --- origin (where the on-screen data came from) -------------------------
   "origin.live": "Live from {network}",
   "origin.liveTitle": "Read live from {network}.",
-  "origin.mixed": "Mixed live & recorded",
-  "origin.mixedTitle":
-    "Some of this was read live from {network}; some came from the snapshot captured {captured}.",
-  "origin.checking": "Recorded snapshot · checking {network}",
-  "origin.checkingTitle":
-    "Showing the snapshot captured {captured} while the live read completes.",
-  "origin.recorded": "Recorded snapshot",
-  "origin.recordedTitle": "Recorded on-chain snapshot captured {captured}.",
+  "origin.error": "Read failed",
+  "origin.errorTitle": "A read failed, so nothing is shown from that source. {network} was unreachable.",
+  "origin.checking": "Checking {network}",
+  "origin.checkingTitle": "Reading from {network}.",
+  "origin.recorded": "Recorded replay",
+  "origin.recordedTitle": "A recorded replay of a documented source response. Not a transaction.",
   "origin.recordedUnreachable": " (network unreachable)",
   "origin.unreachable": " The network could not be reached ({error}).",
   "origin.networkDefault": "the network",
@@ -421,6 +418,15 @@ export const en = {
     "The StudioNet explorer is currently paused, so transaction links are shown as unavailable rather than as dead links.",
 
   // --- claims list ---------------------------------------------------------
+  "claimNew.h1": "Create claim",
+  "claimNew.lede": "Policies are read live from {address} on {network}. Choose one and open a claim against it.",
+  "claimNew.cantRead": "The policy list could not be read",
+  "claimNew.noPolicies": "There are no active policies on this deployment yet, so there is nothing to open a claim against.",
+  "claimNew.createPolicy": "Create a policy",
+  "claimNew.pickPolicy": "Policy",
+  "claimNew.count": "{shown} active of {total} policy.",
+  "claimNew.bridge.h": "A new policy cannot back a claim until it is bridged",
+  "claimNew.bridge.body": "ClimateClaim only knows a policy id once the owner has copied it across with register_policy_snapshot, which is owner-only. If a claim against a brand-new policy reverts with \"policy snapshot not registered\", that is why — the policy has to be bridged first.",
   "claims.h1": "Claims",
   "claims.lede": "Every claim below exists on the deployed contract at {address} on {network}.",
   "claims.empty": "No claims yet. Start one from a policy on the policies page.",

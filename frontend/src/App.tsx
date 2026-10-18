@@ -16,6 +16,7 @@ import { useI18n } from "./i18n/I18nProvider";
  */
 const Landing = lazy(() => import("./pages/Landing").then((m) => ({ default: m.Landing })));
 const Claims = lazy(() => import("./pages/Claims").then((m) => ({ default: m.Claims })));
+const ClaimNew = lazy(() => import("./pages/ClaimNew").then((m) => ({ default: m.ClaimNew })));
 const ClaimDetail = lazy(() =>
   import("./pages/ClaimDetail").then((m) => ({ default: m.ClaimDetail })),
 );
@@ -159,6 +160,7 @@ export default function App() {
                 <Route path="/" element={<Landing />} />
                 <Route path="/demo" element={<Demo />} />
                 <Route path="/claims" element={<Claims />} />
+                <Route path="/claims/new" element={<ClaimNew />} />
                 <Route path="/claims/:id" element={<ClaimDetail />} />
                 <Route path="/policies" element={<Policies />} />
                 <Route path="/policies/new" element={<PolicyNew />} />

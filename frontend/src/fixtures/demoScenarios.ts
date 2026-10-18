@@ -1,23 +1,31 @@
 /**
- * Demo scenarios (UI.md section 8).
+ * Recorded replay scenarios.
  *
- * HONESTY RULES OBSERVED HERE:
- *  - `provenance: "on_chain"` means the decision, evidence and checks shown are
- *    read from the deployed StudioNet contract. The UI links to the real claim.
- *  - `provenance: "recorded_source_data"` means the daily series is a REAL
- *    recorded response from a documented endpoint (see
- *    fixtures/historical/), and the expected outcome was derived by running the
- *    contract's own evaluation logic. It is a replay, never presented as a
- *    transaction. The verifying test is named on each scenario.
+ * EVERY SCENARIO HERE IS A REPLAY, NOT A TRANSACTION.
  *
- * Nothing here is invented weather data. Every number comes from
+ * These previously carried `provenance: "on_chain"` and an `onChainClaimId`
+ * pointing at claim-2, claim-4 and claim-5. Those claims lived on a contract that
+ * is no longer deployed (0xE16032420e3155C0822e9150a98c6B1163869F0c on
+ * StudioNet). Linking to them from the current UI asserted that this deployment
+ * held claims it does not, so the field and the provenance value are both gone.
+ *
+ * What remains is honest and still useful: each scenario is a REAL recorded
+ * response from a documented endpoint (see fixtures/historical/), replayed
+ * through the policy contract's own `compute_evaluation` rules so the expected
+ * outcome is derived rather than asserted. The demo runs that engine live, so the
+ * replay shows what the deployed contract would decide about this evidence.
+ *
+ * The live claims on the current deployment are NOT here — those are read from
+ * the chain and listed in Demo.tsx. Nothing in this file is presented as a claim.
+ *
+ * No invented weather data: every number comes from
  * fixtures/historical/london_2024-06-01_2024-06-05.json or
  * fixtures/historical/paris_2024-06-01_2024-06-05.json.
  */
 
 import type { Decision, ReasonCode } from "../domain/types";
 
-export type Provenance = "on_chain" | "recorded_source_data";
+export type Provenance = "recorded_source_data";
 
 export interface DemoSeries {
   sourceId: string;
@@ -48,8 +56,6 @@ export interface DemoScenario {
   /** "What this tests" — one sentence, shown in the UI. */
   whatThisTests: string;
   provenance: Provenance;
-  /** Set when provenance is on_chain: the real claim to link to. */
-  onChainClaimId?: string;
   locationName: string;
   period: { start: string; end: string; timezone: string };
   policy: DemoPolicyTerms;
@@ -85,7 +91,7 @@ const LONDON_NASA: Record<string, number | null> = {
   "2024-06-05": 0.02,
 };
 
-/** Paris ERA5, exactly as returned. This is what claim-2 and claim-4 evaluated. */
+/** Paris ERA5, exactly as returned by the documented endpoint. */
 const PARIS_OM: Record<string, number | null> = {
   "2024-06-01": 1.2,
   "2024-06-02": 0.0,
@@ -128,8 +134,7 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
     title: "Threshold clearly crossed",
     whatThisTests:
       "The ordinary success path: a real recorded reading sits above the threshold, so the condition is confirmed.",
-    provenance: "on_chain",
-    onChainClaimId: "claim-2",
+    provenance: "recorded_source_data",
     locationName: "Paris",
     period: PARIS_PERIOD,
     policy: {
@@ -150,7 +155,7 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
       { sourceId: "om_archive_precip", label: "Open-Meteo ERA5", shape: "square", daily: PARIS_OM, unit: "mm" },
     ],
     expected: { decision: "confirmed", reason_code: "threshold_crossed", observed_value_scaled: 120 },
-    verifyingTest: "tests/direct/test_evaluation.py::test_clearly_above_threshold",
+    verifyingTest: "tests/direct/test_engine_cases.py::test_threshold_crossed",
   },
 
   // 2 -----------------------------------------------------------------------
@@ -158,9 +163,8 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
     id: "threshold-not-reached",
     title: "Threshold clearly not reached",
     whatThisTests:
-      "A real recorded claim whose highest reading is well below the threshold, so the condition is not confirmed.",
-    provenance: "on_chain",
-    onChainClaimId: "claim-5",
+      "A recorded response whose highest reading is well below the threshold, so the condition is not confirmed.",
+    provenance: "recorded_source_data",
     locationName: "Paris",
     period: PARIS_PERIOD,
     policy: {
@@ -257,9 +261,8 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
     id: "location-mismatch",
     title: "Location mismatch",
     whatThisTests:
-      "A real on-chain case where the ERA5 grid cell sits about 5.97 km from the policy point, outside that policy's 5 km tolerance. The threshold was in fact met, but the evidence does not describe the right place, so the outcome is inconclusive.",
-    provenance: "on_chain",
-    onChainClaimId: "claim-4",
+      "A recorded case where the ERA5 grid cell sits about 5.97 km from the policy point, outside that policy's 5 km tolerance. The threshold was in fact met, but the evidence does not describe the right place, so the outcome is inconclusive.",
+    provenance: "recorded_source_data",
     locationName: "Paris",
     period: PARIS_PERIOD,
     policy: {
@@ -280,7 +283,7 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
     expected: { decision: "inconclusive", reason_code: "location_mismatch", observed_value_scaled: 120 },
     verifyingTest: "tests/direct/test_evaluation.py::test_location_mismatch",
     notes:
-      "This was not staged. The same policy with a 12 km tolerance (claim-2) confirms, so the distance rule alone decides it.",
+      "This was not staged. The same policy with a 12 km tolerance confirms, so the distance rule alone decides it.",
   },
 
   // 7 -----------------------------------------------------------------------

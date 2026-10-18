@@ -158,22 +158,18 @@ export const es: Dictionary = {
   "data.reads": "lecturas",
   "data.rateLimited": "Cupo de lecturas agotado en el endpoint público: se muestra la instantánea registrada.",
   "data.liveFailed": "Falló la lectura en vivo: se muestra la instantánea registrada.",
-
-  "datamode.mixed": "· mixto",
+  "datamode.error": "Lectura fallida",
+  "datamode.errorTitle": "No se pudo leer la cadena, por lo que no está confirmado en la cadena.",
   "datamode.recordedTitle": "Leído de una instantánea capturada, no de la cadena en vivo.",
-  "datamode.mixedTitle":
-    "Parte de esto se leyó en vivo; parte proviene de la instantánea capturada.",
 
   "origin.live": "En vivo desde {network}",
   "origin.liveTitle": "Leído en vivo desde {network}.",
-  "origin.mixed": "Mixto: en vivo y registrado",
-  "origin.mixedTitle":
-    "Parte de esto se leyó en vivo desde {network}; parte proviene de la instantánea capturada el {captured}.",
-  "origin.checking": "Instantánea registrada · comprobando {network}",
-  "origin.checkingTitle":
-    "Se muestra la instantánea capturada el {captured} mientras se completa la lectura en vivo.",
-  "origin.recorded": "Instantánea registrada",
-  "origin.recordedTitle": "Instantánea registrada en cadena capturada el {captured}.",
+  "origin.error": "Lectura fallida",
+  "origin.errorTitle": "Una lectura falló, no se muestra nada. {network} está inaccesible.",
+  "origin.checking": "Comprobando {network}",
+  "origin.checkingTitle": "Leyendo desde {network}.",
+  "origin.recorded": "Reproducción grabada",
+  "origin.recordedTitle": "Reproducción grabada de una respuesta de fuente documentada. No es una transacción.",
   "origin.recordedUnreachable": " (red inaccesible)",
   "origin.unreachable": " No se pudo contactar con la red ({error}).",
   "origin.networkDefault": "la red",
@@ -407,6 +403,15 @@ export const es: Dictionary = {
   "how.limits.l4down":
     "El explorador de StudioNet está en pausa, así que los enlaces de transacción se muestran como no disponibles en lugar de como enlaces muertos.",
 
+  "claimNew.h1": "Crear reclamación",
+  "claimNew.lede": "Las políticas se leen en vivo desde {address} en {network}. Elige una y abre una reclamación.",
+  "claimNew.cantRead": "No se pudo leer la lista de políticas",
+  "claimNew.noPolicies": "Todavía no hay políticas activas en este despliegue, así que no hay nada contra lo que abrir una reclamación.",
+  "claimNew.createPolicy": "Crear una política",
+  "claimNew.pickPolicy": "Política",
+  "claimNew.count": "{shown} activas de {total} política.",
+  "claimNew.bridge.h": "Una política nueva no puede respaldar una reclamación hasta que se conecte",
+  "claimNew.bridge.body": "ClimateClaim solo conoce un identificador de política cuando el propietario la ha copiado con register_policy_snapshot, que es exclusivo del propietario. Si una reclamación contra una política nueva se revierte con «policy snapshot not registered», esta es la razón: la política debe conectarse primero.",
   "claims.h1": "Reclamaciones",
   "claims.lede":
     "Todas las reclamaciones siguientes existen en el contrato desplegado en {address} en {network}.",

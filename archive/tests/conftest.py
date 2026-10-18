@@ -2,7 +2,7 @@
 
 ARCHIVED, NOT ACTIVE. These tests exercise `archive/climateclaim.py`, the
 1406-line pre-split source. That contract is NOT deployed — the two deployed
-contracts are `contracts/Climate-Policy.py` and `contracts/Climate-Claim-Small.py`.
+contracts are `contracts/Climate-Policy.py` and `contracts/Climate-Claim.py`.
 
 They live outside `tests/` on purpose so a normal `pytest tests/direct` run does
 not collect them: every one of them would fail with FileNotFoundError if the

@@ -103,10 +103,26 @@ describe("method table", () => {
 describe("declared unavailability", () => {
   it("records the capabilities this deployment lacks", async () => {
     const { AVAILABILITY: availability } = await import("./contracts");
-    expect(availability.get_checks).toBe("removed");
     expect(availability.get_criteria_version).toBe("removed");
-    expect(availability.get_owner).toBe("removed");
     expect(availability.request_evaluation).toBe("removed");
+    // Nothing on chain fetches weather data, so there is no engine that could
+    // evaluate a live source.
+    expect(availability.evaluate_from_web).toBe("removed");
+  });
+
+  it("records that checks come from the engine, not from stored state", async () => {
+    const { AVAILABILITY: availability, METHOD_META: meta } = await import("./contracts");
+    // `compute_evaluation` derives per-check results on demand. No deployed
+    // method STORES them against a claim, so `get_checks` is not a method and
+    // must not be routed as one.
+    expect(availability.get_checks).toBe("engine");
+    expect("get_checks" in meta).toBe(false);
+  });
+
+  it("routes the engine method to the policy contract", async () => {
+    const { addressFor, POLICY_ADDRESS, METHOD_META: meta } = await import("./contracts");
+    expect("compute_evaluation" in meta).toBe(true);
+    expect(addressFor("compute_evaluation")).toBe(POLICY_ADDRESS);
   });
 
   it("records the ones the service layer reconstructs", async () => {

@@ -1,9 +1,7 @@
 import { useI18n } from "../i18n/I18nProvider";
 
 interface Props {
-  mode: "live" | "snapshot" | "recorded" | "mixed";
-  /** When the snapshot was captured on-chain. */
-  capturedAt?: string;
+  mode: "live" | "recorded" | "error";
   /** Why the live read failed, when it did. */
   liveError?: string;
   /** A live read is still in flight, so this may yet become live. */
@@ -15,8 +13,8 @@ interface Props {
    *
    * Present because reads are no longer automatic. They used to fire on mount,
    * which cost 3-5 requests per page view against a shared, capped public
-   * endpoint and produced HTTP 429 for ordinary visitors. Now the snapshot is
-   * shown until someone asks for the chain, so this is how they ask.
+   * endpoint and produced HTTP 429 for ordinary visitors. A page now shows its
+   * empty state until someone asks for the chain, so this is how they ask.
    */
   onRefresh?: () => void;
   /** Reads this will cost, stated before the click rather than after. */
@@ -24,12 +22,11 @@ interface Props {
 }
 
 /**
- * Says plainly whether the data on screen was read from the chain or came from
- * the committed snapshot. Never presents a snapshot as live.
+ * Says plainly whether the data on screen was read from the chain, is a recorded
+ * replay, or the read failed. Never presents anything else as live.
  */
 export function OriginBadge({
   mode,
-  capturedAt,
   liveError,
   pending = false,
   networkLabel,
@@ -38,7 +35,6 @@ export function OriginBadge({
 }: Props) {
   const { t } = useI18n();
   const network = networkLabel || t("origin.networkDefault");
-  const when = capturedAt ?? t("common.unknown");
 
   const badge = (() => {
     if (mode === "live") {
@@ -52,15 +48,15 @@ export function OriginBadge({
         </span>
       );
     }
-    // A composite that is part live, part recorded. Say so instead of overstating.
-    if (mode === "mixed") {
+    // A composite read where some sub-reads landed and some failed. Say so.
+    if (mode === "error") {
       return (
         <span
           className="badge badge-origin"
           data-testid="origin-badge"
-          title={t("origin.mixedTitle", { network, captured: when })}
+          title={t("origin.errorTitle", { network })}
         >
-          <span aria-hidden="true">◑</span> {t("origin.mixed")}
+          <span aria-hidden="true">◑</span> {t("origin.error")}
         </span>
       );
     }
@@ -70,7 +66,7 @@ export function OriginBadge({
         <span
           className="badge badge-origin"
           data-testid="origin-badge"
-          title={t("origin.checkingTitle", { captured: when })}
+          title={t("origin.checkingTitle", { network })}
         >
           <span aria-hidden="true">▤</span> {t("origin.checking", { network })}
         </span>
@@ -81,7 +77,7 @@ export function OriginBadge({
       <span
         className="badge badge-origin"
         data-testid="origin-badge"
-        title={`${t("origin.recordedTitle", { captured: when })}${reason}`}
+        title={`${t("origin.recordedTitle")}${reason}`}
       >
         <span aria-hidden="true">▤</span> {t("origin.recorded")}
         {liveError ? t("origin.recordedUnreachable") : ""}
@@ -91,7 +87,7 @@ export function OriginBadge({
 
   // No button once live: there is nothing further to fetch, and an offer to
   // re-read the same thing invites traffic we are trying not to spend.
-  if (!onRefresh || mode === "live" || mode === "mixed") return badge;
+  if (!onRefresh || mode === "live") return badge;
 
   const rateLimited = liveError
     ? /rate limit|429|too many requests/i.test(liveError)

@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useRead } from "../hooks/useRead";
-import { listClaims, snapshotClaims } from "../services/claimService";
-import { SNAPSHOT_CONTRACT } from "../services/rpc";
+import { listClaims } from "../services/claimService";
 import { OriginBadge } from "../components/OriginBadge";
 import { decisionCopy, stateCopy } from "../domain/copy";
 import {
@@ -13,6 +12,7 @@ import {
   type DecisionFilter,
 } from "../domain/claimsQuery";
 import { activeNetwork } from "../config/network";
+import { CONTRACT_ADDRESS } from "../config/contracts";
 import type { Claim } from "../domain/types";
 import { useI18n } from "../i18n/I18nProvider";
 
@@ -51,7 +51,7 @@ const DECISION_OPTIONS: DecisionFilter[] = [
  */
 export function Claims() {
   const { t } = useI18n();
-  const claims = useRead(() => listClaims(), [], snapshotClaims());
+  const claims = useRead(() => listClaims(), []);
   const rows = (claims.data ?? []) as Claim[];
 
   const [text, setText] = useState("");
@@ -89,11 +89,15 @@ export function Claims() {
             claims live on a contract that has never held them. On an evidence
             platform that is the one claim that must not be wrong.
           */}
-          {t("claims.lede", { address: SNAPSHOT_CONTRACT, network: net.label })}
+          {t("claims.lede", { address: CONTRACT_ADDRESS, network: net.label })}
         </p>
+        <div className="btn-row" style={{ marginTop: "var(--space-2)" }}>
+          <Link className="btn" to="/claims/new">
+            {t("claimNew.h1")}
+          </Link>
+        </div>
         <OriginBadge
           mode={claims.origin}
-          capturedAt={claims.capturedAt}
           liveError={claims.liveError}
             pending={claims.refreshing}
           networkLabel={net.label}
@@ -109,8 +113,12 @@ export function Claims() {
           ))}
         </div>
       ) : rows.length === 0 ? (
-        <div className="empty">
-          {t("claims.empty")} <Link to="/policies">{t("claims.emptyLink")}</Link>.
+        <div className="empty" data-testid="claims-empty">
+          <p>{t("claims.empty")}</p>
+          <Link className="btn" to="/claims/new">
+            {t("claimNew.h1")}
+          </Link>{" "}
+          <Link to="/policies">{t("claims.emptyLink")}</Link>.
         </div>
       ) : (
         <div className="stack">
@@ -186,8 +194,7 @@ export function Claims() {
                       filtered.length === 1 ? "claims.caption.one" : "claims.caption.many",
                       {
                         count: filtered.length,
-                        suffix:
-                          claims.origin === "snapshot" ? t("claims.captionSnapshot") : "",
+                        suffix: "",
                       },
                     )}
                   </caption>

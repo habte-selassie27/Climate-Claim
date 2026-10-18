@@ -1,8 +1,9 @@
 /**
  * Claim reads. Components never call the SDK directly; they call these.
  *
- * Each function returns a ReadResult so the UI can label whether the data came
- * from the live chain or from the committed snapshot.
+ * Each function returns a ReadResult so the UI can tell live data from a failed
+ * read. There is no recorded-data fallback: a read that fails yields no data, and
+ * the page shows its empty or error state.
  *
  * SHAPES CHANGED WITH THE TWO-CONTRACT SPLIT. The claim contract now returns one
  * nested object from `get_claim` (evidence, disputes and payouts included), where
@@ -21,8 +22,8 @@
  * asserting a capability the schema does not have.
  */
 
-import { METHODS } from "../config/contracts";
-import { readWithFallback, SNAPSHOT, type ReadResult } from "./rpc";
+import { DEPLOYER_ADDRESS, METHODS } from "../config/contracts";
+import { readLive, type ReadResult } from "./rpc";
 import type {
   CheckResult,
   Claim,
@@ -178,70 +179,41 @@ function settlementFor(raw: RawClaim): Settlement {
  * Claim ids are sequential ("claim-1", "claim-2", ...) by construction of
  * `start_claim`. The count comes from the chain; the ids are derived from it.
  */
-export async function listClaimIds(): Promise<ReadResult<string[]>> {
-  const snapshotIds = Object.keys(SNAPSHOT.claims).sort(
-    (a, b) => Number(a.split("-")[1]) - Number(b.split("-")[1]),
-  );
-  const result = await readWithFallback<number>(METHODS.get_claim_count, SNAPSHOT.claimCount);
+export async function listClaimIds(): Promise<ReadResult<string[] | undefined>> {
+  const result = await readLive<number>(METHODS.get_claim_count);
+  if (result.origin !== "live") {
+    return { data: undefined, origin: result.origin, liveError: result.liveError };
+  }
   const count = toNumber(result.data);
-  const ids = Array.from({ length: count }, (_, i) => `claim-${i + 1}`);
-  // If the chain is unreachable the snapshot may hold claims the chain does not.
-  return {
-    data: result.origin === "live" ? ids : snapshotIds,
-    origin: result.origin,
-    capturedAt: result.capturedAt,
-    liveError: result.liveError,
-  };
+  return { data: Array.from({ length: count }, (_, i) => `claim-${i + 1}`), origin: "live" };
 }
 
-export async function listClaims(): Promise<ReadResult<Claim[]>> {
-  const snapshotClaims = Object.values(SNAPSHOT.claims)
-    .map((c) => as<Claim>(c.claim))
-    .filter(Boolean);
-
+export async function listClaims(): Promise<ReadResult<Claim[] | undefined>> {
   // One `list_claims` read replaces the old get_claim_count + N×get_claim
-  // fan-out, which mattered against the rate-limited public RPC. No snapshot
-  // value is passed: the recorded rows belong to a different deployment, and
-  // the snapshot branch below returns them deliberately rather than by accident.
-  const result = await readWithFallback<RawClaim[]>(METHODS.list_claims, undefined);
-  const rows = Array.isArray(result.data) ? result.data : [];
-
-  // An empty live list is a real answer, not a failure: this deployment starts
-  // with no claims. Falling back to the snapshot here would show another
-  // contract's claims as if they were this one's.
-  if (result.origin === "live") {
-    return { data: rows.map(mapClaim), origin: "live" };
+  // fan-out, which mattered against the rate-limited public RPC.
+  const result = await readLive<RawClaim[]>(METHODS.list_claims);
+  if (result.origin !== "live") {
+    return { data: undefined, origin: result.origin, liveError: result.liveError };
   }
-  return {
-    data: snapshotClaims,
-    origin: "snapshot",
-    capturedAt: SNAPSHOT.capturedAt,
-    liveError: result.liveError,
-  };
+  // An empty live list is a real answer, not a failure: this deployment starts
+  // with no claims and every claim shown here came from this contract.
+  const rows = Array.isArray(result.data) ? result.data : [];
+  return { data: rows.map(mapClaim), origin: "live" };
 }
 
 export async function getClaim(claimId: string): Promise<ReadResult<Claim | undefined>> {
-  const result = await readWithFallback<RawClaim>(
-    METHODS.get_claim,
-    SNAPSHOT.claims[claimId]?.claim as never,
-    [claimId],
-  );
-  if (!result.data) return { ...result, data: undefined };
-  return {
-    ...result,
-    data: result.origin === "live" ? mapClaim(result.data) : as<Claim>(result.data),
-  };
+  const result = await readLive<RawClaim>(METHODS.get_claim, [claimId]);
+  if (result.origin !== "live" || !result.data) {
+    return { ...result, data: undefined };
+  }
+  return { ...result, data: mapClaim(result.data) };
 }
 
 /** One raw `get_claim` read, reused by every derived accessor below. */
 async function readRawClaim(
   claimId: string,
 ): Promise<ReadResult<RawClaim | undefined>> {
-  return readWithFallback<RawClaim>(
-    METHODS.get_claim,
-    SNAPSHOT.claims[claimId]?.claim as never,
-    [claimId],
-  );
+  return readLive<RawClaim>(METHODS.get_claim, [claimId]);
 }
 
 export async function getEvidence(
@@ -249,21 +221,18 @@ export async function getEvidence(
 ): Promise<ReadResult<EvidenceRecord[] | undefined>> {
   const result = await readRawClaim(claimId);
   if (!result.data) return { ...result, data: undefined };
-  const rows = result.origin === "live"
-    ? mapEvidence(result.data.evidence)
-    : ((SNAPSHOT.claims[claimId]?.evidence as EvidenceRecord[]) ?? []);
-  return { ...result, data: rows };
+  return { ...result, data: mapEvidence(result.data.evidence) };
 }
 
 /**
  * Per-check results.
  *
- * THERE IS NO ON-CHAIN SOURCE. Neither deployed contract computes or stores
- * threshold/period/location/agreement/completeness rows -- the old single-file
- * contract did, and that code is not part of this deployment. Returning the
- * recorded snapshot values here would present another contract's checks as this
- * claim's, so this returns an empty list and the UI states why. See
- * `AVAILABILITY.get_checks` in config/contracts.ts.
+ * NO ON-CHAIN SOURCE FOR A CLAIM. Neither deployed contract stores per-check
+ * rows against a claim. They ARE produced, but by `compute_evaluation` on the
+ * policy contract, which derives them from evidence on demand rather than
+ * persisting them — see `computeEvaluation` below, which is the supported way to
+ * get checks. This returns an empty list so nothing presents another
+ * deployment's checks as this claim's. See `AVAILABILITY.get_checks`.
  */
 export async function getChecks(
   claimId: string,
@@ -275,22 +244,14 @@ export async function getChecks(
 export async function getDisputes(claimId: string): Promise<ReadResult<Dispute[] | undefined>> {
   const result = await readRawClaim(claimId);
   if (!result.data) return { ...result, data: undefined };
-  const rows = result.origin === "live"
-    ? (Array.isArray(result.data.disputes) ? result.data.disputes.map(mapDispute) : [])
-    : ((SNAPSHOT.claims[claimId]?.disputes as Dispute[]) ?? []);
+  const rows = Array.isArray(result.data.disputes) ? result.data.disputes.map(mapDispute) : [];
   return { ...result, data: rows };
 }
 
 export async function getSettlement(claimId: string): Promise<ReadResult<Settlement | undefined>> {
   const result = await readRawClaim(claimId);
   if (!result.data) return { ...result, data: undefined };
-  if (result.origin === "live") {
-    return { ...result, data: settlementFor(result.data) };
-  }
-  return {
-    ...result,
-    data: (SNAPSHOT.claims[claimId]?.settlement as Settlement) ?? undefined,
-  };
+  return { ...result, data: settlementFor(result.data) };
 }
 
 /**
@@ -322,13 +283,9 @@ export async function getClaimBundle(claimId: string): Promise<ReadResult<ClaimB
     settlementRes.origin,
     policy.origin,
   ];
-  // "live" only if EVERY read was live; "mixed" if some were and some fell back.
-  // Never label a partially-live bundle simply "live" — that overstates it.
-  const origin = origins.every((o) => o === "live")
-    ? "live"
-    : origins.some((o) => o === "live")
-      ? "mixed"
-      : "snapshot";
+  // "live" only if EVERY read succeeded. There is no recorded-data fallback, so
+  // a partial failure is an error, not something to paper over.
+  const origin = origins.every((o) => o === "live") ? "live" : "error";
   const liveError = [claimRes.liveError, evidenceRes.liveError, checksRes.liveError].find(Boolean);
 
   const bundle: ClaimBundle = {
@@ -340,12 +297,7 @@ export async function getClaimBundle(claimId: string): Promise<ReadResult<ClaimB
     settlement: settlementRes.data ?? settlementFor({ id: claimId }),
   };
 
-  return {
-    data: bundle,
-    origin,
-    capturedAt: origin === "snapshot" ? SNAPSHOT.capturedAt : undefined,
-    liveError,
-  };
+  return { data: bundle, origin, liveError };
 }
 
 /** Policies change rarely, so resolve by id from the cached policy list. */
@@ -360,8 +312,7 @@ let policyListCache: ReadResult<Policy[]> | null = null;
  */
 export async function listPolicies(force = false): Promise<ReadResult<Policy[]>> {
   if (!force && policyListCache) return policyListCache;
-  const snapshotPolicies = (SNAPSHOT.policies as Policy[]) ?? [];
-  const result = await readWithFallback<Policy[]>(METHODS.list_policies, snapshotPolicies);
+  const result = await readLive<Policy[]>(METHODS.list_policies);
   const normalised = {
     ...result,
     data: (result.data ?? []).map((p) => ({
@@ -385,14 +336,13 @@ export async function resolvePolicy(policyId: string): Promise<ReadResult<Policy
   return {
     data: (list.data ?? []).find((p) => p.id === policyId),
     origin: list.origin,
-    capturedAt: list.capturedAt,
     liveError: list.liveError,
   };
 }
 
 /** Sources, read from the POLICY contract. */
 export async function listSources() {
-  return readWithFallback(METHODS.list_sources, (SNAPSHOT.sources as never[]) ?? []);
+  return readLive<SourceDef[]>(METHODS.list_sources);
 }
 
 /**
@@ -407,7 +357,6 @@ export async function getSource(sourceId: string): Promise<ReadResult<SourceDef 
   return {
     data: rows.find((s) => s.id === sourceId),
     origin: list.origin,
-    capturedAt: list.capturedAt,
     liveError: list.liveError,
   };
 }
@@ -415,14 +364,13 @@ export async function getSource(sourceId: string): Promise<ReadResult<SourceDef 
 /**
  * Owner address.
  *
- * REMOVED: there is no `get_owner` on either deployed contract, so this cannot
- * return a chain value. It reports the configured owner instead and says so via
- * the origin, rather than returning a snapshot address as though it were read.
- * Callers that gate a write on ownership should compare against
- * `DEPLOYER_ADDRESS` directly.
+ * DERIVED: neither deployed contract exposes `get_owner`, so there is no chain
+ * read to make. This returns the configured deployer from `DEPLOYER_ADDRESS` —
+ * the address that actually performed both deploys and is the only account that
+ * may call the owner-only writes. Callers gate writes on it directly.
  */
 export async function getOwner(): Promise<ReadResult<string | undefined>> {
-  return { data: SNAPSHOT.owner, origin: "snapshot" };
+  return { data: DEPLOYER_ADDRESS, origin: "live" };
 }
 
 /**
@@ -436,7 +384,6 @@ export async function getPolicyCount(): Promise<ReadResult<number | undefined>> 
   return {
     data: (list.data ?? []).length,
     origin: list.origin,
-    capturedAt: list.capturedAt,
     liveError: list.liveError,
   };
 }
@@ -460,7 +407,6 @@ export async function findClaim(
   return {
     data: match?.id ?? "",
     origin: list.origin,
-    capturedAt: list.capturedAt,
     liveError: list.liveError,
   };
 }
@@ -468,48 +414,57 @@ export async function findClaim(
 /** Can this deployment produce a claim decision at all? See `record_evaluation`. */
 export const EVALUATION_IS_OWNER_MEDIATED = true;
 
-/* --- snapshot seeds ------------------------------------------------------
- * These let a page paint real recorded data on the first frame instead of
- * showing a skeleton for the ten seconds the rate-limited round trip takes.
- * They are the same values readWithFallback would use anyway, so nothing is
- * invented and the live read replaces them as soon as it lands.
+/* --- the decision engine ------------------------------------------------
+ * `compute_evaluation` is the NEW method on ClimatePolicy in this deployment and
+ * the reason the decision is derived rather than asserted. It is a pure function
+ * of (frozen policy JSON, evidence rows) with no storage reads and no clock, so
+ * anyone can call it and get the same answer the contract would reach.
  *
- * They come from the v1 deployment recorded in onchain-snapshot.json, NOT from
- * the current Bradbury contracts. Pages that show them must name that contract
- * (see SNAPSHOT_CONTRACT in services/rpc.ts) and must not imply they are live.
+ * It does NOT fetch weather data. Evidence rows are supplied by the caller, so
+ * their provenance is not provable on chain and nothing here may imply it is.
  * ---------------------------------------------------------------------- */
 
-export function snapshotClaims(): Claim[] {
-  return Object.values(SNAPSHOT.claims)
-    .map((c) => c.claim as Claim)
-    .filter(Boolean)
-    .sort((a, b) => Number(a.id.split("-")[1]) - Number(b.id.split("-")[1]));
+export interface EngineResult {
+  decision: Decision | "inconclusive";
+  reason_code: string;
+  observed_value_scaled: number;
+  sources_used: string[];
+  sources_missing: string[];
+  criteria_version: string;
+  checks: { name: string; status: string }[];
+  sources: {
+    source_id: string;
+    ok: boolean;
+    days_covered: number;
+    value_scaled: number;
+    crossed: boolean;
+  }[];
 }
 
-export function snapshotClaimBundle(claimId: string): ClaimBundle | undefined {
-  const entry = SNAPSHOT.claims[claimId];
-  if (!entry) return undefined;
-  const claim = entry.claim as Claim;
-  const policy = (SNAPSHOT.policies as Policy[]).find((p) => p.id === claim.policy_id);
-  return {
-    claim,
-    policy: policy as Policy,
-    evidence: (entry.evidence ?? []) as EvidenceRecord[],
-    checks: (entry.checks ?? []) as CheckResult[],
-    disputes: (entry.disputes ?? []) as Dispute[],
-    settlement: settlementFor(entry.settlement as never),
-  };
+/** One evidence row as the engine expects it. */
+export interface EngineRow {
+  source_id: string;
+  ok: boolean;
+  days_covered: number;
+  value_scaled: number;
 }
 
-export function snapshotSources(): SourceDef[] {
-  return (SNAPSHOT.sources as SourceDef[]) ?? [];
-}
-
-export function snapshotPolicies(): Policy[] {
-  return (SNAPSHOT.policies as Policy[]) ?? [];
-}
-
-/** Snapshot seed for the owner read. */
-export function snapshotOwner(): string {
-  return SNAPSHOT.owner;
+/**
+ * Run the deployed policy contract's own decision engine over evidence rows.
+ *
+ * Used by the demo to show what this contract decides about a given recorded
+ * response, and by the claim workflow to preview a decision before it is
+ * recorded. Returns `data: undefined` on failure rather than a guess.
+ */
+export async function computeEvaluation(
+  policyJson: string,
+  rows: EngineRow[],
+  daysExpected: number,
+): Promise<ReadResult<EngineResult | undefined>> {
+  const result = await readLive<EngineResult>(METHODS.compute_evaluation, [
+    policyJson,
+    JSON.stringify(rows),
+    daysExpected,
+  ]);
+  return result;
 }

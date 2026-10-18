@@ -1,5 +1,3 @@
-[genlayer-js] initializeConsensusSmartContract() is deprecated and will be removed in a future release. The consensus contract is now resolved from the static chain definition.
-- Getting schema for contract at 0xa2D82Db4ddC567199113962BFd477f069510331D...
 
 Result:
 {
@@ -110,4 +108,3 @@ Result:
   }
 }
 
-✔ Contract schema retrieved successfully

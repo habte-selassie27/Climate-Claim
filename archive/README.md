@@ -17,7 +17,7 @@ engine, which is the part that makes GenLayer necessary.
 ## What is deployed instead
 
 `contracts/Climate-Policy.py` (260 lines, 7 methods) and
-`contracts/Climate-Claim-Small.py` (427 lines, 16 methods), both on GenLayer
+`contracts/Climate-Claim.py` (427 lines, 16 methods), both on GenLayer
 Bradbury. Details and addresses: [`contracts/README.md`](../contracts/README.md)
 and [`docs/deployment-bradbury-2026-10-18.md`](../docs/deployment-bradbury-2026-10-18.md).
 

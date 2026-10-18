@@ -3,7 +3,7 @@
 > **Documents the ARCHIVED design, not the deployment.** This describes
 > `archive/climateclaim.py`, the pre-split single contract. That contract is
 > **not deployed**: what is on chain is `contracts/Climate-Policy.py` and
-> `contracts/Climate-Claim-Small.py`, which do no evaluation and produce no
+> `contracts/Climate-Claim.py`, which do no evaluation and produce no
 > checks. See [`archive/README.md`](../archive/README.md) and
 > [`contracts/README.md`](../contracts/README.md).
 

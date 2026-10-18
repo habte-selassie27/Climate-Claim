@@ -2,14 +2,6 @@ import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useRead } from "../hooks/useRead";
 import { useWallet } from "../hooks/useWallet";
-import {
-  getClaimBundle,
-  listPolicies,
-  listSources,
-  snapshotClaimBundle,
-  snapshotPolicies,
-  snapshotSources,
-} from "../services/claimService";
 import { runWrite } from "../services/evaluationService";
 import { IDLE, type TxState } from "../services/txStatus";
 import { AuditPanel } from "../components/AuditPanel";
@@ -24,6 +16,7 @@ import { TxStatusPanel } from "../components/TxStatusPanel";
 import { DEMO_SCENARIOS } from "../fixtures/demoScenarios";
 import { policySentence } from "../domain/copy";
 import { buildAuditRecord, downloadAuditRecord } from "../domain/auditExport";
+import { getClaimBundle, listPolicies, listSources } from "../services/claimService";
 import { activeNetwork } from "../config/network";
 import { CONTRACT_ADDRESS, DEPLOYER_ADDRESS } from "../config/contracts";
 import type { SourceDef } from "../domain/types";
@@ -34,7 +27,7 @@ const net = activeNetwork();
 /**
  * Maximum dispute grounds length. Mirrors the contract's
  * `_require_text(grounds, "grounds", 500)` in `open_dispute`
- * (contracts/Climate-Claim-Small.py:232). Value, not behaviour: the contract
+ * (contracts/Climate-Claim.py:232). Value, not behaviour: the contract
  * re-checks it.
  *
  * This was 300, copied from the archived contract's limit. The deployed one
@@ -88,7 +81,7 @@ const EVALUATION_NOTE =
   "is owner-only and takes the decision, reason, summary and evidence as " +
   "arguments, then stores them unverified. The earlier single-contract design " +
   "fetched the sources and evaluated them on chain; that code is in " +
-  "contracts/Climate-Claim-Small.py's predecessor but is not in this deployment, " +
+  "contracts/Climate-Claim.py's predecessor but is not in this deployment, " +
   "so there is no button here to start it.";
 
 /**
@@ -111,16 +104,12 @@ export function ClaimDetail() {
   const [grounds, setGrounds] = useState("");
   const [groundsError, setGroundsError] = useState("");
 
-  // Seeded from the captured snapshot: paints real recorded data immediately,
-  // then transparently upgrades to live chain reads (which are rate limited to
-  // 30 requests/minute, so several reads legitimately take seconds).
-  const bundle = useRead(() => getClaimBundle(id), [id], snapshotClaimBundle(id));
-  const sources = useRead(() => listSources(), [], snapshotSources());
-  const policies = useRead(() => listPolicies(), [], snapshotPolicies());
-
-  // The daily series behind the chart comes from the recorded fixture for the
-  // same source and period, and is labelled as display detail.
-  const scenario = DEMO_SCENARIOS.find((s) => s.onChainClaimId === id);
+  // No seed: reads are live-only now. The bundle is several sequential reads
+  // (rate-limited), so the page shows a skeleton until they land, and an error
+  // state if they do not.
+  const bundle = useRead(() => getClaimBundle(id), [id]);
+  const sources = useRead(() => listSources(), []);
+  const policies = useRead(() => listPolicies(), []);
 
   const doWrite = useCallback(
     async (kind: WriteKind, args: unknown[]) => {
@@ -206,6 +195,13 @@ export function ClaimDetail() {
   }
 
   const { claim, policy, evidence, checks, disputes, settlement } = value;
+
+  // The daily series behind the chart comes from a recorded fixture for the same
+  // source and period, and is labelled as display detail. Matched by period rather
+  // than by claim id, because the recorded replays are not claims on this chain.
+  const scenario = DEMO_SCENARIOS.find(
+    (sc) => sc.period.start === claim.period_start && sc.period.end === claim.period_end,
+  );
   const hasWallet = typeof window !== "undefined" && "ethereum" in window;
   const decided = Boolean(claim.decision);
   // Emitting the payout is gated on a *finalized* decision; it is not the same
@@ -234,11 +230,10 @@ export function ClaimDetail() {
           <h1 style={{ margin: 0 }}>Claim {claim.id}</h1>
           <DataModeBadge
             mode={policy.data_mode}
-            origin={bundle.origin === "snapshot" ? "recorded" : bundle.origin}
+            origin={bundle.origin}
           />
           <OriginBadge
             mode={bundle.origin}
-            capturedAt={bundle.capturedAt}
             liveError={bundle.liveError}
             pending={bundle.refreshing}
             networkLabel={net.label}
@@ -570,7 +565,6 @@ export function ClaimDetail() {
                     downloadAuditRecord(
                       buildAuditRecord(value, {
                         origin: bundle.origin,
-                        capturedAt: bundle.capturedAt,
                         liveError: bundle.liveError,
                         contractAddress: CONTRACT_ADDRESS,
                         networkLabel: net.label,
@@ -619,7 +613,7 @@ export function ClaimDetail() {
 
       <p className="small muted">
         Policy <Link to={`/policies/${policy.id}`}>{policy.id}</Link> ·{" "}
-        {policies.origin === "snapshot" ? "policy data from recorded snapshot" : "policy data read live"}
+        {policies.origin === "live" ? "policy data read live" : "policy data unavailable"}
       </p>
     </div>
   );

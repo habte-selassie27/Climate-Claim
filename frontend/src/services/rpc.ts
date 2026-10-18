@@ -1,53 +1,45 @@
 /**
- * Read path: live StudioNet reads with a committed-snapshot fallback.
+ * Read path: live reads against the deployed contracts, with no recorded-data
+ * fallback.
  *
- * Every read goes through `readWithFallback`, which:
- *  1. throttles to stay under the public RPC's hard limit of 30 requests/minute
- *     (observed: error -32029, with a `retry_after_seconds` hint),
+ * An earlier version of this file fell back to a committed snapshot
+ * (src/data/onchain-snapshot.json) whenever the RPC failed. That snapshot held
+ * 6 policies and 5 claims read from a contract that is no longer deployed
+ * (0xE16032420e3155C0822e9150a98c6B1163869F0c on StudioNet), so a transient RPC
+ * failure silently rendered another deployment's records as if they were current.
+ *
+ * That fallback is gone, deliberately. An empty state is correct when the chain
+ * cannot be reached; a fabricated list is not. The snapshot file has been deleted
+ * rather than repointed, because there is nothing honest to repoint it to.
+ *
+ * Every read goes through `liveRead`, which:
+ *  1. throttles to stay under the public RPC's observed ceiling,
  *  2. retries once on a rate-limit response,
  *  3. de-duplicates in-flight requests for the same key,
- *  4. falls back to src/data/onchain-snapshot.json if the RPC is unreachable,
- *  5. records WHICH source produced the data, so the UI can label it honestly.
- *
- * The UI must never claim data is live when it came from the snapshot, and never
- * claim a snapshot is live.
+ *  4. propagates failures, so the caller can show an error instead of old data.
  */
 
 import { getClient } from "./client";
 import { addressFor } from "../config/contracts";
-import snapshotData from "../data/onchain-snapshot.json";
 
 /**
  * Where a value came from.
  *
  * - "live": read from the chain this session.
- * - "snapshot": the committed recording (src/data/onchain-snapshot.json).
- * - "mixed": a composite (e.g. the claim bundle) where SOME reads were live
- *   and others fell back to the snapshot. Labelling a partially-live object
- *   simply "live" would overstate it, so composites use "mixed".
+ * - "error": the read failed and no data is shown.
+ *
+ * There is no longer a "snapshot" origin, because there is no longer a snapshot.
  */
-export type DataOrigin = "live" | "snapshot" | "mixed";
+export type DataOrigin = "live" | "error";
 
 export interface ReadResult<T> {
   data: T;
   origin: DataOrigin;
-  /** When the snapshot was captured on-chain. Undefined for live reads. */
-  capturedAt?: string;
-  /** Set when the live read failed and we fell back. */
+  /** Set when the live read failed. Undefined on success. */
   liveError?: string;
 }
 
-export const SNAPSHOT_CAPTURED_AT = (snapshotData as { capturedAt: string }).capturedAt;
-/**
- * The contract the recorded snapshot was actually read from.
- *
- * NOT the same as the configured CONTRACT_ADDRESS. The snapshot predates the
- * current deployment, so any page that says "this data is on chain" must name
- * this one. Printing the configured address instead asserts that the data
- * lives on a contract that has never held it.
- */
-export const SNAPSHOT_CONTRACT = (snapshotData as { contract: string }).contract;
-export const SNAPSHOT = snapshotData as unknown as SnapshotShape;
+/** No snapshot exists, so there is no captured-at date or source contract to name. */
 
 /**
  * Minimum spacing between reads, in ms.
@@ -59,23 +51,23 @@ export const SNAPSHOT = snapshotData as unknown as SnapshotShape;
  * real ceiling, so a single browse session could exhaust the bucket for
  * everyone behind the same address and lock out the writes that need it.
  *
- * Verified against the live endpoint 2026-10-17:
+ * Verified against the live StudioNet endpoint 2026-10-17:
  *   {"bucket":"standard","window":"hour","limit":500,"current":500}
  *
- * MEASURED ON STUDIONET. The active deployment now lives on Bradbury, whose
+ * MEASURED ON STUDIONET. The active deployment lives on Bradbury, whose
  * heavy-method ceiling has not been measured -- plain JSON-RPC there (e.g.
  * `eth_chainId`) is unmetered, but contract calls are not. The budget is kept
  * unchanged rather than loosened, because loosening it would be a guess in the
  * unsafe direction: if Bradbury meters as StudioNet does, a faster pace would
  * spend the bucket that writes also need.
  */
-const STUDIONET_READS_PER_HOUR = 500;
+const OBSERVED_READS_PER_HOUR = 500;
 /**
  * Deliberately slower than the ceiling (8.3/min). Headroom absorbs the retry
  * that `liveRead` performs after a 429, so a throttled read plus its retry
- * cannot cross the line. Raising this trades page latency for headroom; the
- * snapshot seeding in `useRead` means the page is already showing recorded data
- * while these queue up.
+ * cannot cross the line. Raising this trades page latency for headroom, and with
+ * no snapshot to paint immediately a slow page is a visibly empty one, so the
+ * budget is left conservative.
  */
 const READS_PER_MINUTE_BUDGET = 6;
 const MIN_INTERVAL_MS = Math.ceil(60_000 / READS_PER_MINUTE_BUDGET);
@@ -98,13 +90,13 @@ export function assertReadBudgetSafe(
     throw new Error(
       `read budget is above the endpoint's ceiling: ${intervalMs}ms is faster than ` +
         `the ${Math.ceil(ceilingMs)}ms the endpoint allows ` +
-        `(${STUDIONET_READS_PER_HOUR} reads/hour)`,
+        `(${OBSERVED_READS_PER_HOUR} reads/hour)`,
     );
   }
 }
 
 /** Fastest spacing the observed limit permits: one read per this many ms. */
-export const READ_CEILING_MS = 60_000 / (STUDIONET_READS_PER_HOUR / 60);
+export const READ_CEILING_MS = 60_000 / (OBSERVED_READS_PER_HOUR / 60);
 
 assertReadBudgetSafe(MIN_INTERVAL_MS, READ_CEILING_MS);
 let lastRequestAt = 0;
@@ -173,47 +165,34 @@ export async function liveRead(functionName: string, args?: unknown[]): Promise<
   }
 }
 
-export interface SnapshotShape {
-  capturedAt: string;
-  network: string;
-  contract: string;
-  explorerNote: string;
-  owner: string;
-  criteriaVersion: string;
-  policyCount: number;
-  claimCount: number;
-  sources: unknown[];
-  policies: unknown[];
-  claims: Record<
-    string,
-    {
-      claim: unknown;
-      evidence: unknown[];
-      checks: unknown[];
-      disputes: unknown[];
-      settlement: unknown;
-    }
-  >;
-}
-
 /**
- * Read from the chain, falling back to the snapshot. `snapshotValue` is the
- * already-extracted fallback for this exact read.
+ * Read from the chain, recording which source produced the value.
+ *
+ * On failure this returns `{ data: undefined, origin: "error" }` with the error
+ * message, rather than substituting recorded data. Callers render the empty or
+ * error state from that.
  */
-export async function readWithFallback<T>(
-  functionName: string,
-  snapshotValue: T | undefined,
-  args?: unknown[],
-): Promise<ReadResult<T | undefined>> {
+export async function readLive<T>(functionName: string, args?: unknown[]): Promise<ReadResult<T | undefined>> {
   try {
     const data = (await liveRead(functionName, args)) as T;
     return { data, origin: "live" };
   } catch (err) {
     return {
-      data: snapshotValue,
-      origin: "snapshot",
-      capturedAt: SNAPSHOT_CAPTURED_AT,
+      data: undefined,
+      origin: "error",
       liveError: err instanceof Error ? err.message : String(err),
     };
   }
+}
+
+/**
+ * @deprecated Kept as an alias so a caller that still says `readWithFallback`
+ * fails loudly rather than silently reintroducing a fallback path.
+ */
+export async function readWithFallback<T>(
+  functionName: string,
+  _unused: T | undefined,
+  args?: unknown[],
+): Promise<ReadResult<T | undefined>> {
+  return readLive<T>(functionName, args);
 }

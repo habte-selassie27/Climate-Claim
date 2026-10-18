@@ -7,8 +7,6 @@ import {
   getOwner,
   getPolicyCount,
   listSources,
-  snapshotOwner,
-  snapshotSources,
 } from "../services/claimService";
 import { runWrite } from "../services/evaluationService";
 import { IDLE, type TxState } from "../services/txStatus";
@@ -176,8 +174,8 @@ export function PolicyNew() {
   const { t } = useI18n();
   const navigate = useNavigate();
   const wallet = useWallet();
-  const sourcesRead = useRead(() => listSources(), [], snapshotSources());
-  const ownerRead = useRead(() => getOwner(), [], snapshotOwner());
+  const sourcesRead = useRead(() => listSources(), []);
+  const ownerRead = useRead(() => getOwner(), []);
   // The draft is read exactly once, in a lazy initialiser, and shared by the
   // state that needs it (see domain/draftStore). `restored` is frozen at mount
   // so the notice does not flicker as the form is edited.
@@ -371,8 +369,8 @@ export function PolicyNew() {
     });
     if (result.phase === "accepted" || result.phase === "finalized") {
       // Policy ids are sequential (policy-{count}); resolve the real id from a
-      // live read and only link directly when that read is genuinely live, so
-      // a snapshot fallback can never point at the wrong policy.
+      // live read and only link directly when that read genuinely succeeded, so a
+      // failed read can never point at the wrong policy.
       try {
         const count = await getPolicyCount();
         if (count.origin === "live" && count.data !== undefined) {
@@ -656,7 +654,6 @@ export function PolicyNew() {
                   before a write). */}
               <OriginBadge
                 mode={sourcesRead.origin}
-                capturedAt={sourcesRead.capturedAt}
                 liveError={sourcesRead.liveError}
                 pending={sourcesRead.refreshing}
                 networkLabel={net.label}
@@ -706,7 +703,7 @@ export function PolicyNew() {
                 ))
               )}
             </div>
-            {sourcesRead.origin === "snapshot" ? (
+            {sourcesRead.origin === "error" ? (
               <p className="small muted" style={{ margin: 0 }} data-testid="sources-recorded">
                 {t("policyNew.sources.recorded", {
                   error: sourcesRead.liveError ?? t("common.unknown"),

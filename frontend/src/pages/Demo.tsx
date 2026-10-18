@@ -2,344 +2,298 @@ import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { DEMO_SCENARIOS, type DemoScenario } from "../fixtures/demoScenarios";
 import { useRead } from "../hooks/useRead";
-import { getClaimBundle, snapshotClaimBundle } from "../services/claimService";
+import { getClaimBundle, listClaims, computeEvaluation, type EngineResult } from "../services/claimService";
 import { CheckList } from "../components/CheckList";
-import { DataModeBadge } from "../components/DataModeBadge";
-import { DecisionPanel } from "../components/DecisionPanel";
-import { DeterministicContrast } from "../components/DeterministicContrast";
-import { EvidenceChart } from "../components/EvidenceChart";
+import { EvidenceTable } from "../components/EvidenceTable";
 import { OriginBadge } from "../components/OriginBadge";
-import { SourceComparison } from "../components/SourceComparison";
-import { mapError, policySentence } from "../domain/copy";
-import { CONTRACT_ADDRESS } from "../config/contracts";
+import { mapError } from "../domain/copy";
+import { CONTRACT_ADDRESS, POLICY_ADDRESS } from "../config/contracts";
 import { activeNetwork } from "../config/network";
-import type { Claim, Policy } from "../domain/types";
+import type { Claim } from "../domain/types";
 import { useI18n } from "../i18n/I18nProvider";
 
 const net = activeNetwork();
 
 /**
- * Demo mode (UI.md section 8).
+ * Demo.
  *
- * Honest labelling is the whole point of this page:
- *  - a scenario marked "on-chain" links to a real transaction on the deployed
- *    contract, and its decision, checks and evidence are read from the chain;
- *  - a scenario marked "replay" shows recorded source data with an outcome
- *    derived by running the contract's own evaluation rules, and is never
- *    presented as a transaction.
+ * Two clearly separated things, never mixed:
+ *
+ * 1. LIVE CLAIMS. Read from the deployed ClimateClaim contract. Every claim that
+ *    exists on this deployment is listed and selectable, with a Create Claim
+ *    action when there are none. Nothing here is hardcoded — the list comes from
+ *    `list_claims` and an empty chain shows an empty state.
+ *
+ *    The previous version of this page defaulted to a hardcoded `claim-2` from a
+ *    contract that is no longer deployed. That link asserted this deployment held
+ *    a claim it never did.
+ *
+ * 2. RECORDED REPLAYS. Each scenario replays a real recorded response from a
+ *    documented endpoint through the DEPLOYED policy contract's own
+ *    `compute_evaluation`, so the outcome shown is what this contract decides
+ *    about that evidence — not a stored answer and not a transaction. This is a
+ *    replay and is labelled as one throughout.
  */
 export function Demo() {
   const { t } = useI18n();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const requested = searchParams.get("scenario");
-  const scenario = useMemo(() => {
-    if (requested) {
-      const match = DEMO_SCENARIOS.find((s) => s.id === requested);
-      if (match) return match;
-    }
-    return DEMO_SCENARIOS[0];
-  }, [requested]);
+  const [params, setParams] = useSearchParams();
+  const selectedClaim = params.get("claim") ?? "";
+  const scenarioId = params.get("scenario") ?? "";
+  const claims = useRead(() => listClaims(), []);
+  const rows = (claims.data ?? []) as Claim[];
 
-  const isOnChain = scenario.provenance === "on_chain" && Boolean(scenario.onChainClaimId);
-
-  /**
-   * For an on-chain scenario the decision, checks and evidence are read from the
-   * deployed contract, not reconstructed locally. A replay scenario has no
-   * chain claim, so its outcome comes from the scenario definition and is
-   * labelled as such.
-   */
-  const bundle = useRead(
-    () => (isOnChain && scenario.onChainClaimId ? getClaimBundle(scenario.onChainClaimId) : Promise.resolve({ data: undefined, origin: "snapshot" as const })),
-    [scenario.id],
-    isOnChain && scenario.onChainClaimId ? snapshotClaimBundle(scenario.onChainClaimId) : undefined,
+  const active: Claim | undefined =
+    rows.find((c) => c.id === selectedClaim) ?? rows[0] ?? undefined;
+  const detail = useRead(
+    () => (active ? getClaimBundle(active.id) : Promise.resolve({ data: undefined, origin: "error" as const })),
+    [active?.id ?? ""],
   );
 
-  const real = isOnChain ? bundle.data : undefined;
+  const scenario = useMemo(
+    () => DEMO_SCENARIOS.find((s) => s.id === scenarioId) ?? DEMO_SCENARIOS[0],
+    [scenarioId],
+  );
+
+  const setClaim = (id: string) => setParams({ claim: id }, { replace: true });
+  const setScenario = (id: string) => setParams({ scenario: id }, { replace: true });
 
   return (
     <div className="stack">
       <header>
-        <h1>{t("demo.h1")}</h1>
+        <h1>{t("nav.demo")}</h1>
         <p className="lede">
-          {t("demo.lede")}
+          Live claims read from <span className="mono">{CONTRACT_ADDRESS}</span> on {net.label}, and
+          recorded replays run through the decision engine on{" "}
+          <span className="mono">{POLICY_ADDRESS}</span>.
         </p>
+        <OriginBadge
+          mode={claims.origin}
+          liveError={claims.liveError}
+          pending={claims.refreshing}
+          networkLabel={net.label}
+          onRefresh={claims.refresh}
+          readCost={1}
+        />
       </header>
 
-      <div className="claim-grid">
-        <div className="stack">
-          <section aria-labelledby="scenario-title">
-            <div className="panel-head">
-              <h2 id="scenario-title">{scenario.title}</h2>
-              <span
-                className={`provenance ${isOnChain ? "provenance-live" : "provenance-replay"}`}
-                data-testid="provenance-badge"
-              >
-                {isOnChain ? "real on-chain claim" : "replay of recorded data"}
-              </span>
-            </div>
+      {/* --- 1. live claims ------------------------------------------------- */}
+      <section className="panel" data-testid="demo-live-claims">
+        <div className="panel-head">
+          <h2>Claims on {net.label}</h2>
+          <Link className="btn btn-secondary" to="/claims/new">
+            Create claim
+          </Link>
+        </div>
 
-            <p className="small muted" data-testid="scenario-tests">
-              <strong>{t("demo.whatItTests")}</strong> {scenario.whatThisTests}
-            </p>
-
-            <div className="tag-row" style={{ marginBottom: "var(--space-3)" }}>
-              <DataModeBadge mode={scenario.policy.data_mode} />
-              {isOnChain && real ? (
-                <>
-                  <OriginBadge
-                    mode={bundle.origin}
-                    capturedAt={bundle.capturedAt}
-                    liveError={bundle.liveError}
-                    pending={bundle.refreshing}
-                    networkLabel={net.label}
-                    onRefresh={bundle.refresh}
-                    readCost={6}
-                  />
-                  <Link className="badge" to={`/claims/${scenario.onChainClaimId}`}>
-                    Open {scenario.onChainClaimId} on the network
-                  </Link>
-                </>
-              ) : (
-                <span className="badge badge-origin">no transaction — replay only</span>
-              )}
-            </div>
-
-            <p className="small" data-testid="scenario-policy">
-              {policySentence({
-                location_name: scenario.locationName,
-                comparator: scenario.policy.comparator,
-                threshold_scaled: scenario.policy.threshold_scaled,
-                unit: scenario.policy.unit,
-                aggregation: scenario.policy.aggregation,
-                period_start: scenario.period.start,
-                period_end: scenario.period.end,
-                source_ids: scenario.policy.source_ids,
-              })}
-            </p>
-
-            {scenario.notes ? (
-              <div className="alert alert-info">
-                <p className="small" style={{ margin: 0 }}>
-                  {scenario.notes}
-                </p>
-              </div>
+        {claims.loading ? (
+          <div className="skeleton" style={{ height: 64 }} />
+        ) : claims.origin === "error" ? (
+          <div className="empty">
+            <p>{t("claims.empty")}</p>
+            {claims.liveError ? (
+              <p className="small mono">{t("origin.unreachable", { error: claims.liveError })}</p>
             ) : null}
-
-            {scenario.contractError ? (
-              <div className="alert alert-error" style={{ marginTop: "var(--space-3)" }}>
-                <strong>{t("demo.rejected")}</strong>
-                <p>{mapError(scenario.contractError).message}</p>
-                <p className="small muted">
-                  The contract returns the stable string{" "}
-                  <code>{scenario.contractError}</code> and no claim is created.
-                </p>
-              </div>
-            ) : null}
-          </section>
-
-          <div className="panel">
-            <EvidenceChart
-              series={scenario.series}
-              period={scenario.period}
-              thresholdScaled={scenario.policy.threshold_scaled}
-              comparator={scenario.policy.comparator}
-              unit={scenario.policy.unit}
-              caption="Readings are the recorded response from the documented endpoint for this location and period. Missing days are drawn as hatched gaps and are never estimated."
-            />
           </div>
-
-          {/* Item 8: with two or more sources, the per-day comparison table
-              sits directly beside the chart. It draws the same recorded series
-              and names the disagreement days explicitly. */}
-          {scenario.series.length >= 2 ? (
-            <div className="panel">
-              <SourceComparison
-                series={scenario.series}
-                period={scenario.period}
-                thresholdScaled={scenario.policy.threshold_scaled}
-                comparator={scenario.policy.comparator}
-                unit={scenario.policy.unit}
-              />
-            </div>
-          ) : null}
-
-          {/* Item 9: when the recorded answer is inconclusive because the
-              sources genuinely split, show what a deterministic chain would
-              have had to say. Renders nothing for scenarios without a split. */}
-          <DeterministicContrast scenario={scenario} />
-
-          <div className="panel">
-            <div className="panel-head">
-              <h3>{t("demo.decision")}</h3>
-              {isOnChain && real ? (
-                <span className="badge badge-live">
-                  <span aria-hidden="true">◉</span> {t("demo.badgeLive", { id: real.claim.id })}
-                </span>
-              ) : (
-                <span className="badge badge-origin">{t("demo.badgeReplay")}</span>
-              )}
+        ) : rows.length === 0 ? (
+          <div className="empty" data-testid="demo-no-claims">
+            <p>{t("claims.empty")}</p>
+            <p className="small">
+              This deployment has no claims yet.{" "}
+              <Link to="/claims/new">Create claim</Link> to open one against a policy.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="filter-grid" style={{ marginBottom: "var(--space-3)" }}>
+              <div className="field">
+                <label htmlFor="demo-claim">Claim</label>
+                <select
+                  id="demo-claim"
+                  value={active?.id ?? ""}
+                  onChange={(e) => setClaim(e.target.value)}
+                >
+                  {rows.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.id} — {c.policy_id} — {c.decision || "not evaluated"}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            {scenario.contractError ? (
-              <div className="empty" data-testid="scenario-no-decision">
-                {t("demo.rejectedBody")}
+            {detail.data ? (
+              <div className="stack">
+                <p className="small">
+                  <Link to={`/claims/${detail.data.claim.id}`}>
+                    Open {detail.data.claim.id} in full
+                  </Link>
+                </p>
+                <div className="stack">
+                  <div className="tag-row">
+                    <span className="mono">{detail.data.claim.id}</span>
+                    <span className="finality-chip finality-accepted">
+                      {detail.data.claim.state}
+                    </span>
+                    <span className="finality-chip">
+                      {detail.data.claim.decision || "not evaluated"}
+                    </span>
+                  </div>
+                  {detail.data.claim.summary ? (
+                    <p className="lede">{detail.data.claim.summary}</p>
+                  ) : null}
+                  <CheckList checks={detail.data.checks} />
+                  <EvidenceTable evidence={detail.data.evidence} sources={[]} />
+                </div>
               </div>
             ) : (
-              <DecisionPanel
-                claim={real ? real.claim : buildReplayClaim(scenario)}
-                policy={real ? real.policy : buildReplayPolicy(scenario)}
-                txPhase="idle"
-              />
+              <p className="small muted">Loading claim detail…</p>
             )}
+          </>
+        )}
+      </section>
 
-            {real && real.checks.length > 0 ? (
-              <div style={{ marginTop: "var(--space-4)" }}>
-                <div className="panel-head">
-                  <h4>{t("demo.checks")}</h4>
-                  <span className="badge">{real.checks.length} checks</span>
-                </div>
-                <CheckList checks={real.checks} />
-              </div>
-            ) : null}
-          </div>
+      {/* --- 2. recorded replays -------------------------------------------- */}
+      <section className="panel" data-testid="demo-replays">
+        <div className="panel-head">
+          <h2>Recorded replays</h2>
+          <span className="badge badge-sim">Not transactions</span>
         </div>
+        <p className="small muted">
+          Real recorded responses from a documented endpoint, replayed through the deployed policy
+          contract&rsquo;s own <span className="mono">compute_evaluation</span>. The outcome below is
+          what this contract decides about that evidence — nothing here is a claim, a decision that
+          was stored, or a transaction.
+        </p>
 
-        <div className="stack">
-          <div className="panel">
-            <div className="panel-head">
-              <h3>{t("demo.scenarios")}</h3>
-            </div>
-            <ul className="scenario-list">
+        <div className="filter-grid" style={{ marginBottom: "var(--space-3)" }}>
+          <div className="field">
+            <label htmlFor="demo-scenario">Scenario</label>
+            <select
+              id="demo-scenario"
+              value={scenario.id}
+              onChange={(e) => setScenario(e.target.value)}
+            >
               {DEMO_SCENARIOS.map((s) => (
-                <li key={s.id}>
-                  <button
-                    type="button"
-                    className="scenario-btn"
-                    aria-current={s.id === scenario.id}
-                    onClick={() =>
-                      setSearchParams((prev) => {
-                        // Keep every other parameter (notably ?lang=) so a
-                        // shared URL reproduces the scenario AND the language
-                        // it was read in.
-                        const next = new URLSearchParams(prev);
-                        next.set("scenario", s.id);
-                        return next;
-                      })
-                    }
-                  >
-                    <span className="scenario-title">
-                      {s.title}
-                      {s.provenance === "on_chain" ? (
-                        <span className="provenance provenance-live">on-chain</span>
-                      ) : (
-                        <span className="provenance provenance-replay">replay</span>
-                      )}
-                    </span>
-                    <p className="scenario-tests">{s.whatThisTests}</p>
-                  </button>
-                </li>
+                <option key={s.id} value={s.id}>
+                  {s.title}
+                </option>
               ))}
-            </ul>
-          </div>
-
-          <div className="panel">
-            <div className="panel-head">
-              <h3>{t("demo.howToRead")}</h3>
-            </div>
-            <p className="small">
-              <span className="provenance provenance-live">
-                {t("demo.provenance.onChain")}
-              </span>{" "}
-              {t("demo.provenance.onChainBody", { address: CONTRACT_ADDRESS })}
-            </p>
-            <p className="small">
-              <span className="provenance provenance-replay">
-                {t("demo.provenance.replay")}
-              </span>{" "}
-              {t("demo.provenance.replayBody")}
-            </p>
-            <p className="small muted">
-              {t("demo.pinnedBy")} {" "}
-              <span className="mono" style={{ overflowWrap: "anywhere" }}>
-                {scenario.verifyingTest}
-              </span>
-            </p>
-          </div>
-
-          <div className="panel">
-            <h3>{t("demo.whereNumbers")}</h3>
-            <p className="small muted">
-              {t("demo.fixtures")}
-            </p>
-            <p className="small muted">
-              {t("demo.network", { network: net.label, id: net.chainId })} {" "}
-              {net.explorerAvailable
-                ? t("demo.explorerLive")
-                : "The StudioNet explorer is currently paused, so transaction links are shown disabled rather than as dead links."}
-            </p>
+            </select>
           </div>
         </div>
-      </div>
+
+        <p className="small">{scenario.whatThisTests}</p>
+        <ReplayOutcome scenario={scenario} />
+      </section>
     </div>
   );
 }
 
 /**
- * A replay scenario has no on-chain claim, so the decision panel is fed a
- * locally-assembled Claim/Policy pair derived from the scenario definition.
- * It is never presented as chain data.
+ * Run one recorded scenario through the deployed engine.
+ *
+ * The scenario holds a daily series; the engine wants one row per source, so the
+ * daily values are reduced here the same way the policy's aggregation says. The
+ * engine then recomputes the crossing and the decision itself — this component
+ * never decides the outcome, it only supplies the evidence.
  */
-function buildReplayClaim(scenario: DemoScenario): Claim {
-  return {
-    id: "(replay)",
-    policy_id: "(replay)",
-    claimant: "",
-    state:
-      scenario.expected.decision === "confirmed"
-        ? "decided_confirmed"
-        : scenario.expected.decision === "not_confirmed"
-          ? "decided_not_confirmed"
-          : "inconclusive",
-    decision: scenario.expected.decision,
-    reason_code: scenario.expected.reason_code,
-    observed_value_scaled: scenario.expected.observed_value_scaled,
-    // A replay has no validator, so it must not borrow the "In the validator's
-    // words" framing. The plain-language reason above carries the meaning.
-    summary: "",
-    criteria_version: "climateclaim-criteria-1",
-    eval_round: scenario.id === "dispute-round" ? 1 : 0,
-    finalized: false,
-    settlement_state: "not_settled",
-    eval_error: "",
-  };
+function ReplayOutcome({ scenario }: { scenario: DemoScenario }) {
+  const { t } = useI18n();
+  const days = useMemo(() => {
+    const keys = Object.keys(scenario.series[0]?.daily ?? {}).sort();
+    return Math.max(1, keys.length);
+  }, [scenario]);
+
+  const rows = useMemo(
+    () =>
+      scenario.series.map((s) => {
+        const values = Object.values(s.daily).filter((v): v is number => typeof v === "number");
+        const agg =
+          scenario.policy.aggregation === "cumulative"
+            ? values.reduce((a, b) => a + b, 0)
+            : Math.max(...values, 0);
+        return {
+          source_id: s.sourceId,
+          ok: values.length > 0,
+          days_covered: values.length,
+          value_scaled: Math.round(agg * 100),
+        };
+      }),
+    [scenario],
+  );
+
+  const policyJson = useMemo(
+    () =>
+      JSON.stringify({
+        id: "replay",
+        comparator: scenario.policy.comparator,
+        threshold_scaled: scenario.policy.threshold_scaled,
+        aggregation: scenario.policy.aggregation,
+        agreement_rule: scenario.policy.agreement_rule,
+        min_sources: scenario.policy.min_sources,
+        source_ids: scenario.policy.source_ids,
+      }),
+    [scenario],
+  );
+
+  const engine = useRead(() => computeEvaluation(policyJson, rows, days), [policyJson]);
+
+  if (engine.loading) return <div className="skeleton" style={{ height: 90 }} />;
+  if (engine.origin === "error" || !engine.data) {
+    return (
+      <div className="empty">
+        <p>{t("claims.empty")}</p>
+        {engine.liveError ? (
+          <p className="small mono">{t("origin.unreachable", { error: mapError(engine.liveError).message })}</p>
+        ) : null}
+      </div>
+    );
+  }
+
+  return <EngineOutcome result={engine.data} />;
 }
 
-function buildReplayPolicy(scenario: DemoScenario): Policy {
-  return {
-    id: "(replay)",
-    owner: "",
-    beneficiary: "",
-    location_name: scenario.locationName,
-    lat_scaled: 0,
-    lon_scaled: 0,
-    tolerance_m: scenario.policy.tolerance_m,
-    source_ids: scenario.policy.source_ids,
-    agreement_rule: scenario.policy.agreement_rule,
-    min_sources: scenario.policy.min_sources,
-    data_mode: scenario.policy.data_mode,
-    period_start: scenario.period.start,
-    period_end: scenario.period.end,
-    timezone: scenario.period.timezone,
-    metric: "precipitation",
-    unit: scenario.policy.unit,
-    comparator: scenario.policy.comparator as Policy["comparator"],
-    threshold_scaled: scenario.policy.threshold_scaled,
-    aggregation: scenario.policy.aggregation as Policy["aggregation"],
-    condition_text: scenario.policy.condition_text,
-    payout_amount: 0,
-    status: "active",
-    claim_count: 0,
-  };
+function EngineOutcome({ result }: { result: EngineResult }) {
+  const tone =
+    result.decision === "confirmed"
+      ? "finality-final"
+      : result.decision === "not_confirmed"
+        ? "finality-pending"
+        : "finality-accepted";
+  return (
+    <div className="stack" data-testid="replay-outcome">
+      <div className="tag-row">
+        <span className={`finality-chip ${tone}`}>{result.decision}</span>
+        <span className="badge">{result.reason_code}</span>
+        <span className="badge">observed {result.observed_value_scaled / 100}</span>
+        <span className="badge">criteria {result.criteria_version}</span>
+      </div>
+      <p className="small muted">
+        Derived on chain by <span className="mono">compute_evaluation</span> from{" "}
+        {result.sources_used.length} source row(s)
+        {result.sources_missing.length
+          ? `, ${result.sources_missing.length} missing`
+          : ""}
+        . The engine recomputed each crossing from the raw values.
+      </p>
+      <ul className="stack" style={{ listStyle: "none", padding: 0, margin: 0 }}>
+        {result.checks.map((c) => (
+          <li key={c.name} className="check-row">
+            <span className="mono">{c.name}</span>
+            <span
+              className={
+                c.status === "pass"
+                  ? "finality-chip finality-final"
+                  : c.status === "fail"
+                    ? "finality-chip finality-pending"
+                    : "finality-chip finality-accepted"
+              }
+            >
+              {c.status}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
-
-export type { DemoScenario };

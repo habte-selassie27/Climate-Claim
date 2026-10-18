@@ -158,22 +158,18 @@ export const fr: Dictionary = {
   "data.reads": "lectures",
   "data.rateLimited": "Quota de lectures épuisé sur le point d'accès public — instantané enregistré affiché.",
   "data.liveFailed": "Échec de la lecture en direct — instantané enregistré affiché.",
-
-  "datamode.mixed": "· mixte",
+  "datamode.error": "Lecture échouée",
+  "datamode.errorTitle": "La chaîne n'a pas pu être lue, ce n'est donc pas confirmé sur la chaîne.",
   "datamode.recordedTitle": "Lu depuis un instantané capturé, pas depuis la chaîne en direct.",
-  "datamode.mixedTitle":
-    "Une partie a été lue en direct ; une autre provient de l’instantané capturé.",
 
   "origin.live": "En direct depuis {network}",
   "origin.liveTitle": "Lu en direct depuis {network}.",
-  "origin.mixed": "Mixte : direct et enregistré",
-  "origin.mixedTitle":
-    "Une partie a été lue en direct depuis {network} ; une autre provient de l’instantané capturé le {captured}.",
-  "origin.checking": "Instantané enregistré · vérification de {network}",
-  "origin.checkingTitle":
-    "Affichage de l’instantané capturé le {captured} pendant la lecture en direct.",
-  "origin.recorded": "Instantané enregistré",
-  "origin.recordedTitle": "Instantané enregistré sur la chaîne, capturé le {captured}.",
+  "origin.error": "Lecture échouée",
+  "origin.errorTitle": "Une lecture a échoué, rien n'est affiché. {network} est injoignable.",
+  "origin.checking": "Vérification de {network}",
+  "origin.checkingTitle": "Lecture depuis {network}.",
+  "origin.recorded": "Rejeu enregistré",
+  "origin.recordedTitle": "Rejeu enregistré d'une réponse de source documentée. Ce n'est pas une transaction.",
   "origin.recordedUnreachable": " (réseau injoignable)",
   "origin.unreachable": " Le réseau n’a pas pu être joint ({error}).",
   "origin.networkDefault": "le réseau",
@@ -408,6 +404,15 @@ export const fr: Dictionary = {
   "how.limits.l4down":
     "L’explorateur StudioNet est en pause : les liens de transaction sont affichés comme indisponibles plutôt que comme des liens morts.",
 
+  "claimNew.h1": "Créer une réclamation",
+  "claimNew.lede": "Les politiques sont lues en direct depuis {address} sur {network}. Choisissez-en une et ouvrez une réclamation.",
+  "claimNew.cantRead": "La liste des politiques n'a pas pu être lue",
+  "claimNew.noPolicies": "Il n'y a aucune politique active sur ce déploiement, rien contre quoi ouvrir une réclamation.",
+  "claimNew.createPolicy": "Créer une politique",
+  "claimNew.pickPolicy": "Politique",
+  "claimNew.count": "{shown} active(s) sur {total} politique(s).",
+  "claimNew.bridge.h": "Une nouvelle politique ne peut pas soutenir une réclamation avant d'être reliée",
+  "claimNew.bridge.body": "ClimateClaim ne connaît un identifiant de politique qu'après que le propriétaire l'a copiée via register_policy_snapshot, qui est réservé au propriétaire. Si une réclamation contre une politique toute nouvelle est rejetée avec « policy snapshot not registered », c'est pourquoi : la politique doit d'abord être reliée.",
   "claims.h1": "Réclamations",
   "claims.lede":
     "Toutes les réclamations ci-dessous existent sur le contrat déployé à {address} sur {network}.",

@@ -159,22 +159,18 @@ export const de: Dictionary = {
   "data.reads": "Reads",
   "data.rateLimited": "Read-Kontingent am öffentlichen Endpunkt aufgebraucht – aufgezeichneter Snapshot wird angezeigt.",
   "data.liveFailed": "Live-Read fehlgeschlagen – aufgezeichneter Snapshot wird angezeigt.",
-
-  "datamode.mixed": "· gemischt",
+  "datamode.error": "Lesen fehlgeschlagen",
+  "datamode.errorTitle": "Die Chain konnte nicht gelesen werden, daher nicht on-chain bestätigt.",
   "datamode.recordedTitle": "Aus einem erfassten Snapshot gelesen, nicht aus der Live-Chain.",
-  "datamode.mixedTitle":
-    "Ein Teil wurde live gelesen; ein Teil stammt aus dem erfassten Snapshot.",
 
   "origin.live": "Live von {network}",
   "origin.liveTitle": "Live von {network} gelesen.",
-  "origin.mixed": "Gemischt: live und aufgezeichnet",
-  "origin.mixedTitle":
-    "Ein Teil wurde live von {network} gelesen; ein Teil stammt aus dem am {captured} erfassten Snapshot.",
-  "origin.checking": "Aufgezeichneter Snapshot · {network} wird geprüft",
-  "origin.checkingTitle":
-    "Der am {captured} erfasste Snapshot wird angezeigt, während der Live-Abruf läuft.",
-  "origin.recorded": "Aufgezeichneter Snapshot",
-  "origin.recordedTitle": "Am {captured} erfasster On-Chain-Snapshot.",
+  "origin.error": "Lesen fehlgeschlagen",
+  "origin.errorTitle": "Ein Lesevorgang schlug fehl, es wird nichts angezeigt. {network} ist nicht erreichbar.",
+  "origin.checking": "{network} wird geprüft",
+  "origin.checkingTitle": "Lesen von {network}.",
+  "origin.recorded": "Aufgezeichnete Wiedergabe",
+  "origin.recordedTitle": "Aufgezeichnete Wiedergabe einer dokumentierten Quellantwort. Keine Transaktion.",
   "origin.recordedUnreachable": " (Netzwerk nicht erreichbar)",
   "origin.unreachable": " Das Netzwerk war nicht erreichbar ({error}).",
   "origin.networkDefault": "das Netzwerk",
@@ -409,6 +405,15 @@ export const de: Dictionary = {
   "how.limits.l4down":
     "Der StudioNet-Explorer ist derzeit pausiert, daher werden Transaktionslinks als nicht verfügbar statt als tote Links angezeigt.",
 
+  "claimNew.h1": "Anspruch erstellen",
+  "claimNew.lede": "Richtlinien werden live von {address} auf {network} gelesen. Wähle eine aus und eröffne einen Anspruch dagegen.",
+  "claimNew.cantRead": "Die Richtlinienliste konnte nicht gelesen werden",
+  "claimNew.noPolicies": "In diesem Deployment gibt es noch keine aktiven Richtlinien, also nichts, wogegen ein Anspruch eröffnet werden könnte.",
+  "claimNew.createPolicy": "Eine Richtlinie erstellen",
+  "claimNew.pickPolicy": "Richtlinie",
+  "claimNew.count": "{shown} aktiv von {total} Richtlinie.",
+  "claimNew.bridge.h": "Eine neue Richtlinie kann einen Anspruch erst nach der Verknüpfung stützen",
+  "claimNew.bridge.body": "ClimateClaim kennt eine Richtlinien-ID erst, nachdem der Eigentümer sie mit register_policy_snapshot kopiert hat, was nur dem Eigentümer möglich ist. Bricht ein Anspruch gegen eine brandneue Richtlinie mit „policy snapshot not registered“ ab, liegt es daran — die Richtlinie muss zuerst verknüpft werden.",
   "claims.h1": "Claims",
   "claims.lede":
     "Alle Claims unten existieren im bereitgestellten Vertrag unter {address} in {network}.",

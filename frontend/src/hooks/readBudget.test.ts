@@ -35,8 +35,17 @@ describe("useRead does not read on mount", () => {
     expect(hookSrc).toContain("const autoLive = options.autoLive ?? false;");
   });
 
-  it("treats a seeded page as already loaded, so no skeleton on a static page", () => {
-    expect(hookSrc).toContain("useState(!seeded && autoLive)");
+  it("has no seed path at all, so nothing renders before a live read lands", () => {
+    // The recorded snapshot is gone. There is no `seed` argument and no recorded
+    // value painted on first frame, so a page cannot show another deployment's
+    // records while it waits for the chain.
+    expect(hookSrc).not.toMatch(/seed\?:/);
+    expect(hookSrc).not.toMatch(/useState\([^)]*seed/);
+    // Prose may still say "snapshot" to explain why there is none. What must be
+    // absent is the identifier: no snapshot-typed state, no capturedAt.
+    expect(hookSrc).not.toMatch(/SNAPSHOT[A-Z_]/);
+    expect(hookSrc).not.toMatch(/capturedAt/);
+    expect(hookSrc).toContain("useState(autoLive)");
   });
 
   it("still reads on refresh(), which is how a visitor opts in", () => {
@@ -65,7 +74,10 @@ describe("OriginBadge offers the live read", () => {
 
   it("retires the button once data is live", () => {
     // Offering to re-read live data invites exactly the traffic being removed.
-    expect(badgeSrc).toMatch(/mode === "live" \|\| mode === "mixed"\)/);
+    // "mixed" was a snapshot-era origin and no longer exists. Only "live"
+    // retires the button now.
+    expect(badgeSrc).toMatch(/mode === "live"/);
+    expect(badgeSrc).not.toMatch(/mode === "mixed"/);
   });
 
   it("disables the button while a read is in flight", () => {

@@ -24,13 +24,16 @@ function number(name: string): number {
   return Number(m[1]!.replace(/_/g, ""));
 }
 
-describe("StudioNet read budget", () => {
+describe("observed read budget", () => {
   // What the endpoint reported on 2026-10-17:
   // {"bucket":"standard","window":"hour","limit":500,"current":500}
   const OBSERVED_LIMIT_PER_HOUR = 500;
 
   it("encodes the observed limit it derives from", () => {
-    expect(number("STUDIONET_READS_PER_HOUR")).toBe(OBSERVED_LIMIT_PER_HOUR);
+    // Renamed from STUDIONET_READS_PER_HOUR: the active deployment is Bradbury,
+    // but the limit was measured on StudioNet, so the name says "observed" instead
+    // of naming a network this file no longer describes.
+    expect(number("OBSERVED_READS_PER_HOUR")).toBe(OBSERVED_LIMIT_PER_HOUR);
   });
 
   it("stays under the endpoint's real ceiling", () => {

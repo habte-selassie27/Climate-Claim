@@ -5,7 +5,7 @@ import { useI18n } from "../i18n/I18nProvider";
 interface Props {
   mode: DataMode | "";
   /** Where the values shown actually came from (chain read vs replay vs both). */
-  origin?: "live" | "snapshot" | "recorded" | "mixed";
+  origin?: "live" | "recorded" | "error";
 }
 
 /**
@@ -25,14 +25,14 @@ export function DataModeBadge({ mode, origin }: Props) {
     >
       <span aria-hidden="true">{dataModeIcon(mode)}</span>
       {label}
-      {origin === "snapshot" ? (
+      {origin === "recorded" ? (
         <span className="badge-origin" title={t("datamode.recordedTitle")}>
           {t("datamode.recorded")}
         </span>
       ) : null}
-      {origin === "mixed" ? (
-        <span className="badge-origin" title={t("datamode.mixedTitle")}>
-          {t("datamode.mixed")}
+      {origin === "error" ? (
+        <span className="badge-origin" title={t("datamode.errorTitle")}>
+          {t("datamode.error")}
         </span>
       ) : null}
     </span>

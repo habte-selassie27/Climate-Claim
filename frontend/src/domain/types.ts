@@ -44,7 +44,7 @@ export type ClaimState =
   | "settled";
 
 /**
- * Settlement lifecycle (contracts/Climate-Claim-Small.py). `payout_emitted` is NOT
+ * Settlement lifecycle (contracts/Climate-Claim.py). `payout_emitted` is NOT
  * success: the payout message has been emitted, but the child transaction that
  * actually credits the recipient has not been verified yet.
  */
@@ -128,7 +128,7 @@ export interface Claim {
   /**
    * Grounds of the currently-open dispute, set by `open_dispute` and cleared
    * once the re-evaluation records the round. Empty unless state is "disputed".
-   * Mirrors the contract's `pending_grounds` (contracts/Climate-Claim-Small.py).
+   * Mirrors the contract's `pending_grounds` (contracts/Climate-Claim.py).
    */
   pending_grounds?: string;
 }
