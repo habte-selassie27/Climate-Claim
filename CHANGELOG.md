@@ -5,6 +5,74 @@ gaps are stated plainly; nothing is claimed that was not run.
 
 ---
 
+## The deploy ceiling, measured in bytes — and why the evaluator has no home on chain yet
+
+### DONE
+
+**Established what a GenLayer contract may actually weigh, by experiment rather
+than by reading.** Earlier sessions knew only a line-count bracket (793 lines
+rejected, 427 accepted). That bracket is not the real constraint and it was
+misleading: comment lines cost exactly as much as code lines.
+
+A probe was deployed whose logic was a single getter and whose body was 90%
+comments. It was **rejected**. That single result rules out line count, AST size
+and logic complexity, and pins the limit to source text:
+
+| Source text | Result |
+|---|---|
+| 18,600 B — `Climate-Claim-Small.py` | deployed |
+| 20,907 B — trivial getter, 90% comments | rejected, `gas limit too high` |
+| 26,103 B — `reference/Climate-Evaluator.py` | rejected on Bradbury **and** Asimov |
+| 30,314 B, 48,874 B, 63,506 B | rejected |
+
+So a contract on these testnets has roughly a **19 KB source budget, comments
+included** — about 430 lines at the density of the deployed files.
+
+**Wrote the consensus evaluator, and then proved it cannot ship.** A third
+contract performing the actual evaluation (fetch → normalise → aggregate →
+integer threshold comparison → validator agreement) was built and is lint-clean
+at 4 methods. It was compressed from 48,874 B to 26,103 B by removing the model
+call, the NASA parser, the temperature metric, the `consecutive_days`
+aggregation, the owner and its ownership checks, the owner-registered policy
+snapshot, stored criteria versions, per-check detail strings and most docstrings.
+It is still 7.5 KB over budget, and the only remaining 7.5 KB *is* the
+equivalence logic (`_fetch`, `_once`, `_valid`, `_equivalent`). Deleting it would
+delete the reason the contract exists, so the compression was stopped on purpose.
+
+**Asimov checked as a possible escape and closed off.** Asimov is a genuinely
+separate chain — our deployed ClimatePolicy is a `CONTRACT` on Bradbury and an
+empty `ACCOUNT` on Asimov — and the deployer holds ~9.97 GEN there, so it was a
+real candidate. It rejected the evaluator with the identical error.
+
+**Moved the evaluator to `reference/`.** `contracts/` is documented as holding
+only what is deployed, and that has to stay true. The file, its equivalence
+design and the size analysis now live in `reference/README.md`.
+
+### PROOF
+
+- `genvm-lint`: 3/3 clean — Climate-Policy (7 methods), Climate-Claim-Small
+  (16), reference/Climate-Evaluator (4).
+- `pytest tests/direct`: **33 passed**.
+- Rejections above are real RPC responses from `deploy`, not inferences. Every
+  accepted/rejected pair in the table was submitted.
+- `contracts/README.md` now carries the byte-precise table in place of the
+  line-count one.
+
+### NEXT
+
+Deploy `reference/Climate-Evaluator.py` to **StudioNet** — it accepted the
+1,406-line / 63 KB pre-split contract, so it has the headroom (~30 KB needed).
+It was unreachable throughout this work purely because of its 500-requests-per-
+hour limit, which is a rate limit and not a size limit. No code change is
+required, only a window where the limit is not exhausted.
+
+### BLOCKED
+
+On-chain consensus evaluation, on Bradbury and Asimov, by source size. Not
+fixable by refactoring — the engine is irreducibly larger than the ceiling.
+
+---
+
 ## Evidence chart: animated 3D view (2D and table one click away)
 
 ### DONE

@@ -17,16 +17,26 @@ verification steps are in `docs/deployment-bradbury-2026-10-18.md`.
 Bradbury enforces a **size-dependent gas ceiling** on deploys. Measured, not
 guessed:
 
-| Contract size | Result on Bradbury |
+| Source text | Result |
 |---|---|
-| 793 lines | rejected — `gas limit too high` |
-| 427 lines | deployed |
-| 260 lines | deployed |
-| 1406 lines | rejected — `gas limit too high` |
+| 18,600 B — `Climate-Claim-Small.py` | deployed |
+| 20,907 B — trivial getter, 90% comments | rejected — `gas limit too high` |
+| 26,103 B — `reference/Climate-Evaluator.py` | rejected — `gas limit too high` |
+| 63,506 B — comment-padded probe | rejected — `gas limit too high` |
+
+The limit is on **source bytes, comments included**, and it sits between 18,600
+and 20,907 bytes. It is not Bradbury-specific: the 26,103 B evaluator was
+submitted to Asimov as well and rejected identically. There is no override —
+`genlayer deploy` sends `gas: estimatedGas` from an `eth_estimateGas` round trip,
+and `deployContract` in genlayer-js takes no `gas` parameter.
+
+So a contract here has roughly a **19 KB source budget**. At the density of the
+files in this directory that is about 430 lines.
 
 A single contract could not be deployed anywhere public. Splitting it is what
 made a public deployment possible, so the split is a deployment requirement
-rather than a design preference.
+rather than a design preference. The same budget is why the evaluation engine
+has no home on chain yet — see [`reference/`](../reference/README.md).
 
 ## The pre-split contract is not here
 
