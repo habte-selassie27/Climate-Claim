@@ -24,8 +24,8 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { createClient, chains, createAccount } from "genlayer-js";
 
-const CLAIM_ADDR = "0xb80eC5aEa3A62a5F282DB19bA1ccE311b642bC51";
-const POLICY_ADDR = "0xeebb68aEDB14A4184A0C36bAc5528D5f70B8a807";
+const CLAIM_ADDR = "0x0b7Cfa4012fADd9f570951bCE059bB4e2497D311";
+const POLICY_ADDR = "0x02b75bBd0E0398D19e0750d6adc513605AEF6DFC";
 
 const [claimId, evidenceJson, daysArg] = process.argv.slice(2);
 if (!claimId || !evidenceJson) {

@@ -5,11 +5,15 @@ ClimateClaim.py — claim lifecycle contract.
 ClimatePolicy is the configuration source of truth. This contract owns claims,
 evidence, disputes, and settlement state, emits native payout transfers with
 in-flight tracking and rollback on failure, and records refunds when a payout
-message errors. To avoid trusting caller-supplied policy data, the policy
-snapshot is accepted only from the configured policy contract
-address. Verify the cross-contract invocation mechanism for your target GenLayer
-runtime before production deployment; this file intentionally exposes an explicit
-owner-mediated snapshot registration flow instead of guessing an unsupported ABI.
+message errors.
+
+`start_claim` reads the policy from the configured ClimatePolicy address with a
+cross-contract view, so a claim is opened against the terms the registry
+actually holds and no caller-supplied copy can be substituted.
+`register_policy_snapshot` is only a cache that `start_claim` ignores.
+
+Decisions are not derived here. `record_evaluation` stores what the caller
+derived; the derivation itself lives in ClimatePolicy's `compute_evaluation`.
 """
 from dataclasses import dataclass
 import json

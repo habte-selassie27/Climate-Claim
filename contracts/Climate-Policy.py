@@ -321,6 +321,22 @@ class ClimatePolicy(gl.Contract):
         p.version = u32(int(p.version) + 1)
         self.policies[policy_id] = p
 
+    # Status is reversible on purpose. On 2026-10-18 a live policy was retired
+    # by mistake while claims were being seeded and there was no way back: the
+    # only remedy was redeploying both contracts and re-seeding everything.
+    # Retiring is one click and should not cost a deployment to undo.
+    # Owner-only, and it bumps the version like every other policy mutation, so
+    # anything tracking versions sees the change.
+    @gl.public.write
+    def set_policy_status(self, policy_id: str, status: str) -> None:
+        self._only_owner()
+        if status not in ("active", "retired"):
+            raise gl.vm.UserError("EXPECTED: unsupported status")
+        p = self._get_policy(policy_id)
+        p.status = status
+        p.version = u32(int(p.version) + 1)
+        self.policies[policy_id] = p
+
     def _get_policy(self, policy_id: str) -> Policy:
         if policy_id not in self.policies:
             raise gl.vm.UserError("EXPECTED: unknown policy")

@@ -7,8 +7,8 @@ after deployment, and this document is the record.
 
 | Contract | Address | Bytes | Methods |
 |---|---|---|---|
-| **ClimatePolicy** | `0xeebb68aEDB14A4184A0C36bAc5528D5f70B8a807` | 16,829 | 8 |
-| **ClimateClaim** | `0xb80eC5aEa3A62a5F282DB19bA1ccE311b642bC51` | 19,333 | 16 |
+| **ClimatePolicy** | `0x02b75bBd0E0398D19e0750d6adc513605AEF6DFC` | 17,643 | 9 |
+| **ClimateClaim** | `0x0b7Cfa4012fADd9f570951bCE059bB4e2497D311` | 19,410 | 16 |
 
 - **Network**: GenLayer Bradbury, chain id **4221**
 - **RPC**: `https://rpc-bradbury.genlayer.com`
@@ -17,8 +17,8 @@ after deployment, and this document is the record.
 
 | | Deploy transaction |
 |---|---|
-| ClimatePolicy | `0x8f704bc3bab2578a5c66981ba922dfb349a65f6817acac475af68d046889f658` |
-| ClimateClaim | `0xf3104e7bf5cea37819ea43c06100fabf12f1a98d0210f8028126410f1a1b2c1c` |
+| ClimatePolicy | `0x414c5dbb2e4327aafc7c2a687604a78e867894a38b63fc5fc77a211448022c52` |
+| ClimateClaim | `0x591eef3c1e3cb4ec221f2a20e154d67b4907e7bf84a4003820f6f0d6706953b3` |
 
 Both reached consensus with **AGREE / FINISHED_WITH_RETURN**.
 
@@ -33,6 +33,7 @@ decision engine.
 | `create_policy` | write | Create a policy, freezing its sources (owner-only) |
 | `set_beneficiary` | write | Change where a payout goes (owner-only) |
 | `retire_policy` | write | Stop new claims on a policy (owner-only) |
+| `set_policy_status` | write | Set a policy's status to `active` or `retired` (owner-only) |
 | `get_policy` | view | One policy by id |
 | `list_policies` | view | Every policy |
 | `list_sources` | view | Every registered source |
@@ -68,8 +69,10 @@ measured, not assumed:
 
 | Source size | Result |
 |---|---|
+| 17,643 B — current ClimatePolicy | **accepted** |
 | 18,600 B | **accepted** |
-| 19,333 B — current ClimateClaim | **accepted** |
+| 19,333 B | **accepted** |
+| 19,410 B — current ClimateClaim | **accepted** |
 | 20,294 B | rejected, `gas limit too high` |
 | 20,907 B — trivial getter, 90% comments | **rejected** |
 | 26,103 B | rejected on Bradbury **and** Asimov |
@@ -89,17 +92,15 @@ Verified with `scripts/verify-deployment.sh`:
 - **3 sources** — `om_archive_precip` (Open-Meteo ERA5), `nasa_power_precip`
   (NASA POWER) and `om_forecast_precip` (Open-Meteo Forecast, registered for
   `live` policies)
-- **6 active policies** — `policy-1`..`policy-5`, each Paris / Oslo / Paris /
+- **6 policies, all active** — `policy-1`..`policy-5`, each Paris / Oslo / Paris /
   Reykjavik / Nairobi with `historical_simulation` and a 5-day 2024 window, plus
-  `policy-7`: a **live** policy on Paris with the Open-Meteo Forecast source,
+  `policy-6`: a **live** policy on Paris with the Open-Meteo Forecast source,
   2026-10-18 to 2026-10-28, `gt` 0.50 mm.
-  `policy-6` also exists but is **retired — and that was a mistake.** It was a
-  deliberate live-mode policy created earlier in this session (tx
-  `0xf91700ebe46f55f79ca672d3a9f8eb3069c3cae88627aee0b6bbb69a4fd58d63`); while
-  seeding claims it was mistaken for a malformed stray and `retire_policy` was
-  called on it. The contract has no un-retire method, so that call cannot be
-  undone. `policy-7` was created with identical terms as the replacement. Both
-  facts are stated here rather than quietly papered over.
+  The predecessor `policy-6` on the superseded deployment was **retired by
+  mistake** (tx `0xf91700ebe46f55f79ca672d3a9f8eb3069c3cae88627aee0b6bbb69a4fd58d63`
+  created it; a later `retire_policy` call on it could not be undone, because the
+  contract had no way back). That mistake is why this deployment exists — see
+  *Why this deployment exists* below.
 - **5 claims** — one per policy, each with a decision **derived** by
   `compute_evaluation` and then recorded with `record_evaluation`:
 
@@ -117,6 +118,36 @@ Verified with `scripts/verify-deployment.sh`:
 
 The claim's decision was **derived** by `compute_evaluation` and then recorded
 with `record_evaluation`. The decision was not chosen.
+
+## Why this deployment exists
+
+Two defects in the previous deployment (ClimatePolicy `0xeebb68aE…B8a807`,
+ClimateClaim `0xb80eC5aE…42bC51`) could only be fixed by redeploying, because
+both were baked into artifacts rather than configuration:
+
+1. **A retired policy could not be brought back.** A live policy was retired by
+   mistake on 2026-10-18 while claims were being seeded. `retire_policy` was the
+   only status write, so the call was irreversible and the only remedy was a
+   redeploy. This deployment adds **`set_policy_status`**, which sets a policy to
+   `active` or `retired` — owner-only, and it bumps the version like every other
+   policy mutation. Retiring is one call; it should not cost a deployment to
+   undo.
+2. **The deployed module docstring was stale.** `Climate-Claim.py`'s docstring
+   still described an owner-mediated snapshot bridge that no longer existed.
+   GenVM deploys the Python source itself, so that text was part of the artifact
+   at `0xb80e…42bC51`, and editing the repository would have made it disagree
+   with `genlayer code` on chain. The docstring deployed here describes the
+   cross-contract read as it actually works.
+
+The superseded deployment's state was backed up to
+`artifacts/bradbury-backup-pre-redeploy.json` before it was replaced, then
+replayed onto these contracts with `frontend/scripts/reseed-from-backup.mjs`.
+(`artifacts/` is gitignored in this repository, so the backup is local; the
+script that produced it, `frontend/scripts/dump-state.mjs`, is committed and can
+re-read any deployment in the same shape.)
+Every source, policy, claim and evidence row came from that backup, and no
+decision was copied: each one was re-derived with `compute_evaluation` and
+checked against what the previous deployment had decided.
 
 ## Known limitations — verified, not assumed
 
@@ -143,16 +174,6 @@ Two caveats, both measured rather than assumed. `gl.get_contract_at` requires an
 atomic in practice — `start_claim` succeeded only on a retry several times while
 this deployment was being seeded, so callers must retry rather than assume one
 submission is enough.
-
-**The contract's own module docstring still describes the old bridge.** The
-first ~12 lines of `Climate-Claim.py` say the file "intentionally exposes an
-explicit owner-mediated snapshot registration flow". That was true when it was
-written and is true of no behaviour anymore — but GenVM deploys the Python
-source itself, so that text is part of the deployed artifact at `0xb80e…42bC51`.
-Editing it locally would make the repository disagree with `genlayer code` on
-chain, so it was left exactly as deployed. The comments describing
-`start_claim`'s cross-contract read are current; only the module docstring's
-final clause is historical.
 
 **`aggregation` is recorded but not applied.** `_evaluate` in Climate-Policy
 compares each evidence row's `value_scaled` directly against the threshold; it

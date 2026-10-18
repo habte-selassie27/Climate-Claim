@@ -9,17 +9,17 @@ Deployed on GenLayer **Bradbury** (chain 4221) as two contracts:
 
 | Contract | Address | Bytes | Methods |
 |---|---|---|---|
-| `Climate-Policy.py` | [`0xeebb68aEDB14A4184A0C36bAc5528D5f70B8a807`](https://explorer-bradbury.genlayer.com/address/0xeebb68aEDB14A4184A0C36bAc5528D5f70B8a807) | 16,829 | 8 |
-| `Climate-Claim.py` | [`0xb80eC5aEa3A62a5F282DB19bA1ccE311b642bC51`](https://explorer-bradbury.genlayer.com/address/0xb80eC5aEa3A62a5F282DB19bA1ccE311b642bC51) | 19,333 | 16 |
+| `Climate-Policy.py` | [`0x02b75bBd0E0398D19e0750d6adc513605AEF6DFC`](https://explorer-bradbury.genlayer.com/address/0x02b75bBd0E0398D19e0750d6adc513605AEF6DFC) | 17,643 | 9 |
+| `Climate-Claim.py` | [`0x0b7Cfa4012fADd9f570951bCE059bB4e2497D311`](https://explorer-bradbury.genlayer.com/address/0x0b7Cfa4012fADd9f570951bCE059bB4e2497D311) | 19,410 | 16 |
 
 Both reached consensus **AGREE** with `FINISHED_WITH_RETURN`. Deploy tx hashes,
 per-method schemas read back from chain, current contents and the verification
 steps are in
 [`docs/deployment-bradbury-2026-10-18.md`](docs/deployment-bradbury-2026-10-18.md).
 
-Current on-chain state: **3 sources, 7 policies (6 active — `policy-1`..`policy-5`
-as `historical_simulation`, `policy-7` as `live`, `policy-6` retired), 5 claims,
-all decided**: `confirmed` (127), `not_confirmed` (85), `inconclusive` /
+Current on-chain state: **3 sources, 6 policies (all active — `policy-1`..`policy-5`
+as `historical_simulation`, `policy-6` as `live`), 5 claims, all decided**:
+`confirmed` (127), `not_confirmed` (85), `inconclusive` /
 `source_conflict` (107), `inconclusive` / `missing_observations` (0), `confirmed`
 (275). Confirm it yourself:
 
@@ -148,14 +148,14 @@ python3.12 -m pytest archive/tests -q          # 170: the pre-split contract
 genlayer network set testnet-bradbury
 
 # Policy contract: sources and policies
-genlayer schema 0xeebb68aEDB14A4184A0C36bAc5528D5f70B8a807
-genlayer call   0xeebb68aEDB14A4184A0C36bAc5528D5f70B8a807 list_policies
-genlayer call   0xeebb68aEDB14A4184A0C36bAc5528D5f70B8a807 list_sources
+genlayer schema 0x02b75bBd0E0398D19e0750d6adc513605AEF6DFC
+genlayer call   0x02b75bBd0E0398D19e0750d6adc513605AEF6DFC list_policies
+genlayer call   0x02b75bBd0E0398D19e0750d6adc513605AEF6DFC list_sources
 
 # Claim contract: claims, disputes, settlement
-genlayer schema 0xb80eC5aEa3A62a5F282DB19bA1ccE311b642bC51
-genlayer call   0xb80eC5aEa3A62a5F282DB19bA1ccE311b642bC51 get_claim_count
-genlayer call   0xb80eC5aEa3A62a5F282DB19bA1ccE311b642bC51 list_claims
+genlayer schema 0x0b7Cfa4012fADd9f570951bCE059bB4e2497D311
+genlayer call   0x0b7Cfa4012fADd9f570951bCE059bB4e2497D311 get_claim_count
+genlayer call   0x0b7Cfa4012fADd9f570951bCE059bB4e2497D311 list_claims
 
 # The deploy, on the explorer
 genlayer receipt 0x6130f4f929c1612a52b49c2e8ce7c2f02260c41afa10fb965ddfa28c667309ff

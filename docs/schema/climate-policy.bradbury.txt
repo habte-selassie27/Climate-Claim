@@ -76,6 +76,13 @@ Result:
       payable: false,
       readonly: false,
       ret: 'null'
+    },
+    set_policy_status: {
+      kwparams: {},
+      params: [ [ 'policy_id', 'string' ], [ 'status', 'string' ] ],
+      payable: false,
+      readonly: false,
+      ret: 'null'
     }
   }
 }

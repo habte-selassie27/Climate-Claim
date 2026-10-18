@@ -149,11 +149,11 @@ describe("the configured deployment is the current one", () => {
     );
     // Redeployed 2026-10-18 with cross-contract start_claim; see
     // config/contracts.ts for the deploy tx.
-    expect(addr).toBe("0xb80eC5aEa3A62a5F282DB19bA1ccE311b642bC51");
+    expect(addr).toBe("0x0b7Cfa4012fADd9f570951bCE059bB4e2497D311");
   });
 
   it("the policy contract is the deployed ClimatePolicy", () => {
-    expect(POLICY_ADDRESS).toBe("0xeebb68aEDB14A4184A0C36bAc5528D5f70B8a807");
+    expect(POLICY_ADDRESS).toBe("0x02b75bBd0E0398D19e0750d6adc513605AEF6DFC");
   });
 
   it("both are 0x-prefixed 40-hex addresses", () => {

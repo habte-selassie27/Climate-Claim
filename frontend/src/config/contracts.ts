@@ -13,12 +13,14 @@ import { ENV_CONTRACT_ADDRESS, ENV_POLICY_ADDRESS } from "./env";
  *   rather than logic. See contracts/README.md.
  *
  * CURRENT DEPLOYMENT — GenLayer Bradbury, chain 4221
- *   ClimatePolicy  0xeebb68aEDB14A4184A0C36bAc5528D5f70B8a807  (16,829 B, 8 methods)
- *     deploy tx 0x8f704bc3bab2578a5c66981ba922dfb349a65f6817acac475af68d046889f658
- *   ClimateClaim   0xb80eC5aEa3A62a5F282DB19bA1ccE311b642bC51  (19,333 B, 16 methods)
- *     deploy tx 0xf3104e7bf5cea37819ea43c06100fabf12f1a98d0210f8028126410f1a1b2c1c
+ *   ClimatePolicy  0x02b75bBd0E0398D19e0750d6adc513605AEF6DFC  (17,643 B, 9 methods)
+ *     deploy tx 0x414c5dbb2e4327aafc7c2a687604a78e867894a38b63fc5fc77a211448022c52
+ *   ClimateClaim   0x0b7Cfa4012fADd9f570951bCE059bB4e2497D311  (19,410 B, 16 methods)
+ *     deploy tx 0x591eef3c1e3cb4ec221f2a20e154d67b4907e7bf84a4003820f6f0d6706953b3
  *   Both ACCEPTED / AGREE / FINISHED_WITH_RETURN. Schemas read back from chain and
- *   saved at docs/schema/*.bradbury.txt.
+ *   saved at docs/schema/*.bradbury.txt. The previous deployment (ClimatePolicy
+ *   0xeebb68aE…B8a807, ClimateClaim 0xb80eC5aE…42bC51) is superseded; its state was
+ *   backed up to artifacts/bradbury-backup-pre-redeploy.json and replayed here.
  *
  * THE CONTRACTS DO CALL EACH OTHER, in one direction. `start_claim` reads the
  * authoritative policy straight from ClimatePolicy with a cross-contract view, so
@@ -60,11 +62,11 @@ export type ContractKey = "policy" | "claim";
  * used.
  */
 export const CONTRACT_ADDRESS =
-  ENV_CONTRACT_ADDRESS || "0xb80eC5aEa3A62a5F282DB19bA1ccE311b642bC51";
+  ENV_CONTRACT_ADDRESS || "0x0b7Cfa4012fADd9f570951bCE059bB4e2497D311";
 
 /** Address of the POLICY contract. `VITE_CLIMATEPOLICY_ADDRESS` overrides it. */
 export const POLICY_ADDRESS =
-  ENV_POLICY_ADDRESS || "0xeebb68aEDB14A4184A0C36bAc5528D5f70B8a807";
+  ENV_POLICY_ADDRESS || "0x02b75bBd0E0398D19e0750d6adc513605AEF6DFC";
 
 /** Both addresses, keyed by which contract they are. */
 export const CONTRACTS: Record<ContractKey, `0x${string}`> = {
@@ -105,6 +107,9 @@ export const METHOD_META = {
   create_policy: { contract: "policy", readonly: false },
   set_beneficiary: { contract: "policy", readonly: false },
   retire_policy: { contract: "policy", readonly: false },
+  // NEW in this deployment: retire_policy had no undo, and a policy retired by
+  // mistake cost a full redeploy to recover. Status is reversible now.
+  set_policy_status: { contract: "policy", readonly: false },
   get_policy: { contract: "policy", readonly: true },
   list_policies: { contract: "policy", readonly: true },
   list_sources: { contract: "policy", readonly: true },

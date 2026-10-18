@@ -6,14 +6,14 @@ Two files live here. Both are deployed. Nothing else in this repository is.
 
 | File | Bytes | Methods | Address |
 |---|---|---|---|
-| `Climate-Policy.py` | 16,829 | 8 | `0xeebb68aEDB14A4184A0C36bAc5528D5f70B8a807` |
-| `Climate-Claim.py` | 19,333 | 16 | `0xb80eC5aEa3A62a5F282DB19bA1ccE311b642bC51` |
+| `Climate-Policy.py` | 17,643 | 9 | `0x02b75bBd0E0398D19e0750d6adc513605AEF6DFC` |
+| `Climate-Claim.py` | 19,410 | 16 | `0x0b7Cfa4012fADd9f570951bCE059bB4e2497D311` |
 
 Both on GenLayer Bradbury (chain 4221), deployed by
 `0x04e0353B7218b66D6803725ce7342E6e1225DB1b`, both ACCEPTED / AGREE /
 FINISHED_WITH_RETURN. Deploy transactions:
-`0x8f704bc3bab2578a5c66981ba922dfb349a65f6817acac475af68d046889f658` (policy)
-and `0xf3104e7bf5cea37819ea43c06100fabf12f1a98d0210f8028126410f1a1b2c1c` (claim).
+`0x414c5dbb2e4327aafc7c2a687604a78e867894a38b63fc5fc77a211448022c52` (policy)
+and `0x591eef3c1e3cb4ec221f2a20e154d67b4907e7bf84a4003820f6f0d6706953b3` (claim).
 Superseded addresses and their txs are in
 `docs/deployment-bradbury-2026-10-18.md`.
 
