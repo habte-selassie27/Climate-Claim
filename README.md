@@ -17,8 +17,11 @@ per-method schemas read back from chain, current contents and the verification
 steps are in
 [`docs/deployment-bradbury-2026-10-18.md`](docs/deployment-bradbury-2026-10-18.md).
 
-Current on-chain state: **2 sources, 1 policy (`policy-1`), 1 claim (`claim-1` —
-`decided_confirmed`)**. Confirm it yourself:
+Current on-chain state: **3 sources, 7 policies (6 active — `policy-1`..`policy-5`
+as `historical_simulation`, `policy-7` as `live`, `policy-6` retired), 5 claims,
+all decided**: `confirmed` (127), `not_confirmed` (85), `inconclusive` /
+`source_conflict` (107), `inconclusive` / `missing_observations` (0), `confirmed`
+(275). Confirm it yourself:
 
 ```bash
 set -a && . ./.env && set +a

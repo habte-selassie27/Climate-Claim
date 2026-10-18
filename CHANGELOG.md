@@ -59,6 +59,10 @@ gaps are stated plainly; nothing is claimed that was not run.
 - The contract's module docstring still describes the old owner-mediated bridge.
   It is inside the deployed artifact (GenVM deploys the source), so it was left
   as deployed rather than drifted out of sync with `genlayer code`.
+- `docs/portal-submission.md`: a paste-ready replacement for the Portal draft,
+  which still pointed at the retired claim contract, a 1.20 mm observation and
+  five engine checks. The form itself lives in the owner's portal session, so
+  the corrected text is supplied for pasting rather than claimed as submitted.
 
 ### PROOF
 
@@ -69,12 +73,15 @@ gaps are stated plainly; nothing is claimed that was not run.
   `npx vite build` → built in 1m 5s.
 - Read-back with genlayer-js after seeding: 5 policies, 5 claims, every claim in
   a terminal state with the decision/reason/observed values in the table above.
+- `./scripts/verify-deployment.sh` → **All checks passed** (chain id 0x107d,
+  both bytecodes present, all six UI methods answer, 3 sources / 7 policies /
+  5 claims).
 - No `tests/integration/` exists in this repository, so that gate is not claimed.
 
 ### NEXT
 
-- Update the Portal draft (new explorer links, claim-1 observed 127, 4 engine
-  checks) and trigger the Vercel rebuild.
+- Paste `docs/portal-submission.md` into the Portal draft (it cannot be reached
+  from here) and confirm the Vercel rebuild picks up commit `1da726a`.
 
 ### BLOCKED
 

@@ -86,7 +86,9 @@ in genlayer-js accepts no `gas` parameter.
 
 Verified with `scripts/verify-deployment.sh`:
 
-- **2 sources** — `om_archive_precip` (Open-Meteo ERA5), `nasa_power_precip` (NASA POWER)
+- **3 sources** — `om_archive_precip` (Open-Meteo ERA5), `nasa_power_precip`
+  (NASA POWER) and `om_forecast_precip` (Open-Meteo Forecast, registered for
+  `live` policies)
 - **6 active policies** — `policy-1`..`policy-5`, each Paris / Oslo / Paris /
   Reykjavik / Nairobi with `historical_simulation` and a 5-day 2024 window, plus
   `policy-7`: a **live** policy on Paris with the Open-Meteo Forecast source,
