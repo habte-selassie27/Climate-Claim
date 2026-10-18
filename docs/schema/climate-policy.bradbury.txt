@@ -1,0 +1,75 @@
+[genlayer-js] initializeConsensusSmartContract() is deprecated and will be removed in a future release. The consensus contract is now resolved from the static chain definition.
+- Getting schema for contract at 0x7851eea34196DA4B796b665f2DBb2D3a3E3bc631...
+
+Result:
+{
+  ctor: { kwparams: {}, params: [ [ 'owner', 'address' ] ] },
+  methods: {
+    create_policy: {
+      kwparams: {},
+      params: [
+        [ 'location_name', 'string' ],
+        [ 'lat_scaled', 'int' ],
+        [ 'lon_scaled', 'int' ],
+        [ 'tolerance_m', 'int' ],
+        [ 'source_ids', 'array' ],
+        [ 'agreement_rule', 'string' ],
+        [ 'min_sources', 'int' ],
+        [ 'data_mode', 'string' ],
+        [ 'period_start', 'string' ],
+        [ 'period_end', 'string' ],
+        [ 'timezone', 'string' ],
+        [ 'metric', 'string' ],
+        [ 'unit', 'string' ],
+        [ 'comparator', 'string' ],
+        [ 'threshold_scaled', 'int' ],
+        [ 'aggregation', 'string' ],
+        [ 'condition_text', 'string' ],
+        [ 'payout_amount', 'int' ]
+      ],
+      payable: false,
+      readonly: false,
+      ret: 'string'
+    },
+    get_policy: {
+      kwparams: {},
+      params: [ [ 'policy_id', 'string' ] ],
+      readonly: true,
+      ret: 'dict'
+    },
+    list_policies: { kwparams: {}, params: [], readonly: true, ret: 'array' },
+    list_sources: { kwparams: {}, params: [], readonly: true, ret: 'array' },
+    register_source: {
+      kwparams: {},
+      params: [
+        [ 'source_id', 'string' ],
+        [ 'name', 'string' ],
+        [ 'kind', 'string' ],
+        [ 'metric', 'string' ],
+        [ 'param', 'string' ],
+        [ 'url_template', 'string' ],
+        [ 'unit', 'string' ],
+        [ 'attribution', 'string' ]
+      ],
+      payable: false,
+      readonly: false,
+      ret: 'null'
+    },
+    retire_policy: {
+      kwparams: {},
+      params: [ [ 'policy_id', 'string' ] ],
+      payable: false,
+      readonly: false,
+      ret: 'null'
+    },
+    set_beneficiary: {
+      kwparams: {},
+      params: [ [ 'policy_id', 'string' ], [ 'beneficiary', 'address' ] ],
+      payable: false,
+      readonly: false,
+      ret: 'null'
+    }
+  }
+}
+
+✔ Contract schema retrieved successfully

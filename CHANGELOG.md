@@ -1419,3 +1419,36 @@ in contract state fails with:
 
 That is a fixable pattern issue, not yet evidence that IC-to-IC calls are
 unsupported. Unresolved.
+
+## Both split contracts deployed to Bradbury
+
+DONE. The user-authored two-contract split is live on GenLayer Bradbury (4221):
+
+- ClimatePolicy  `0x7851eea34196DA4B796b665f2DBb2D3a3E3bc631` (260 lines, 7 methods)
+  deploy tx `0x4bd15661906406d0d5b63dc51cef8ebb4c122e0d7788e2d0f0d9111f9c250516`
+- ClimateClaim   `0xa2D82Db4ddC567199113962BFd477f069510331D` (427 lines, 16 methods)
+  deploy tx `0x6130f4f929c1612a52b49c2e8ce7c2f02260c41afa10fb965ddfa28c667309ff`
+
+Both: accepted, FINISHED_WITH_RETURN, 5/5 AGREE. Reads verified on chain --
+`list_sources`/`list_policies` return `[]`, `get_claim_count`/`get_escrow_balance`
+return `0`. Schemas saved under `docs/schema/`. Full record in
+`docs/deployment-bradbury-2026-10-18.md`.
+
+PROOF. `eth_getCode` returns bytecode for both on rpc-bradbury.genlayer.com.
+StudioNet returns "Contract ... not found" for both, which rules out the
+deployment having silently landed on the wrong network. Explorer pages render.
+
+Bradbury's gas ceiling was the whole blocker, and it is size-dependent: 793 lines
+is rejected, 427 and 260 are accepted. StudioNet could not be used at all -- its
+standard bucket reported 500/500 on both windows with retry_after bouncing
+between 35s and 11000s, never actually draining.
+
+NEXT. The frontend still points at the StudioNet monolith
+`0x6E4BD06bD969E745546A7957d818eDaD47882ea8`. Reconciling the app with this new
+two-contract interface is unstarted, and it is not a drop-in: the claim contract
+exposes `record_evaluation` (owner-only) instead of computing a decision on chain,
+so the app's evaluation flow has no on-chain counterpart here yet.
+
+BLOCKED. Nothing blocking deployment. Open question: raw-RPC
+`gen_getContractSchema` returns `absent_runner_comment` for both contracts while
+the CLI's schema and call commands work against the same addresses.
