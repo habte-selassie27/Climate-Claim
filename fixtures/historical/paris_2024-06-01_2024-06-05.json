@@ -7,7 +7,11 @@
     "requested_lat": 48.8566,
     "requested_lon": 2.3522
   },
-  "period": { "start": "2024-06-01", "end": "2024-06-05", "timezone": "UTC" },
+  "period": {
+    "start": "2024-06-01",
+    "end": "2024-06-05",
+    "timezone": "UTC"
+  },
   "sources": {
     "om_archive_precip": {
       "provider": "Open-Meteo Historical Weather API (ERA5)",
@@ -39,21 +43,5 @@
       }
     }
   },
-  "on_chain_claims": [
-    {
-      "claim_id": "claim-2",
-      "policy_id": "policy-3",
-      "threshold_scaled": 100,
-      "tolerance_m": 12000,
-      "outcome": "confirmed"
-    },
-    {
-      "claim_id": "claim-4",
-      "policy_id": "policy-4",
-      "threshold_scaled": 500,
-      "tolerance_m": 5000,
-      "outcome": "inconclusive",
-      "note": "Grid cell is ~5973 m from the policy point, outside this policy's 5000 m tolerance, so the location check failed and the outcome is inconclusive rather than not_confirmed."
-    }
-  ]
+  "_note": "Recorded Open-Meteo ERA5 and NASA POWER MERRA-2 responses for Paris, 2024-06-01 to 2024-06-05, exactly as the endpoints returned them. Synthetic? No -- these are real responses. Claims? None: no claim on the current deployment evaluates this file. The demo replays it through ClimatePolicy.compute_evaluation and labels the result a replay."
 }

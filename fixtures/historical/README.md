@@ -39,14 +39,22 @@ with a `unanimous` rule, one source crosses and the other does not — the
 | 2024-06-04 | 0.80 | 0.14 |
 | 2024-06-05 | 0.50 | 0.66 |
 
-Highest reading 1.20 mm. This is exactly what claims 2, 4 and 5 evaluated, and
-it reproduces their on-chain results exactly (station `48.8928,2.2920`,
-`observed_value_scaled: 120`).
+Highest reading 1.20 mm.
 
 Note the grid cell: Open-Meteo answered the Paris request with
 `48.89279, 2.2920206`, about **5 973 m** from the requested point. That single
-fact is why `claim-4` is `inconclusive / location_mismatch` at a 5 km tolerance
-while `claim-2` is `confirmed` at 12 km.
+fact is why a 5 km tolerance yields `inconclusive / location_mismatch` while a
+12 km tolerance confirms.
+
+These files previously recorded which claims on a retired deployment had
+evaluated them ("claims 2, 4 and 5" on contract
+`0xE16032420e3155C0822e9150a98c6B1163869F0c`, StudioNet). That contract is not
+deployed and those claims do not exist on anything this app reads, so the block
+has been removed rather than repointed.
+
+The RECORDED RESPONSES are still real and are still used -- as replay input to
+`ClimatePolicy.compute_evaluation`, which derives the outcome on chain. No file
+in this directory is a claim, and none is used as a data fallback.
 
 The Paris MERRA-2 column is kept for reference but is not used by any scenario:
 on these particular days MERRA-2 (3.79 mm) is further above the threshold than

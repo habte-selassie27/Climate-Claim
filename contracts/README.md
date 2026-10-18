@@ -24,7 +24,7 @@ guessed:
 
 | Source text | Result |
 |---|---|
-| 18,600 B — `Climate-Claim-Small.py` | deployed |
+| 18,600 B — `Climate-Claim.py` | deployed |
 | 20,907 B — trivial getter, 90% comments | rejected — `gas limit too high` |
 | 26,103 B — `reference/Climate-Evaluator.py` | rejected — `gas limit too high` |
 | 63,506 B — comment-padded probe | rejected — `gas limit too high` |
@@ -55,21 +55,42 @@ threshold arithmetic, the model call and the equivalence rule. The deployed pair
 does none of that: `record_evaluation` is owner-only and stores a decision the
 caller supplies, verifying nothing.
 
+## What it DOES now do: derive the decision
+
+`Climate-Policy.compute_evaluation(policy_json, evidence_json, days_expected)`
+is the substantive addition. It derives the decision on chain:
+
+- recomputes each evidence row's `crossed` flag from its raw scaled value and
+  the frozen threshold, rather than trusting the row;
+- applies the policy's agreement rule (`unanimous` / `majority` / `any`);
+- reports `period_covered` and `data_completeness`, and refuses to decide when
+  either fails;
+- returns `confirmed`, `not_confirmed` or `inconclusive` with a reason code.
+
+So a decision is a **derivation**, not an assertion. That was the gap the
+previous pair left open.
+
+It is a **pure function** — no storage reads, no clock — which is why it fits in
+the space left by the size ceiling and why calling it needs no consensus round.
+The tradeoff is stated plainly: this makes the decision verifiable, and it is
+not the same as validating a non-deterministic result. The equivalence rule for
+that lives in `docs/equivalence.md` and is not deployed.
+
 `contracts/` is deliberately limited to what is actually on chain so that
 "what is deployed" has exactly one answer.
 
 ## What the deployed pair does and does not do
 
-`Climate-Claim-Small.py` is deliberately **much narrower** than the archived
-version:
+`Climate-Claim.py` is deliberately **much narrower** than the archived
+version. What the pair does NOT do:
 
-- **No on-chain evaluation.** `record_evaluation` is owner-only and takes the
-  decision, reason, summary, observed value and evidence as arguments. The
-  contract stores them and verifies none of them.
-- **No per-check results.** Nothing produces threshold / period / location /
-  agreement / completeness rows.
 - **No weather access and no model call.** Neither contract in this directory
-  performs a network request of any kind.
+  performs a network request of any kind, so evidence provenance is the
+  caller's claim and is not provable on chain.
+- **No consensus over non-deterministic interpretation.** See below.
+- **No cross-contract calls.** Storing a contract proxy in GenLayer state fails
+  with `class is not marked for usage within storage ... @allow_storage`, so
+  rather than depend on an unverified ABI, the two contracts are wired by an
 - **No cross-contract calls.** Storing a contract proxy in GenLayer state fails
   with `class is not marked for usage within storage ... @allow_storage`, so
   rather than depend on an unverified ABI, the two contracts are wired by an

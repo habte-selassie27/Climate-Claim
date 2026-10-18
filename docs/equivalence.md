@@ -1,15 +1,33 @@
 # Equivalence design
 
-> **Documents the ARCHIVED design, not the deployment.** This describes
-> `archive/climateclaim.py`, the pre-split single contract. That contract is
-> **not deployed**: what is on chain is `contracts/Climate-Policy.py` and
-> `contracts/Climate-Claim.py`, which do no evaluation and produce no
-> checks. See [`archive/README.md`](../archive/README.md) and
-> [`contracts/README.md`](../contracts/README.md).
+> **WHAT IS DEPLOYED, AND WHAT IS NOT.**
+>
+> This page describes two things, and the difference matters.
+>
+> **DEPLOYED** — `ClimatePolicy.compute_evaluation(policy_json, evidence_json,
+> days_expected)` derives a decision from a frozen policy and a set of evidence
+> rows. It is a **pure function**: no web access, no model call, no storage
+> reads, no clock. It recomputes each row's `crossed` flag from the raw scaled
+> value and the threshold rather than trusting it, applies the agreement rule,
+> and returns the decision. So the decision is **derived on chain** rather than
+> asserted by the owner — which was the previous behaviour and the reason
+> `record_evaluation` was unverifiable.
+>
+> **NOT DEPLOYED** — everything below about the consensus equivalence rule,
+> leader/validator disagreement and the model-assisted reading of policy wording.
+> That belongs to `archive/climateclaim.py`, the pre-split contract, which is
+> not deployed and cannot be: at ~63 KB it is far above the ~19 KB deploy
+> ceiling both testnets enforce. See
+> [`deployment-bradbury-2026-10-18.md`](deployment-bradbury-2026-10-18.md).
+>
+> The honest summary: what is deployed makes the decision **verifiable**. It is
+> not, and does not claim to be, a consensus judgement over non-deterministic
+> interpretation. The equivalence rule below is the design for that, preserved
+> with its tests, ready for a network with the headroom.
 
 GenLayer validators agree on the **meaning** of a non-deterministic result, not
-on exact bytes. ClimateClaim has exactly one consensus-critical non-deterministic
-call. Everything it can decide with plain code, it decides with plain code.
+on exact bytes. Everything the deployed contracts can decide with plain code,
+they decide with plain code.
 
 ---
 

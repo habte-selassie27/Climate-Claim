@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# Register the documented weather sources on a deployed ClimateClaim contract.
+# Register the documented weather sources on the deployed ClimatePolicy contract.
+#
+# `register_source` lives on the POLICY contract, not the claim contract: sources
+# are part of a policy, so this file targets ClimatePolicy.
 #
 # The contract seeds nothing: its source registry starts empty and holds only
 # what an owner registers here. This reads the catalogue at docs/sources.json
 # and issues one register_source write per entry, which is the same path the
 # direct tests use.
 #
-#   ./scripts/seed-sources.sh <contract-address>
+#   ./scripts/seed-sources.sh <policy-contract-address>
 #
 # WRITES TO THE CHAIN. Read this before running: it sends real transactions.
 # register_source is owner-only, so the deploying account must be the owner.

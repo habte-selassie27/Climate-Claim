@@ -7,23 +7,36 @@ shows you the readings that produced the answer — including when the honest an
 
 Deployed on GenLayer **Bradbury** (chain 4221) as two contracts:
 
-| Contract | Address | Methods |
-|---|---|---|
-| `Climate-Policy.py` | [`0x7851eea34196DA4B796b665f2DBb2D3a3E3bc631`](https://explorer-bradbury.genlayer.com/address/0x7851eea34196DA4B796b665f2DBb2D3a3E3bc631) | 7 |
-| `Climate-Claim-Small.py` | [`0xa2D82Db4ddC567199113962BFd477f069510331D`](https://explorer-bradbury.genlayer.com/address/0xa2D82Db4ddC567199113962BFd477f069510331D) | 16 |
+| Contract | Address | Bytes | Methods |
+|---|---|---|---|
+| `Climate-Policy.py` | [`0xeebb68aEDB14A4184A0C36bAc5528D5f70B8a807`](https://explorer-bradbury.genlayer.com/address/0xeebb68aEDB14A4184A0C36bAc5528D5f70B8a807) | 16,829 | 8 |
+| `Climate-Claim.py` | [`0x07C1c5740eD73576deF939bb938556761738dA03`](https://explorer-bradbury.genlayer.com/address/0x07C1c5740eD73576deF939bb938556761738dA03) | 18,600 | 16 |
 
-Both reached consensus **5/5 AGREE** with `FINISHED_WITH_RETURN`, and both were
-confirmed on Bradbury rather than StudioNet by reading `eth_getCode` from
-`rpc-bradbury.genlayer.com` and by StudioNet answering "Contract ... not found".
-Deploy tx hashes, first read output and the verification steps are in
+Both reached consensus **AGREE** with `FINISHED_WITH_RETURN`. Deploy tx hashes,
+per-method schemas read back from chain, current contents and the verification
+steps are in
 [`docs/deployment-bradbury-2026-10-18.md`](docs/deployment-bradbury-2026-10-18.md).
+
+Current on-chain state: **2 sources, 1 policy (`policy-1`), 1 claim (`claim-1` —
+`decided_confirmed`)**. Confirm it yourself:
+
+```bash
+set -a && . ./.env && set +a
+./scripts/verify-deployment.sh
+```
+
+`Climate-Policy.py` now also carries **`compute_evaluation`**, which derives a
+decision from a frozen policy and a set of evidence rows. That is the substantive
+change: the decision is **derived on chain** rather than asserted by whoever
+calls `record_evaluation`.
 
 > **What this deployment does and does not do — read this before the feature list.**
 >
-> The contracts are split because Bradbury enforces a size-dependent gas ceiling
-> on deploys: a 793-line contract is rejected with `gas limit too high`, while
-> 260-line and 427-line contracts deploy. The split is a deployment requirement,
-> not a design preference. Measured sizes and the full comparison are in
+> The contracts are split because both GenLayer testnets reject a deploy whose
+> source exceeds ~19 KB, **comments included**. Measured: 18,600 B accepted,
+> 20,294 B rejected, and a probe that was 90% comments was rejected too — which
+> is what rules out line count and logic complexity as the metric. There is no
+> override. The split is a deployment requirement, not a design preference; see
 > [`contracts/README.md`](contracts/README.md).
 >
 > The deployed pair is **narrower than the design this project describes**. It
@@ -120,7 +133,7 @@ pip install -r requirements.txt
 # Note: GENVM_VERSION is required. Bare genvm-lint resolves a newer cached
 # GenVM and fails to load the pinned SDK.
 GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/Climate-Policy.py
-GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/Climate-Claim-Small.py
+GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/Climate-Claim.py
 # Python 3.12+ required (genlayer_py needs collections.abc.Buffer).
 python3.12 -m pytest tests/direct/ -q          # 33: config drift checks
 python3.12 -m pytest archive/tests -q          # 170: the pre-split contract
@@ -132,14 +145,14 @@ python3.12 -m pytest archive/tests -q          # 170: the pre-split contract
 genlayer network set testnet-bradbury
 
 # Policy contract: sources and policies
-genlayer schema 0x7851eea34196DA4B796b665f2DBb2D3a3E3bc631
-genlayer call   0x7851eea34196DA4B796b665f2DBb2D3a3E3bc631 list_policies
-genlayer call   0x7851eea34196DA4B796b665f2DBb2D3a3E3bc631 list_sources
+genlayer schema 0xeebb68aEDB14A4184A0C36bAc5528D5f70B8a807
+genlayer call   0xeebb68aEDB14A4184A0C36bAc5528D5f70B8a807 list_policies
+genlayer call   0xeebb68aEDB14A4184A0C36bAc5528D5f70B8a807 list_sources
 
 # Claim contract: claims, disputes, settlement
-genlayer schema 0xa2D82Db4ddC567199113962BFd477f069510331D
-genlayer call   0xa2D82Db4ddC567199113962BFd477f069510331D get_claim_count
-genlayer call   0xa2D82Db4ddC567199113962BFd477f069510331D list_claims
+genlayer schema 0x07C1c5740eD73576deF939bb938556761738dA03
+genlayer call   0x07C1c5740eD73576deF939bb938556761738dA03 get_claim_count
+genlayer call   0x07C1c5740eD73576deF939bb938556761738dA03 list_claims
 
 # The deploy, on the explorer
 genlayer receipt 0x6130f4f929c1612a52b49c2e8ce7c2f02260c41afa10fb965ddfa28c667309ff
@@ -598,7 +611,7 @@ was checked against WCAG AA.
 
 ```bash
 GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/Climate-Policy.py        # 7 methods
-GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/Climate-Claim-Small.py   # 16 methods
+GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/Climate-Claim.py   # 16 methods
 python3.12 -m pytest tests/direct/ -q   # 33 passed: env/yaml/frontend drift checks
 python3.12 -m pytest archive/tests -q   # 170 passed: archived pre-split contract
 cd frontend && npm test && npx tsc -b --noEmit && npm run build          # 148 unit tests (10 files) + typecheck + build
@@ -659,7 +672,7 @@ Stated plainly:
    Closing this gap is the single largest piece of outstanding work.
 5. **The deployed pair has no direct tests.** The 170 archived tests cover
    `archive/climateclaim.py`. Neither `Climate-Policy.py` nor
-   `Climate-Claim-Small.py` has a direct suite, so their behaviour is evidenced
+   `Climate-Claim.py` has a direct suite, so their behaviour is evidenced
    only by the reads recorded in
    [`docs/deployment-bradbury-2026-10-18.md`](docs/deployment-bradbury-2026-10-18.md).
 6. **The observed reading moved between deployments.** The live Open-Meteo archive
