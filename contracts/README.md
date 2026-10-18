@@ -4,13 +4,18 @@ Two files live here. Both are deployed. Nothing else in this repository is.
 
 ## What is deployed
 
-| File | Lines | Methods | Address |
+| File | Bytes | Methods | Address |
 |---|---|---|---|
-| `Climate-Policy.py` | 260 | 7 | `0x7851eea34196DA4B796b665f2DBb2D3a3E3bc631` |
-| `Climate-Claim-Small.py` | 427 | 16 | `0xa2D82Db4ddC567199113962BFd477f069510331D` |
+| `Climate-Policy.py` | 16,829 | 8 | `0xeebb68aEDB14A4184A0C36bAc5528D5f70B8a807` |
+| `Climate-Claim.py` | 18,600 | 16 | `0x07C1c5740eD73576deF939bb938556761738dA03` |
 
-Both on GenLayer Bradbury (chain 4221). Deploy hashes, consensus results and the
-verification steps are in `docs/deployment-bradbury-2026-10-18.md`.
+Both on GenLayer Bradbury (chain 4221), deployed by
+`0x04e0353B7218b66D6803725ce7342E6e1225DB1b`, both ACCEPTED / AGREE /
+FINISHED_WITH_RETURN. Deploy transactions:
+`0x8f704bc3bab2578a5c66981ba922dfb349a65f6817acac475af68d046889f658` (policy)
+and `0xa7deeaceb6ef12ca8b2a226c45b5502b062b344942859930300d52d5c2c7c631` (claim).
+Superseded addresses and their txs are in
+`docs/deployment-bradbury-2026-10-18.md`.
 
 ## Why there are two
 
