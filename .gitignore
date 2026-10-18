@@ -24,3 +24,5 @@ artifacts/*
 !artifacts/studionet/
 # Stray screenshot output from running interaction scripts with cwd=frontend
 frontend/artifacts/
+.vercel
+.env*
