@@ -17,12 +17,14 @@ import { ENV_CHAIN_ID, ENV_NETWORK_KEY, ENV_RPC_URL } from "./env";
  *                            three, so links are composed from `txPath`
  *
  * These literals remain the source of truth and the fallback. A deployment may
- * override three of them from the repository-root `.env` (see `env.ts`):
- * VITE_GENLAYER_RPC_URL, VITE_GENLAYER_CHAIN_ID and VITE_GLTEST_NETWORK.
- * Anything unset or malformed falls back to the value below, so the app builds
- * and runs identically with or without a `.env`. Explorer URLs and routes,
- * labels and availability flags are deliberately NOT overridable: they encode
- * verified facts about each chain, not per-deployment settings.
+ * override the ACTIVE network's url and chain id from the repository-root
+ * `.env` (see `env.ts`): VITE_GENLAYER_RPC_URL and VITE_GENLAYER_CHAIN_ID target
+ * the Bradbury entry, which is where the two contracts are deployed, and
+ * VITE_GLTEST_NETWORK chooses which entry is active. Anything unset or
+ * malformed falls back to the value below, so the app builds and runs
+ * identically with or without a `.env`. Explorer URLs and routes, labels and
+ * availability flags are deliberately NOT overridable: they encode verified
+ * facts about each chain, not per-deployment settings.
  */
 
 export type NetworkKey = "studionet" | "testnetAsimov" | "testnetBradbury";
@@ -55,11 +57,16 @@ export interface NetworkConfig {
 }
 
 export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
+  // StudioNet is now legacy for this app: it holds the older single-contract
+  // deployment and the recorded snapshot, but not the deploy the app talks to.
+  // Its values are therefore plain literals -- the .env overrides below point at
+  // whatever is ACTUALLY deployed, and must not be allowed to rewrite StudioNet
+  // into a different chain than the one it names.
   studionet: {
     key: "studionet",
     label: "StudioNet",
-    chainId: ENV_CHAIN_ID ?? 61999,
-    rpcUrl: ENV_RPC_URL || "https://studio.genlayer.com/api",
+    chainId: 61999,
+    rpcUrl: "https://studio.genlayer.com/api",
     explorerUrl: "https://explorer-studio.genlayer.com",
     txPath: "/tx/",
     explorerAvailable: true,
@@ -82,11 +89,13 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
     // The faucet is browser-based, so the user has to claim manually.
     faucetUrl: "https://testnet-faucet.genlayer.foundation/",
   },
+  // Bradbury is where the two contracts live, so this is the entry the .env
+  // overrides target (see the module comment above).
   testnetBradbury: {
     key: "testnetBradbury",
     label: "Bradbury",
-    chainId: 4221,
-    rpcUrl: "https://rpc-bradbury.genlayer.com",
+    chainId: ENV_CHAIN_ID ?? 4221,
+    rpcUrl: ENV_RPC_URL || "https://rpc-bradbury.genlayer.com",
     explorerUrl: "https://explorer-bradbury.genlayer.com",
     txPath: "/tx/",
     explorerAvailable: true,
@@ -99,14 +108,20 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
 
 /**
  * Active network: `VITE_GLTEST_NETWORK` when it names a configured network,
- * otherwise `studionet`.
+ * otherwise `testnetBradbury`.
+ *
+ * The default is Bradbury because that is where the two contracts are actually
+ * deployed (see config/contracts.ts). It used to default to StudioNet, which is
+ * now only the home of the older single-contract deployment and the recorded
+ * snapshot -- pointing the app there by default would open it against a
+ * contract whose schema the app no longer speaks.
  *
  * An unrecognised value falls back rather than indexing `NETWORKS` with an
  * unknown key, which would yield `undefined` and crash the app at import time
  * (the wrong-network banner reads `activeNetwork()` on first render).
  */
 export const ACTIVE_NETWORK: NetworkKey = (
-  Object.prototype.hasOwnProperty.call(NETWORKS, ENV_NETWORK_KEY) ? ENV_NETWORK_KEY : "studionet"
+  Object.prototype.hasOwnProperty.call(NETWORKS, ENV_NETWORK_KEY) ? ENV_NETWORK_KEY : "testnetBradbury"
 ) as NetworkKey;
 
 export function activeNetwork(): NetworkConfig {

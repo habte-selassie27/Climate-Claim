@@ -14,10 +14,8 @@
  */
 
 import { getClient } from "./client";
-import { CONTRACT_ADDRESS } from "../config/contracts";
+import { addressFor } from "../config/contracts";
 import snapshotData from "../data/onchain-snapshot.json";
-
-const CONTRACT_FOR_READS = CONTRACT_ADDRESS as `0x${string}`;
 
 /**
  * Where a value came from.
@@ -63,6 +61,13 @@ export const SNAPSHOT = snapshotData as unknown as SnapshotShape;
  *
  * Verified against the live endpoint 2026-10-17:
  *   {"bucket":"standard","window":"hour","limit":500,"current":500}
+ *
+ * MEASURED ON STUDIONET. The active deployment now lives on Bradbury, whose
+ * heavy-method ceiling has not been measured -- plain JSON-RPC there (e.g.
+ * `eth_chainId`) is unmetered, but contract calls are not. The budget is kept
+ * unchanged rather than loosened, because loosening it would be a guess in the
+ * unsafe direction: if Bradbury meters as StudioNet does, a faster pace would
+ * spend the bucket that writes also need.
  */
 const STUDIONET_READS_PER_HOUR = 500;
 /**
@@ -141,8 +146,11 @@ export async function liveRead(functionName: string, args?: unknown[]): Promise<
       await throttle();
       try {
         const client = await getClient();
+        // Route to whichever contract owns this method. The project deploys as
+        // two contracts, so a single address here would send policy reads to the
+        // claim contract (or the reverse) and fail.
         return await client.readContract({
-          address: CONTRACT_FOR_READS,
+          address: addressFor(functionName),
           functionName,
           ...(args ? { args: args as never } : {}),
         });

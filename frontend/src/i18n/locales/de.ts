@@ -283,6 +283,7 @@ export const de: Dictionary = {
   "audit.claimId": "Claim-ID",
   "audit.policyId": "Policy-ID",
   "audit.contract": "Vertrag",
+  "audit.policyContract": "Richtlinien-Vertrag",
   "audit.network": "Netzwerk",
   "audit.transaction": "Transaktion",
   "audit.contractAddress": "Vertragsadresse",

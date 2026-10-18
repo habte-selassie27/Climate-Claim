@@ -297,6 +297,7 @@ export const en = {
   "audit.claimId": "Claim ID",
   "audit.policyId": "Policy ID",
   "audit.contract": "Contract",
+  "audit.policyContract": "Policy contract",
   "audit.network": "Network",
   "audit.transaction": "Transaction",
   "audit.contractAddress": "Contract address",

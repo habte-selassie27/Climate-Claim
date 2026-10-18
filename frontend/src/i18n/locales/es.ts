@@ -281,6 +281,7 @@ export const es: Dictionary = {
   "audit.claimId": "ID de reclamación",
   "audit.policyId": "ID de póliza",
   "audit.contract": "Contrato",
+  "audit.policyContract": "Contrato de pólizas",
   "audit.network": "Red",
   "audit.transaction": "Transacción",
   "audit.contractAddress": "Dirección del contrato",

@@ -55,12 +55,23 @@ def example():
     return envfile.parse(ENV_EXAMPLE.read_text(encoding="utf-8"))
 
 
-def _yaml_network():
-    """Read the studionet rpc_url/chain_id without requiring PyYAML at test time."""
+def _yaml_network(name):
+    """`(rpc_url, chain_id)` for `name` from the gltest yaml, without PyYAML.
+
+    Scoped to ONE entry by name. It used to read the first `rpc_url:` in the
+    file, which was safe only while a single network was configured; with two
+    present, the first-match version would compare .env against whichever
+    network happened to be listed first.
+    """
     text = GLTEST_YAML.read_text(encoding="utf-8")
-    rpc = re.search(r"rpc_url:\s*(\S+)", text)
-    chain = re.search(r"chain_id:\s*(\d+)", text)
-    assert rpc and chain, "could not parse rpc_url/chain_id from gltest yaml"
+    block = re.search(
+        rf"-\s*name:\s*{re.escape(name)}\s*\n((?:\s+\w+:.*\n?)+)",
+        text,
+    )
+    assert block, f"network {name!r} not found in {GLTEST_YAML.name}"
+    rpc = re.search(r"rpc_url:\s*(\S+)", block.group(1))
+    chain = re.search(r"chain_id:\s*(\d+)", block.group(1))
+    assert rpc and chain, f"rpc_url/chain_id missing for network {name!r}"
     return rpc.group(1), int(chain.group(1))
 
 
@@ -120,26 +131,59 @@ def test_env_example_public_values_are_filled_in(example):
 
 def test_rpc_url_and_chain_id_match_gltest_yaml(env):
     label, values = env
-    rpc_url, chain_id = _yaml_network()
+    rpc_url, chain_id = _yaml_network(values["VITE_GLTEST_NETWORK"])
     assert values["VITE_GENLAYER_RPC_URL"] == rpc_url, label
     assert int(values["VITE_GENLAYER_CHAIN_ID"]) == chain_id, label
 
 
+def _typed_address(constant):
+    """The literal fallback for one address constant in config/contracts.ts."""
+    typed = CONTRACTS_TS.read_text(encoding="utf-8")
+    match = re.search(
+        rf"{constant}\s*=\s*\n?\s*ENV_\w+\s*\|\|\s*\"(0x[0-9a-fA-F]{{40}})\"",
+        typed,
+    )
+    assert match, f"typed fallback for {constant} not found in config/contracts.ts"
+    return match.group(1)
+
+
 def test_address_matches_frontend_typed_fallback(env):
     label, values = env
-    typed = CONTRACTS_TS.read_text(encoding="utf-8")
-    match = re.search(r'"(0x[0-9a-fA-F]{40})"', typed)
-    assert match, "no literal address found in frontend/src/config/contracts.ts"
-    assert values["VITE_CLIMATECLAIM_ADDRESS"] == match.group(1), label
+    assert values["VITE_CLIMATECLAIM_ADDRESS"] == _typed_address("CONTRACT_ADDRESS"), label
+
+
+def test_policy_address_matches_frontend_typed_fallback(env):
+    """The split added a second address; it needs the same drift protection.
+
+    Without this, `.env` could point the claim contract at the Bradbury
+    deployment while leaving the policy contract on a stale address, and every
+    policy read would hit a contract the app is not tracking.
+    """
+    label, values = env
+    assert values["VITE_CLIMATEPOLICY_ADDRESS"] == _typed_address("POLICY_ADDRESS"), label
+
+
+def _typed_chain_id(network_ts, key):
+    """`chainId` of one network block, env-overridable or literal."""
+    block = re.search(rf"\b{key}:\s*\{{(.*?)\n  \}},", network_ts, re.S)
+    assert block, f"network block {key!r} not found in network.ts"
+    match = re.search(r"chainId:\s*(?:ENV_CHAIN_ID \?\? )?(\d+)", block.group(1))
+    assert match, f"chainId not found in the {key!r} block of network.ts"
+    return int(match.group(1))
 
 
 def test_chain_id_matches_frontend_typed_fallback(env):
+    """The ACTIVE network's chain id, not whichever block is listed first.
+
+    The override used to sit on the StudioNet block, so a first-match regex
+    happened to be right. It now sits on the Bradbury block -- the network that
+    is actually deployed -- and a first-match read would compare against the
+    wrong chain.
+    """
     label, values = env
     network_ts = NETWORK_TS.read_text(encoding="utf-8")
-    # The literal fallback survives as `ENV_CHAIN_ID ?? 61999`.
-    match = re.search(r"ENV_CHAIN_ID \?\? (\d+)", network_ts)
-    assert match, "typed chain-id fallback not found in network.ts"
-    assert int(values["VITE_GENLAYER_CHAIN_ID"]) == int(match.group(1)), label
+    expected = _typed_chain_id(network_ts, values["VITE_GLTEST_NETWORK"])
+    assert int(values["VITE_GENLAYER_CHAIN_ID"]) == expected, label
 
 
 def test_network_key_matches_frontend_default(env):
@@ -148,6 +192,22 @@ def test_network_key_matches_frontend_default(env):
     match = re.search(r'\? ENV_NETWORK_KEY : "(\w+)"', network_ts)
     assert match, "typed network fallback not found in network.ts"
     assert values["VITE_GLTEST_NETWORK"] == match.group(1), label
+
+
+def test_env_override_targets_the_active_network():
+    """The RPC/chain overrides must sit on the network the app actually uses.
+
+    Pointing them at StudioNet while the contracts live on Bradbury would let
+    `.env` rewrite the legacy chain's url and leave the live one untouched.
+    """
+    network_ts = NETWORK_TS.read_text(encoding="utf-8")
+    active = re.search(r'\? ENV_NETWORK_KEY : "(\w+)"', network_ts).group(1)
+    assert re.search(r"ENV_RPC_URL \|\|", network_ts), "no RPC override in network.ts"
+    assert re.search(r"ENV_CHAIN_ID \?\?", network_ts), "no chain-id override in network.ts"
+    # Both overrides live inside the active network's block.
+    block = re.search(rf"\b{active}:\s*\{{(.*?)\n  \}},", network_ts, re.S).group(1)
+    assert "ENV_RPC_URL" in block, f"RPC override is not on the active network {active!r}"
+    assert "ENV_CHAIN_ID" in block, f"chain-id override is not on the active network {active!r}"
 
 
 # --- the no-leak guarantee ---------------------------------------------------

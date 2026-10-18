@@ -1452,3 +1452,58 @@ so the app's evaluation flow has no on-chain counterpart here yet.
 BLOCKED. Nothing blocking deployment. Open question: raw-RPC
 `gen_getContractSchema` returns `absent_runner_comment` for both contracts while
 the CLI's schema and call commands work against the same addresses.
+
+## Frontend wired to the two Bradbury contracts
+
+DONE. The app now talks to the deployed pair instead of the retired StudioNet
+monolith:
+
+- `config/contracts.ts` holds both addresses plus a `METHOD_META` router giving
+  each method its contract and mutability. `addressFor(method)` is the single
+  place a read or write gets its target, so a method cannot be sent to the
+  contract that does not have it.
+- `network.ts` defaults to Bradbury and the RPC/chain `.env` overrides moved off
+  the StudioNet entry onto the active one. StudioNet's values are now literals, so
+  a `.env` pointing at the live deployment can no longer silently rewrite the
+  legacy chain's url.
+- `claimService.ts` maps the new nested `get_claim` shape (evidence, disputes,
+  payouts) onto the existing domain types. `get_source`, `get_policy_count`,
+  `find_claim`, `get_evidence`, `get_disputes` and `get_settlement` are DERIVED
+  from list reads; they are not real methods on either contract.
+- `evaluationService.ts` routes writes by method, supports a payable `value` for
+  `fund`, and drops `request_evaluation`.
+- `ClaimDetail` no longer offers a "Request evaluation" button. It explains that
+  this deployment records decisions rather than computing them. The check panel
+  states that no per-check results exist instead of implying one is pending.
+- `App.tsx` footer shows both addresses.
+
+PROOF. `node` run of the app's own call path against the live chain, via
+genlayer-js and the same router:
+
+    list_sources @ policy  -> []
+    list_policies @ policy -> []
+    get_claim_count @ claim -> 0
+    list_claims @ claim -> []
+    get_escrow_balance @ claim -> 0
+    get_refunds @ claim -> {"count":0,"total":0}
+
+and routing proved load-bearing: `list_policies` sent to the CLAIM contract is
+rejected (`call to private method __handle_undefined_method__`), which is why a
+single configured address would not have worked.
+
+GATES. genvm-lint 2/2 (7 and 16 methods); pytest tests/direct 203 passed;
+env-consistency 33 passed; frontend tsc clean, 327 tests passed (up from 310, +17
+new routing/network tests), build succeeds.
+
+RESTORED, DELIBERATELY. `contracts/climateclaim.py` was deleted with the split,
+which orphaned all 203 direct tests -- every one failed with
+`FileNotFoundError`. It is restored and now documented as the pre-split source
+that the tests cover, NOT as a deployment. See `contracts/README.md`.
+
+NEXT. The gap that matters: the deployed pair has no direct test suite, and the
+evaluation engine (weather fetch, model call, equivalence rule) is not deployed
+anywhere. Closing that is the largest remaining piece of work.
+
+BLOCKED. Nothing. Open question unchanged: raw-RPC `gen_getContractSchema`
+returns `absent_runner_comment` for both contracts while the CLI's schema and call
+commands work against the same addresses.

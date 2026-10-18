@@ -3,7 +3,8 @@
 # Run with: gltest tests/integration/ -v -s
 #
 # Deploys ClimateClaim to the network named by VITE_GLTEST_NETWORK (default
-# studionet) and exercises the claim lifecycle against real validators.
+# bradbury, matching the app's typed default in frontend/src/config/network.ts)
+# and exercises the claim lifecycle against real validators.
 #
 # Reads the deployer key from the environment. Never commit it.
 #
@@ -15,6 +16,15 @@ paths:
   artifacts: artifacts/gltest
 
 networks:
+  # Bradbury holds the two-contract deployment the app talks to. The name must
+  # match VITE_GLTEST_NETWORK, which is how gltest selects an entry here.
+  - name: testnetBradbury
+    rpc_url: https://rpc-bradbury.genlayer.com
+    chain_id: 4221
+    default_account: deployer
+
+  # StudioNet holds the older single-contract deployment and the recorded
+  # snapshot. Kept so the legacy deployment stays reachable.
   - name: studionet
     rpc_url: https://studio.genlayer.com/api
     chain_id: 61999

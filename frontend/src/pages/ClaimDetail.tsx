@@ -38,9 +38,17 @@ const net = activeNetwork();
  */
 const DISPUTE_GROUNDS_MAX = 300;
 
-/** Writes this screen can send; used to label the shared status panel. */
+/**
+ * Writes this screen can send; used to label the shared status panel.
+ *
+ * `request_evaluation` is deliberately absent. It no longer exists: on the
+ * deployed claim contract, recording a decision is the owner-only
+ * `record_evaluation`, which takes the decision as an argument and verifies
+ * nothing about it. Offering a visitor a button that claims to "evaluate" the
+ * claim would misrepresent what the chain does, so the control is replaced by
+ * an explanation (see the actions panel below).
+ */
 type WriteKind =
-  | "request_evaluation"
   | "open_dispute"
   | "resolve_dispute"
   | "finalize_decision"
@@ -50,10 +58,9 @@ type WriteKind =
 
 /**
  * Panel labels match the button that was pressed, so a dispute is never
- * reported as "Request evaluation" (the file's buttons use these same words).
+ * reported as "Re-evaluate disputed claim" (the file's buttons use these words).
  */
 const WRITE_LABELS: Record<WriteKind, string> = {
-  request_evaluation: "Request evaluation",
   open_dispute: "Open dispute",
   resolve_dispute: "Re-evaluate disputed claim",
   finalize_decision: "Mark decision final",
@@ -61,6 +68,22 @@ const WRITE_LABELS: Record<WriteKind, string> = {
   confirm_settlement: "Confirm payout delivered",
   fail_settlement: "Mark payout failed",
 };
+
+/**
+ * Why this screen cannot start an evaluation.
+ *
+ * Stated in the UI rather than left implicit, because a reader who knows the
+ * project's design (fetch evidence -> interpret -> consensus) will look for the
+ * control and should be told plainly that this deployment does not have it.
+ */
+const EVALUATION_NOTE =
+  "This deployment records decisions, it does not compute them. The claim " +
+  "contract has no weather-data access and no model call: `record_evaluation` " +
+  "is owner-only and takes the decision, reason, summary and evidence as " +
+  "arguments, then stores them unverified. The earlier single-contract design " +
+  "fetched the sources and evaluated them on chain; that code is in " +
+  "contracts/Climate-Claim-Small.py's predecessor but is not in this deployment, " +
+  "so there is no button here to start it.";
 
 /**
  * The main screen. Everything rendered here comes from the deployed contract:
@@ -299,9 +322,13 @@ export function ClaimDetail() {
             <CheckList
               checks={checks}
               emptyReason={
-                claim.eval_error
-                  ? "The evaluation did not complete, so no checks were recorded. The reason is shown in the decision panel."
-                  : "This claim has not been evaluated yet."
+                // Checks have no on-chain source on this deployment, so the
+                // reason is stated rather than dressed up as "not evaluated yet"
+                // -- which would imply a future evaluation would fill them in.
+                "No per-check results are recorded on this deployment. The " +
+                "deployed claim contract stores a decision, a reason code and " +
+                "the evidence rows it was given, but it does not produce " +
+                "threshold, period, location, agreement or completeness checks."
               }
             />
           </div>
@@ -332,15 +359,12 @@ export function ClaimDetail() {
               </div>
             ) : null}
 
+            <div className="alert alert-info" style={{ marginBottom: "var(--space-3)" }} data-testid="evaluation-note">
+              <strong>Evaluation is owner-mediated on this deployment</strong>
+              <p>{EVALUATION_NOTE}</p>
+            </div>
+
             <div className="btn-row">
-              <button
-                type="button"
-                className="btn"
-                disabled={tx.phase !== "idle" || wallet.wrongNetwork || !wallet.connected}
-                onClick={() => void doWrite("request_evaluation", [claim.id])}
-              >
-                Request evaluation
-              </button>
               <button
                 type="button"
                 className="btn btn-secondary"

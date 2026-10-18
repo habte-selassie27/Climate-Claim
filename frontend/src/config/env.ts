@@ -21,6 +21,7 @@
  */
 
 declare const __ENV_VITE_CLIMATECLAIM_ADDRESS__: string;
+declare const __ENV_VITE_CLIMATEPOLICY_ADDRESS__: string;
 declare const __ENV_VITE_GENLAYER_RPC_URL__: string;
 declare const __ENV_VITE_GENLAYER_CHAIN_ID__: string;
 declare const __ENV_VITE_GLTEST_NETWORK__: string;
@@ -29,20 +30,34 @@ function read(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+/** A 0x-prefixed 40-hex address, or "" when absent or malformed. */
+function address(value: unknown): string {
+  const raw = read(value);
+  return /^0x[0-9a-fA-F]{40}$/.test(raw) ? raw : "";
+}
+
 /**
- * Contract address, or "" to use the typed fallback.
+ * Address of the CLAIM contract, or "" to use the typed fallback.
+ *
+ * The project deploys as two contracts (see `config/contracts.ts`), so this is
+ * only one of the two. Kept under its original variable name so existing
+ * deployments and scripts keep working.
  *
  * Validated as 0x-prefixed 40-hex. Anything else is rejected rather than passed
  * through, because a malformed address would surface as an opaque RPC failure.
  */
-export const ENV_CONTRACT_ADDRESS: string = (() => {
-  const raw = read(
-    typeof __ENV_VITE_CLIMATECLAIM_ADDRESS__ === "string"
-      ? __ENV_VITE_CLIMATECLAIM_ADDRESS__
-      : "",
-  );
-  return /^0x[0-9a-fA-F]{40}$/.test(raw) ? raw : "";
-})();
+export const ENV_CONTRACT_ADDRESS: string = address(
+  typeof __ENV_VITE_CLIMATECLAIM_ADDRESS__ === "string"
+    ? __ENV_VITE_CLIMATECLAIM_ADDRESS__
+    : "",
+);
+
+/** Address of the POLICY contract, or "" to use the typed fallback. */
+export const ENV_POLICY_ADDRESS: string = address(
+  typeof __ENV_VITE_CLIMATEPOLICY_ADDRESS__ === "string"
+    ? __ENV_VITE_CLIMATEPOLICY_ADDRESS__
+    : "",
+);
 
 /** RPC URL, or "" to use the typed fallback. */
 export const ENV_RPC_URL: string = read(

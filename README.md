@@ -5,18 +5,47 @@ checks recorded weather observations against a policy written in plain language,
 shows you the readings that produced the answer — including when the honest answer is
 "we cannot tell".**
 
-Deployed on GenLayer StudioNet at
-[`0x6e085313b65962e0Dd6930AFB9B548Ab23a50C6F`](https://explorer-studio.genlayer.com/address/0x6e085313b65962e0Dd6930AFB9B548Ab23a50C6F)
-(manual deployment of `contracts/climateclaim.py`).
+Deployed on GenLayer **Bradbury** (chain 4221) as two contracts:
 
-> **Deployment not yet independently verified.** StudioNet's daily read quota
-> (5000/day) was exhausted when this address was adopted, so its schema could not
-> be captured and compared against the source. Unconfirmed: the method surface
-> (the UI maps 32 methods) and the owner address (`create_policy` is owner-only).
-> The previously verified deployment was
+| Contract | Address | Methods |
+|---|---|---|
+| `Climate-Policy.py` | [`0x7851eea34196DA4B796b665f2DBb2D3a3E3bc631`](https://explorer-bradbury.genlayer.com/address/0x7851eea34196DA4B796b665f2DBb2D3a3E3bc631) | 7 |
+| `Climate-Claim-Small.py` | [`0xa2D82Db4ddC567199113962BFd477f069510331D`](https://explorer-bradbury.genlayer.com/address/0xa2D82Db4ddC567199113962BFd477f069510331D) | 16 |
+
+Both reached consensus **5/5 AGREE** with `FINISHED_WITH_RETURN`, and both were
+confirmed on Bradbury rather than StudioNet by reading `eth_getCode` from
+`rpc-bradbury.genlayer.com` and by StudioNet answering "Contract ... not found".
+Deploy tx hashes, first read output and the verification steps are in
+[`docs/deployment-bradbury-2026-10-18.md`](docs/deployment-bradbury-2026-10-18.md).
+
+> **What this deployment does and does not do — read this before the feature list.**
+>
+> The contracts are split because Bradbury enforces a size-dependent gas ceiling
+> on deploys: a 793-line contract is rejected with `gas limit too high`, while
+> 260-line and 427-line contracts deploy. The split is a deployment requirement,
+> not a design preference. Measured sizes and the full comparison are in
+> [`contracts/README.md`](contracts/README.md).
+>
+> The deployed pair is **narrower than the design this project describes**. It
+> does **not** fetch weather data, does **not** call a model, and does **not**
+> evaluate anything on chain. `record_evaluation` is owner-only and takes the
+> decision, reason, summary, observed value and evidence as arguments; the
+> contract stores them and verifies none of them. Per-check results
+> (threshold / period / location / agreement / completeness) are not produced by
+> anything, so the UI says so instead of rendering an empty panel.
+>
+> The evaluation engine — Open-Meteo / NASA POWER retrieval, unit normalisation,
+> aggregation, threshold comparison under consensus, and the equivalence rule
+> that decides whether two validators agree on *meaning* — lives in
+> `contracts/climateclaim.py`, which is **not deployed**. It is the pre-split
+> source and it is what the 203 direct tests cover. Deleting it orphaned every
+> one of them, so it is retained deliberately: see
+> [`contracts/README.md`](contracts/README.md).
+>
+> The older StudioNet deployment of the single 32-method contract,
 > `0x6E4BD06bD969E745546A7957d818eDaD47882ea8` (deploy tx
 > `0x85748a90fe90c0b4c92ef7810be643935cd1fadce04dc7f9a425f8c66cc8809f`,
-> consensus 5/5 AGREE); its artifacts are under
+> consensus 5/5 AGREE), is still reachable; its artifacts are under
 > [`artifacts/studionet-v2/`](artifacts/studionet-v2/), and v1
 > (`0xE16032420e3155C0822e9150a98c6B1163869F0c`) under
 > [`artifacts/deployment-v1/`](artifacts/deployment-v1/).
@@ -94,12 +123,30 @@ GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/climateclaim.py
 python3.12 -m pytest tests/direct/ -q
 ```
 
-### Read the deployed contract
+### Read the deployed contracts
+
+```bash
+genlayer network set testnet-bradbury
+
+# Policy contract: sources and policies
+genlayer schema 0x7851eea34196DA4B796b665f2DBb2D3a3E3bc631
+genlayer call   0x7851eea34196DA4B796b665f2DBb2D3a3E3bc631 list_policies
+genlayer call   0x7851eea34196DA4B796b665f2DBb2D3a3E3bc631 list_sources
+
+# Claim contract: claims, disputes, settlement
+genlayer schema 0xa2D82Db4ddC567199113962BFd477f069510331D
+genlayer call   0xa2D82Db4ddC567199113962BFd477f069510331D get_claim_count
+genlayer call   0xa2D82Db4ddC567199113962BFd477f069510331D list_claims
+
+# The deploy, on the explorer
+genlayer receipt 0x6130f4f929c1612a52b49c2e8ce7c2f02260c41afa10fb965ddfa28c667309ff
+```
+
+### Read the older StudioNet deployment
 
 ```bash
 genlayer network set studionet
-genlayer schema 0x6e085313b65962e0Dd6930AFB9B548Ab23a50C6F
-genlayer call 0x6e085313b65962e0Dd6930AFB9B548Ab23a50C6F get_claim --args claim-2
+genlayer call 0x6E4BD06bD969E745546A7957d818eDaD47882ea8 get_claim --args claim-2
 genlayer receipt 0x85748a90fe90c0b4c92ef7810be643935cd1fadce04dc7f9a425f8c66cc8809f
 ```
 
@@ -597,10 +644,19 @@ Stated plainly:
    was verified by real writes against StudioNet (deploy, 7 policies, 7 claims,
    5 evaluations — receipts under `artifacts/studionet-v2/`) rather than by an
    integration suite.
-4. **StudioNet only.** No Bradbury/Asimov deployment, so no public-proof address.
-   The configured chain ids for those testnets were not independently verified
-   against the docs in this pass.
-5. **The observed reading moved between deployments.** The live Open-Meteo archive
+4. **The deployed contracts are narrower than the design.** Bradbury now holds a
+   two-contract deployment, but that pair does no evaluation: no weather fetch, no
+   model call, no threshold arithmetic. Decisions are recorded by the owner via
+   `record_evaluation` and stored unverified, and no per-check results exist
+   anywhere. The evaluation engine is in `contracts/climateclaim.py`, which is
+   **not deployed** — its 203 direct tests cover code that is not on any chain.
+   Closing this gap is the single largest piece of outstanding work.
+5. **The deployed pair has no direct tests.** The 203 tests in `tests/direct/`
+   cover `climateclaim.py`. Neither `Climate-Policy.py` nor
+   `Climate-Claim-Small.py` has a direct suite, so their behaviour is evidenced
+   only by the reads recorded in
+   [`docs/deployment-bradbury-2026-10-18.md`](docs/deployment-bradbury-2026-10-18.md).
+6. **The observed reading moved between deployments.** The live Open-Meteo archive
    now returns max 0.90 mm for Paris 2024-06-01..05, where the v1 deployment
    recorded 1.20 mm. Reanalysis data is revised over time. This is why the current
    `claim-2` / `claim-5` / `claim-6` are `not_confirmed` rather than the earlier

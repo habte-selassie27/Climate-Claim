@@ -2,7 +2,7 @@ import { Suspense, lazy } from "react";
 import { NavLink, Route, Routes, Link } from "react-router-dom";
 import { activeNetwork } from "./config/network";
 import { useWallet } from "./hooks/useWallet";
-import { CONTRACT_ADDRESS } from "./config/contracts";
+import { CONTRACT_ADDRESS, POLICY_ADDRESS } from "./config/contracts";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { WalletPanel } from "./components/WalletPanel";
 import { ThemeToggle } from "./components/ThemeToggle";
@@ -107,6 +107,12 @@ function Footer() {
         <div>
           <div className="small">
             {t("audit.contract")} <span className="mono">{CONTRACT_ADDRESS}</span>
+          </div>
+          {/* The project deploys as two contracts, so naming only the claim one
+              understates what is on chain and hides where policies are read
+              from. Both are listed. */}
+          <div className="small">
+            {t("audit.policyContract")} <span className="mono">{POLICY_ADDRESS}</span>
           </div>
           <div className="small">
             {net.label} · {t("common.chain", { id: net.chainId })}

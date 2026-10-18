@@ -282,6 +282,7 @@ export const fr: Dictionary = {
   "audit.claimId": "ID de réclamation",
   "audit.policyId": "ID de policy",
   "audit.contract": "Contrat",
+  "audit.policyContract": "Contrat de politiques",
   "audit.network": "Réseau",
   "audit.transaction": "Transaction",
   "audit.contractAddress": "Adresse du contrat",

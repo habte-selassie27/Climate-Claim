@@ -7,7 +7,7 @@
  */
 
 import { getClient } from "./client";
-import { CONTRACT_ADDRESS, METHODS } from "../config/contracts";
+import { addressFor, METHODS } from "../config/contracts";
 import { phaseForStatus, type TxState } from "./txStatus";
 import { mapError } from "../domain/copy";
 
@@ -15,17 +15,29 @@ async function walletAvailable(): Promise<boolean> {
   return typeof window !== "undefined" && "ethereum" in window;
 }
 
-/** A write the UI can trigger. Names match the schema exactly. */
+/**
+ * A write the UI can trigger. Names match the deployed schemas exactly.
+ *
+ * `record_evaluation` REPLACES `request_evaluation`. That is a real change in
+ * meaning, not a rename: `request_evaluation` made the contract fetch weather
+ * data, ask a model and compute the threshold itself, so any wallet could start
+ * a consensus evaluation. `record_evaluation` is OWNER-ONLY and takes the
+ * decision as an argument -- the contract stores what it is told and verifies
+ * nothing about it. The UI must not present it as "evaluate this claim".
+ */
 export type WriteKind =
-  | "request_evaluation"
+  | "register_policy_snapshot"
+  | "start_claim"
+  | "record_evaluation"
   | "open_dispute"
   | "resolve_dispute"
   | "finalize_decision"
   | "settle_claim"
   | "confirm_settlement"
   | "fail_settlement"
-  | "start_claim"
-  | "create_policy";
+  | "create_policy"
+  | "register_source"
+  | "fund";
 
 export interface WriteCallbacks {
   /** Called once the tx hash is known, so the UI can show and persist it. */
@@ -45,6 +57,7 @@ export async function runWrite(
   kind: WriteKind,
   args: unknown[],
   callbacks: WriteCallbacks = {},
+  options: { value?: bigint } = {},
 ): Promise<TxState> {
   const emit = (next: TxState) => {
     callbacks.onPhase?.(next);
@@ -64,11 +77,13 @@ export async function runWrite(
   try {
     emit({ phase: "submitted" });
     const client = await getClient();
+    // Route by method: the two contracts have separate addresses, so a single
+    // configured address would send policy writes to the claim contract.
     const hash = (await client.writeContract({
-      address: CONTRACT_ADDRESS as `0x${string}`,
+      address: addressFor(METHODS[kind]),
       functionName: METHODS[kind],
       args: args as never,
-      value: 0n,
+      value: options.value ?? 0n,
     })) as `0x${string}`;
 
     callbacks.onHash?.(hash);
