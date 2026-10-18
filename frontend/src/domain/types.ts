@@ -3,8 +3,14 @@
  *
  * These mirror the shapes returned by the deployed contract. Field names come
  * from the saved schema and from real read output captured on 2026-10-13; the
- * union members come from the contract's own constants (contracts/climateclaim.py
+ * union members come from the contract's own constants (archive/climateclaim.py
  * lines 59-131), not from guesswork.
+ *
+ * Those constants belong to the evaluation design, which is archived rather than
+ * deployed. The deployed claim contract records a decision instead of deriving
+ * one, so `decision` and `reason_code` can hold whatever the owner supplied. The
+ * unions below remain the vocabulary the UI is written against; treat a value
+ * outside them as unrecognised rather than impossible.
  */
 
 export type Decision = "confirmed" | "not_confirmed" | "inconclusive";
@@ -38,7 +44,7 @@ export type ClaimState =
   | "settled";
 
 /**
- * Settlement lifecycle (contracts/climateclaim.py). `payout_emitted` is NOT
+ * Settlement lifecycle (contracts/Climate-Claim-Small.py). `payout_emitted` is NOT
  * success: the payout message has been emitted, but the child transaction that
  * actually credits the recipient has not been verified yet.
  */
@@ -122,7 +128,7 @@ export interface Claim {
   /**
    * Grounds of the currently-open dispute, set by `open_dispute` and cleared
    * once the re-evaluation records the round. Empty unless state is "disputed".
-   * Mirrors the contract's `pending_grounds` (contracts/climateclaim.py).
+   * Mirrors the contract's `pending_grounds` (contracts/Climate-Claim-Small.py).
    */
   pending_grounds?: string;
 }
@@ -148,9 +154,14 @@ export interface CheckResult {
 }
 
 /**
- * One recorded dispute round, exactly as `get_disputes` returns it
- * (contracts/climateclaim.py `_write_outcome`): round, opener, grounds,
- * prev_decision, new_decision. Written when the re-evaluation lands.
+ * One recorded dispute round.
+ *
+ * The archived contract's `get_disputes` returned round, opener, grounds,
+ * prev_decision and new_decision (archive/climateclaim.py `_write_outcome`). The
+ * deployed claim contract records round, opener, grounds, decision and reason
+ * instead -- it never stores the decision that preceded the round, so
+ * `prev_decision` is always empty and `new_decision` carries the round's outcome.
+ * services/claimService.ts does that mapping.
  */
 export interface Dispute {
   round: number;

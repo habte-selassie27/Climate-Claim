@@ -37,10 +37,11 @@ Deploy tx hashes, first read output and the verification steps are in
 > The evaluation engine — Open-Meteo / NASA POWER retrieval, unit normalisation,
 > aggregation, threshold comparison under consensus, and the equivalence rule
 > that decides whether two validators agree on *meaning* — lives in
-> `contracts/climateclaim.py`, which is **not deployed**. It is the pre-split
-> source and it is what the 203 direct tests cover. Deleting it orphaned every
-> one of them, so it is retained deliberately: see
-> [`contracts/README.md`](contracts/README.md).
+> `archive/climateclaim.py`, which is **not deployed**. It is the pre-split
+> source and it is what 170 of the 203 direct tests cover. It is archived rather
+> than deleted because removing it orphaned every one of those tests: see
+> [`archive/README.md`](archive/README.md). `contracts/` holds only what is
+> actually on chain, so "what is deployed" has exactly one answer.
 >
 > The older StudioNet deployment of the single 32-method contract,
 > `0x6E4BD06bD969E745546A7957d818eDaD47882ea8` (deploy tx
@@ -118,9 +119,11 @@ pip install -r requirements.txt
 
 # Note: GENVM_VERSION is required. Bare genvm-lint resolves a newer cached
 # GenVM and fails to load the pinned SDK.
-GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/climateclaim.py
+GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/Climate-Policy.py
+GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/Climate-Claim-Small.py
 # Python 3.12+ required (genlayer_py needs collections.abc.Buffer).
-python3.12 -m pytest tests/direct/ -q
+python3.12 -m pytest tests/direct/ -q          # 33: config drift checks
+python3.12 -m pytest archive/tests -q          # 170: the pre-split contract
 ```
 
 ### Read the deployed contracts
@@ -594,8 +597,10 @@ was checked against WCAG AA.
 ## Testing
 
 ```bash
-GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/climateclaim.py   # 3 lint checks + SDK validation
-python3.12 -m pytest tests/direct/ -q                                 # 200 direct tests
+GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/Climate-Policy.py        # 7 methods
+GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/Climate-Claim-Small.py   # 16 methods
+python3.12 -m pytest tests/direct/ -q   # 33 passed: env/yaml/frontend drift checks
+python3.12 -m pytest archive/tests -q   # 170 passed: archived pre-split contract
 cd frontend && npm test && npx tsc -b --noEmit && npm run build          # 148 unit tests (10 files) + typecheck + build
 ```
 
@@ -648,11 +653,12 @@ Stated plainly:
    two-contract deployment, but that pair does no evaluation: no weather fetch, no
    model call, no threshold arithmetic. Decisions are recorded by the owner via
    `record_evaluation` and stored unverified, and no per-check results exist
-   anywhere. The evaluation engine is in `contracts/climateclaim.py`, which is
-   **not deployed** — its 203 direct tests cover code that is not on any chain.
+   anywhere. The evaluation engine is in `archive/climateclaim.py`, which is
+   **not deployed** — 170 of the 203 direct tests cover code that is not on any
+   chain.
    Closing this gap is the single largest piece of outstanding work.
-5. **The deployed pair has no direct tests.** The 203 tests in `tests/direct/`
-   cover `climateclaim.py`. Neither `Climate-Policy.py` nor
+5. **The deployed pair has no direct tests.** The 170 archived tests cover
+   `archive/climateclaim.py`. Neither `Climate-Policy.py` nor
    `Climate-Claim-Small.py` has a direct suite, so their behaviour is evidenced
    only by the reads recorded in
    [`docs/deployment-bradbury-2026-10-18.md`](docs/deployment-bradbury-2026-10-18.md).

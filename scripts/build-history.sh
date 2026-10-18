@@ -6,6 +6,12 @@
 # is coherent: docs and config first, then the contract, then tests, then
 # fixtures, then the frontend bottom-up, then evidence.
 #
+# HISTORICAL RECORD. This generated the repository's commit sequence and was
+# consumed once. It is kept as a description of how the history was built, so
+# the paths below are the PRE-ARCHIVE layout: contracts/climateclaim.py and
+# tests/direct/conftest.py have since moved to archive/. Do not re-run it to
+# "fix" that -- it rebuilds history from an orphan root commit.
+#
 # Format per line:  <paths...>  ::  <commit message>
 # A leading "!" means the commit is intentionally empty (a marker only).
 set -euo pipefail

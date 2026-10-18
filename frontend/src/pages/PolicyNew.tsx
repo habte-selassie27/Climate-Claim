@@ -33,8 +33,8 @@ const net = activeNetwork();
  * Create policy.
  *
  * Every default, option and validation rule here mirrors the contract's own
- * `create_policy` (contracts/climateclaim.py, verified against the saved schema
- * at docs/schema.genlayer-cli.txt). The contract is the authority; the form
+ * `create_policy` (contracts/Climate-Policy.py, verified against the schema
+ * captured from the deployment at docs/schema/climate-policy.bradbury.txt). The contract is the authority; the form
  * exists to stop the user sending a transaction that must fail.
  *
  * Two contract rules shape this page:

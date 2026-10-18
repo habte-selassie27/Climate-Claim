@@ -1,4 +1,18 @@
-"""Shared helpers for ClimateClaim direct tests.
+"""Shared helpers for the archived ClimateClaim direct tests.
+
+ARCHIVED, NOT ACTIVE. These tests exercise `archive/climateclaim.py`, the
+1406-line pre-split source. That contract is NOT deployed — the two deployed
+contracts are `contracts/Climate-Policy.py` and `contracts/Climate-Claim-Small.py`.
+
+They live outside `tests/` on purpose so a normal `pytest tests/direct` run does
+not collect them: every one of them would fail with FileNotFoundError if the
+contract were removed, and a suite that cannot run is not evidence.
+
+Run them explicitly:
+
+    python3.12 -m pytest archive/tests -q
+
+See archive/README.md for what this code is and why it is kept.
 
 Direct tests run the contract in-process (no network) with mocked web + LLM.
 Web responses are built from recorded historical values (see fixtures/historical).
@@ -9,7 +23,8 @@ import json
 import pytest
 from gltest.direct import create_address
 
-CONTRACT = "contracts/climateclaim.py"
+# Relative to the repository root, which is where pytest is invoked from.
+CONTRACT = "archive/climateclaim.py"
 
 # create_policy argument order (must match the contract signature).
 POLICY_ORDER = [

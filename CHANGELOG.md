@@ -1507,3 +1507,50 @@ anywhere. Closing that is the largest remaining piece of work.
 BLOCKED. Nothing. Open question unchanged: raw-RPC `gen_getContractSchema`
 returns `absent_runner_comment` for both contracts while the CLI's schema and call
 commands work against the same addresses.
+
+## Move the pre-split contract and its tests to archive/
+
+DONE. `contracts/` now contains only the two DEPLOYED contracts, so "what is on
+chain" has exactly one answer:
+
+    contracts/Climate-Policy.py        260 lines,  7 methods
+    contracts/Climate-Claim-Small.py   427 lines, 16 methods
+
+`contracts/climateclaim.py` (1406 lines) and the 170 tests that load it moved to
+`archive/`, which is outside `tests/` and therefore outside the default gate.
+
+WHY ARCHIVED RATHER THAN DELETED. The file is not deployed, but it is the only
+implementation of the evaluation engine -- Open-Meteo/NASA POWER retrieval, unit
+normalisation, aggregation, integer threshold arithmetic, the model call and the
+equivalence rule. Deleting it would leave the project unable to state how its
+central claim is computed, and would orphan 170 tests with FileNotFoundError.
+`archive/README.md` says all of this, including that the archived tests cover
+nothing that is deployed.
+
+GATES. Both suites run and both pass:
+
+    python3.12 -m pytest tests/direct -q     33 passed  (config drift checks)
+    python3.12 -m pytest archive/tests -q   170 passed  (archived contract)
+
+Total is still 203, unchanged. genvm-lint 2/2; frontend tsc clean, 327 tests, build ok.
+
+REFERENCES REPOINTED. Moving the file broke paths in tracked tooling and docs, so
+each was updated to where the code now is:
+`scripts/redeploy-studionet.sh`, `scripts/wait-and-redeploy-studionet.sh`,
+`scripts/dispute-claim.sh`, `docs/state-diagram.md`, `docs/schema.json` and four
+comments in `frontend/src/domain/types.ts` (each now points at whichever contract
+actually has the symbol). `scripts/build-history.sh` is flagged as a historical
+record whose paths are deliberately pre-archive -- it rebuilds history from an
+orphan root commit and must not be re-run to "fix" them.
+
+BUG FOUND WHILE REPOINTING. `ClaimDetail.tsx` capped dispute grounds at 300
+characters, mirroring the archived contract. The deployed
+`Climate-Claim-Small.py:232` allows **500**. The UI was rejecting grounds the
+chain would have accepted. Fixed. The mismatch was invisible for a reason worth
+recording: a client cap stricter than the contract's never produces a revert, it
+just silently truncates what a user may say.
+
+NEXT. Unchanged and still the largest item: the deployed pair has no direct test
+suite, and nothing deployed evaluates anything.
+
+BLOCKED. Nothing.

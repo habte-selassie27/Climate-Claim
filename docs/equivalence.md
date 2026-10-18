@@ -1,5 +1,12 @@
 # Equivalence design
 
+> **Documents the ARCHIVED design, not the deployment.** This describes
+> `archive/climateclaim.py`, the pre-split single contract. That contract is
+> **not deployed**: what is on chain is `contracts/Climate-Policy.py` and
+> `contracts/Climate-Claim-Small.py`, which do no evaluation and produce no
+> checks. See [`archive/README.md`](../archive/README.md) and
+> [`contracts/README.md`](../contracts/README.md).
+
 GenLayer validators agree on the **meaning** of a non-deterministic result, not
 on exact bytes. ClimateClaim has exactly one consensus-critical non-deterministic
 call. Everything it can decide with plain code, it decides with plain code.
@@ -51,7 +58,7 @@ validator also enforces the threshold-side invariant, so validators can never
 1. `decision` must be **exactly equal**.
 2. `reason_code` must be equal **or** fall inside the same documented group.
    In the deployed contract every group is currently a **singleton**
-   (`REASON_GROUPS` at contracts/climateclaim.py:73-80 lists
+   (`REASON_GROUPS` at archive/climateclaim.py:73-80 lists
    `source_conflict`, `missing_observations`, `location_mismatch`,
    `threshold_crossed`, `threshold_not_crossed`, `sources_unreachable`, each
    alone), so in practice reason_code must match exactly. The grouping mechanism

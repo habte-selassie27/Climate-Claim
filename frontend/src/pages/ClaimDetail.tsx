@@ -33,10 +33,16 @@ const net = activeNetwork();
 
 /**
  * Maximum dispute grounds length. Mirrors the contract's
- * `self._require_text(grounds, "grounds", 300)` in `open_dispute`
- * (contracts/climateclaim.py). Value, not behaviour: the contract re-checks it.
+ * `_require_text(grounds, "grounds", 500)` in `open_dispute`
+ * (contracts/Climate-Claim-Small.py:232). Value, not behaviour: the contract
+ * re-checks it.
+ *
+ * This was 300, copied from the archived contract's limit. The deployed one
+ * allows 500, so the UI was rejecting grounds the chain would have accepted.
+ * The mismatch was invisible because a stricter client-side cap never produces a
+ * revert -- it just silently truncates what a user may say.
  */
-const DISPUTE_GROUNDS_MAX = 300;
+const DISPUTE_GROUNDS_MAX = 500;
 
 /**
  * Writes this screen can send; used to label the shared status panel.

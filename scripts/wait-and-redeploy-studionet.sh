@@ -102,11 +102,11 @@ fi
 log "running gates before deploying (lint pinned, then direct tests)"
 # Re-run the gates here rather than trusting the earlier run: this script may sit
 # idle for over an hour, and deploying unlinted code is the wrong order.
-if ! GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/climateclaim.py; then
+if ! GENVM_VERSION=v0.3.0-rc7 genvm-lint check archive/climateclaim.py; then
   log "lint failed -- not deploying"
   exit 1
 fi
-if ! python3.12 -m pytest tests/direct/ -q; then
+if ! python3.12 -m pytest archive/tests -q; then
   log "direct tests failed -- not deploying"
   exit 1
 fi

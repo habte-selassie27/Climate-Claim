@@ -26,7 +26,10 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-CONTRACT=contracts/climateclaim.py
+# The pre-split single contract. It is not in contracts/ any more -- that
+# directory holds only the two DEPLOYED contracts -- so this script, which
+# deploys the monolith to StudioNet, reads it from archive/.
+CONTRACT=archive/climateclaim.py
 OWNER=0x5B3661C576c7001e6d6279C67F3779705d334c89
 ENVFILE=.env
 
@@ -36,7 +39,9 @@ if [ "${SKIP_GATES:-0}" = "1" ]; then
 else
   GENVM_VERSION=v0.3.0-rc7 genvm-lint check "$CONTRACT"
   # genlayer_py needs Python 3.12+ (collections.abc.Buffer).
-  python3.12 -m pytest tests/direct/ -q
+  # The archived suite, because this script deploys the archived contract.
+  # tests/direct/ holds only the config drift checks.
+  python3.12 -m pytest archive/tests -q
 fi
 
 echo

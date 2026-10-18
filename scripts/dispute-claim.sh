@@ -9,7 +9,8 @@
 #
 #   scripts/dispute-claim.sh <contract-address> [claim-id] ["grounds"]
 #
-# Expected effect, per contracts/climateclaim.py:
+# Expected effect, per archive/climateclaim.py (the pre-split contract this
+# script was written against; it is not the deployed one):
 #   open_dispute    -> state "disputed", pending_grounds set, dispute_rounds + 1
 #   resolve_dispute -> re-evaluation; the completed round lands in get_disputes
 set -u
