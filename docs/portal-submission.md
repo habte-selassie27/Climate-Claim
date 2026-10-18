@@ -7,7 +7,7 @@ was read back from the chain or from a command run this session.
 ## Identity
 
 - **Project:** ClimateClaim — evidence-based parametric weather claims
-- **Repository:** <https://github.com/habte-selassie27/Climate-Claim> (branch `main`, commit `1da726a`)
+- **Repository:** <https://github.com/habte-selassie27/Climate-Claim> (branch `main`, commit `e12d3f7`)
 - **Live app:** <https://climate-claim-fawn.vercel.app/>
 - **Network:** GenLayer Bradbury, chain id 4221
 - **Explorer:** <https://explorer-bradbury.genlayer.com>
