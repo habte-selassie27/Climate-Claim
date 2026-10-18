@@ -7,6 +7,93 @@ gaps are stated plainly; nothing is claimed that was not run.
 
 ---
 
+## Refactor: the app follows the two deployed contracts, and no stale record remains
+
+### DONE
+
+**Removed the stale data at the source, not in the UI.**
+
+The 6 policies and 5 claims on screen came from
+`src/data/onchain-snapshot.json`: 6 policies and 5 claims read from
+`0xE16032420e3155C0822e9150a98c6B1163869F0c` on StudioNet, a contract that is not
+deployed. It was wired as a **silent fallback** — whenever the RPC failed, those
+records rendered as though they were current — and the demo defaulted to a
+hardcoded `claim-2` from the same retired contract.
+
+The file is deleted rather than repointed, because there is nothing honest to
+repoint it to. The current deployment starts with zero claims, and an empty
+state is correct where another deployment's records are not. The `snapshot` and
+`mixed` data origins are gone with it; a failed read now yields no data.
+
+**Two creation workflows, both driven by the deployed schemas.**
+
+- **Create Policy** existed at `/policies/new` and was already correct against the
+  schema. Kept, and its arity is now pinned by a test (18 parameters).
+- **Create Claim** is new at `/claims/new`, reachable from a button on the claims
+  page and from its empty state. It lists live policies and submits
+  `start_claim(policy_id, period_start, period_end)`.
+
+**The demo is dynamic.** It lists every claim read from `list_claims`, lets one
+be selected, and handles loading, error, empty and populated states. Recorded
+replays moved into a separate section that runs the deployed
+`compute_evaluation`, so a replay outcome is derived on chain rather than stored,
+and is labelled "Not transactions".
+
+**Verified the whole path on chain rather than assuming it.** Registered two
+sources, created `policy-1` (Paris, `gt` 1.00 mm), bridged it with
+`register_policy_snapshot`, opened `claim-1`, and recorded the decision that
+`compute_evaluation` **derived**: `confirmed` / `threshold_crossed`, observed 125
+(1.25 mm), 2 evidence rows. Every write: ACCEPTED / AGREE / FINISHED_WITH_RETURN.
+
+Two real bugs surfaced while doing it:
+- Paris was seeded at `488500000` micro-degrees instead of `48850000`, and the
+  contract correctly reverted `EXPECTED: invalid coordinates`. That is a
+  latitude of 488 degrees against a `+-90_000_000` ceiling — the validation
+  working.
+- `genlayer write --args '{"id":"probe"}'` **cannot pass JSON**: the CLI strips
+  the double quotes, so the contract received a malformed string and reverted
+  `invalid policy JSON`. JSON arguments must go through genlayer-js.
+
+**Directories audited.** `fixtures/` lost the `on_chain_claims` block (the
+recorded responses are real and stay). `docs/` deployment record rewritten,
+`schema.json` regenerated from the schemas read back after deployment,
+`equivalence.md` now separates what is deployed from what is not. `scripts/` lost
+11 obsolete StudioNet scripts and gained two that fail safely. `tests/` replaced
+the obsolete-record test with one that guards against reintroduction.
+
+**Stated rather than hidden:** `register_policy_snapshot` is owner-only, so a
+brand-new policy cannot back a claim until the owner bridges it. `/claims/new`
+says so instead of letting it read as a bug, and nothing simulates a claim the
+chain refused.
+
+### PROOF
+
+| Gate | Result |
+|---|---|
+| `genvm-lint` contracts/Climate-Policy.py | OK — 8 methods |
+| `genvm-lint` contracts/Climate-Claim.py | OK — 16 methods |
+| `pytest tests/direct` | 33 passed |
+| `pytest archive/tests` | 170 passed |
+| `tsc -b --noEmit` | clean |
+| `vitest run` | 356 passed, 27 files |
+| `npm run build` | ok |
+| `scripts/verify-deployment.sh` | all checks passed |
+
+Chain contents, read back: **2 sources, 1 policy, 1 claim**. Both addresses hold
+bytecode on Bradbury (chain `0x107d` = 4221), and every method the UI calls
+answers.
+
+### NEXT
+
+Nothing blocking. The frontend reads live; `compute_evaluation` is not yet wired
+into the claim detail screen as a live re-derivation of the stored decision.
+
+### BLOCKED
+
+Nothing. StudioNet remains rate-limited (500/hour) but is no longer depended on.
+
+---
+
 ## Decision engine moved into Climate-Policy; the evaluator contract is deleted
 
 ### DONE
