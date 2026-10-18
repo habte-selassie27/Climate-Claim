@@ -202,6 +202,7 @@ export const de: Dictionary = {
   "error.transient": "Im Netzwerk gab es ein vorübergehendes Problem.",
   "error.llm": "Die Bewertung konnte nicht abgeschlossen werden.",
   "error.generic": "Diese Aktion konnte nicht ausgeführt werden.",
+  "error.execution": "Der Aufruf ist während der Ausführung on-chain fehlgeschlagen, es wurde nichts geschrieben. Der genaue Grund steht in der Transaktion im Explorer.",
 
   "agg.maxSingle": "der höchste einzelne Messwert an einem beliebigen Tag",
   "agg.cumulative": "die Summe über den gesamten Zeitraum",
@@ -536,6 +537,7 @@ export const de: Dictionary = {
 
   "claimDetail.notFound.h": "Claim nicht gefunden",
   "claimDetail.notFound.title": "Kein Claim namens „{id}“",
+  "claimDetail.readFailed": "Dieser Anspruch konnte nicht gelesen werden",
   "claimDetail.notFound.body":
     "Er wurde möglicherweise entfernt, oder die Adresse stammt aus einer anderen Bereitstellung.",
   "claimDetail.h1": "Claim {id}",

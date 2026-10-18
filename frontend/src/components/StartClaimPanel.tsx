@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useWallet } from "../hooks/useWallet";
 import { findClaim } from "../services/claimService";
-import { runWrite } from "../services/evaluationService";
+import { refreshTx, runWrite } from "../services/evaluationService";
 import { IDLE, type TxState } from "../services/txStatus";
 import { TxStatusPanel } from "./TxStatusPanel";
 import { activeNetwork } from "../config/network";
@@ -217,7 +217,12 @@ export function StartClaimPanel({ policy, onChanged }: Props) {
             state={tx}
             actionLabel={t("startClaim.heading")}
             onRetry={() => void submit()}
-            onRefresh={onChanged}
+            onRefresh={() => {
+              // Re-check the write itself (accepted -> finalized), then the
+              // claims the parent lists.
+              void refreshTx(tx).then(setTx);
+              onChanged();
+            }}
           />
           {createdId ? (
             <p style={{ marginTop: "var(--space-3)" }}>

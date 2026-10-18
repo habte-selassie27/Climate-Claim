@@ -48,7 +48,7 @@ describe("errorMessage fallback", () => {
   it("prefers the deterministic error prefixes when present", () => {
     // EXPECTED / EXTERNAL / TRANSIENT / LLM_ERROR must still win over prose,
     // because the UI maps them to specific advice.
-    expect(src).toMatch(/\^\(EXPECTED\|EXTERNAL\|TRANSIENT\|LLM_ERROR\)/);
+    expect(src).toMatch(/\^\(EXPECTED\|EXTERNAL\|TRANSIENT\|LLM_ERROR\|EXECUTION\)/);
   });
 });
 

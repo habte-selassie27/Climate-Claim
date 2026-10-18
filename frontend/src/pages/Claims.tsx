@@ -94,11 +94,6 @@ export function Claims() {
           */}
           {t("claims.lede", { address: CONTRACT_ADDRESS, network: net.label })}
         </p>
-        <div className="btn-row" style={{ marginTop: "var(--space-2)" }}>
-          <Link className="btn" to="/claims/new">
-            {t("claimNew.h1")}
-          </Link>
-        </div>
         <OriginBadge
           mode={claims.origin}
           liveError={claims.liveError}

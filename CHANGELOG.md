@@ -5,6 +5,202 @@ gaps are stated plainly; nothing is claimed that was not run.
 
 ---
 
+---
+
+## Fix: create_policy actually succeeds; execution errors surfaced
+
+A live test of Create policy submitted `data_mode: "live"` with an
+`open_meteo_archive` source, which the contract rejects deterministically
+(`EXPECTED: source incompatible with policy`). The transaction was
+`ACCEPTED (ERROR)` / `FINISHED_WITH_ERROR` and created nothing, while the app
+showed "Validators are evaluating" / "Validators agreed" and even linked to an
+existing policy. Two causes: the form did not enforce the contract's
+`MODE_KINDS` rule, and the write path read the wrong receipt field
+(`receipt.statusName` while the simplified receipt carries `status_name`) and
+never inspected `txExecutionResultName`.
+
+### DONE
+
+- **`frontend/src/pages/PolicyNew.tsx`** now mirrors `MODE_KINDS`: the source
+  list is filtered by metric + allowed kind, switching data mode drops
+  incompatible selections, a restored draft is pruned, and `validate()` re-checks
+  the pairing so a stale draft cannot be submitted.
+- **`frontend/src/services/evaluationService.ts`** `runWrite` reads the receipt
+  status via `receiptStatusName` (handles both `statusName` and `status_name`),
+  detects `txExecutionResultName === "FINISHED_WITH_ERROR"` and reports
+  `phase: "failed"` with `EXECUTION: …` instead of "accepted".
+  `refreshTx` does the same, so a manual refresh can no longer mask an
+  execution failure.
+- **`frontend/src/services/txStatus.ts`** added `receiptStatusName`,
+  `executionFailed`, and `EXECUTION_FAILED`; `mapError` (`domain/copy.ts`)
+  maps the `EXECUTION` prefix to `error.execution`.
+- **i18n** `error.execution` added to en/de/es/fr.
+- **Docs/comments** corrected: the earlier "public read stops serving decided
+  transactions" claim was wrong (a mis-transcribed hash), and the "executed
+  Success" claim for the first live test was wrong (it errored too). Both are
+  corrected in this file and in the code comments.
+- **`frontend/src/services/writeSigner.test.ts`** updated to pin the new
+  execution-error handling.
+
+### PROOF
+
+- `npm run typecheck` — TBD
+- `npm test` — TBD
+- `npm run build` — TBD
+
+### NEXT
+
+- Run the gates and commit.
+
+### BLOCKED
+
+- none
+
+---
+
+## Redeploy: reversible policy status, and a deployed docstring that tells the truth
+
+Two defects could only be fixed by redeploying, because both were baked into the
+deployed artifacts rather than into configuration. This entry records the
+redeploy, and both defects plainly.
+
+### DONE
+
+- **`set_policy_status` added to ClimatePolicy.** A live policy had been retired
+  by mistake and `retire_policy` was the only status write, so the call had no
+  undo and the only remedy was a redeploy. The new write sets a policy to
+  `active` or `retired`: owner-only, and it bumps the version like every other
+  policy mutation. Retiring is one call and no longer costs a deployment to undo.
+- **The stale module docstring was rewritten and redeployed.**
+  `Climate-Claim.py`'s docstring still described an owner-mediated snapshot
+  bridge that had not existed since `start_claim` began reading the policy
+  cross-contract. GenVM deploys the Python source itself, so that text was part
+  of the artifact — editing the repository alone would have made it disagree
+  with `genlayer code`. It is now part of the deployed artifact and matches.
+  Verified: `genlayer code 0x0b7C…D311` contains the current phrasing and no
+  longer contains "owner-mediated snapshot registration flow"; the retrieved
+  source is byte-identical to `contracts/Climate-Claim.py`.
+- **Redeployed both contracts** on Bradbury:
+  - ClimatePolicy `0x02b75bBd0E0398D19e0750d6adc513605AEF6DFC` (17,643 B, 9
+    methods), tx `0x414c5dbb2e4327aafc7c2a687604a78e867894a38b63fc5fc77a211448022c52`
+  - ClimateClaim `0x0b7Cfa4012fADd9f570951bCE059bB4e2497D311` (19,410 B, 16
+    methods), tx `0x591eef3c1e3cb4ec221f2a20e154d67b4907e7bf84a4003820f6f0d6706953b3`
+
+  Both ACCEPTED / AGREE / FINISHED_WITH_RETURN. 19,410 B still sits under the
+  measured ceiling (accepted 19,410; rejected 20,294).
+- **The superseded state was backed up, then replayed — not re-invented.**
+  `frontend/scripts/dump-state.mjs` read every source, policy, claim and evidence
+  row off the old deployment into
+  `artifacts/bradbury-backup-pre-redeploy.json` before it was replaced;
+  `frontend/scripts/reseed-from-backup.mjs` replays that backup onto the new
+  contracts. No decision was copied: each was re-derived with the new
+  `compute_evaluation` and checked against what the old deployment decided. All
+  five reproduced exactly (`match` for claim-1..claim-5).
+- Repointed `.env`, `.env.example`, `contracts.ts`, `contracts/README.md`,
+  `README.md`, the deployment doc, `evaluate-claim.mjs` and the stale-data test;
+  regenerated `docs/schema/*.bradbury.txt` from chain; deleted two junk schema
+  snapshots that contained `error: unknown option '--json'` rather than a schema.
+
+### PROOF
+
+- `set_policy_status` round trip on `policy-6`: `active` (v1) → `retired` (v2)
+  → **`active` again (v3)**. The operation that was impossible before now works.
+- Access control: a funded non-owner account called `set_policy_status` and was
+  rejected — `genlayer trace` on tx
+  `0x41a00c7050462c7b04098cff64559279316465151920bb35da2606ebba8bccc5` returns
+  `EXPECTED: owner only`, and the policy stayed `active` at version 3.
+  (Note: the tx is ACCEPTED at the consensus layer even though the contract call
+  reverts, so acceptance must never be read as success — state was re-read.)
+- `genvm-lint` clean on both (9 and 16 methods). `pytest tests/direct` — 33
+  passed. `tsc --noEmit` clean. `vitest run` — 28 files, 373 tests passed.
+- `./scripts/verify-deployment.sh` — All checks passed: 3 sources, 6 policies,
+  5 claims.
+
+### NEXT
+
+- Paste `docs/portal-submission.md` into the Portal draft; confirm the Vercel
+  build.
+
+### BLOCKED
+
+- None.
+
+---
+
+## Fix: writes from the app — shared wallet store, a signing client, and a status panel that links and re-checks
+
+### DONE
+
+- **Two stacked bugs stopped every write.** `useWallet()` was a plain hook with
+  private `useState` per caller, so the header could connect while the page's own
+  copy still read `address = null` ("Connect a wallet first" — with a wallet
+  connected). Then the GenLayer client was built with `createClient({ chain })`
+  only, so `writeContract` threw the SDK's "No account set. Configure the client
+  with an account or pass an account to this function."
+- `useWallet` is now one module-level store (`useSyncExternalStore`): a single
+  provider-listener set, one state for every consumer. The selection persists by
+  EIP-6963 uuid **and** `rdns` (MetaMask regenerates its uuid per page load).
+- New `getWriteClient(account, provider)` in `services/client.ts`: carries the
+  connected address **and the selected wallet's own provider** (not
+  `window.ethereum`, which may belong to a different extension), recreated
+  whenever the account or provider changes so a switch cannot sign as the old
+  one. Reads keep the accountless client. Verified in the installed
+  genlayer-js@1.1.8 source: a plain address routes `eth_sendTransaction` to the
+  provider, so the wallet signs and no key touches the app.
+- `runWrite` gates on `currentSigner()` from the shared store instead of probing
+  `window.ethereum`, and signs through `getWriteClient`.
+- **TxStatusPanel told a half-truth.** The hash had no explorer link
+  (`explorerUrl={undefined}`) and "Refresh status" only re-fetched page reads,
+  never the transaction — so an accepted result could never visibly reach
+  finalized without a reload. The hash now links through the verified
+  `<explorer>/tx/<hash>` route from `config/network.ts`, and a new `refreshTx`
+  re-reads the transaction through the same phase mapping the write path uses.
+  Re-checks are **forward-only** (`nextPhase` in `services/txStatus.ts`): a
+  read may advance (submitted → pending → accepted → finalized) or recover out
+  of `failed`, but never walk backwards.
+- **Why forward-only: a retracted read-path claim (corrected).** An earlier
+  probe that re-read the live-test tx returned an empty record, but that was
+  an artifact of a mis-transcribed transaction hash (the probe asked for
+  `…3fafe9…` / `…a491…` while the real hashes are `…3fa1e9…` / `…6491…`).
+  The actual records read normally: the same tx that the explorer shows as
+  `FINALIZED` reads `status 7 = FINALIZED` through `getTransaction`. The
+  forward-only rule is still correct and stays — it is belt-and-braces against
+  stale or partial reads and against a timed-out write that later turns out to
+  have succeeded — but it is no longer justified by a non-existent quirk.
+  `refreshTx` treats an empty/absent record as no information (state
+  unchanged).
+- `frontend/src/config/contracts.ts` fallback addresses refreshed to the current
+  deployment (they still pointed at the superseded pair).
+
+### PROOF
+
+- `npm run typecheck` — exit 0.
+- `npm test` — exit 0, 28 files, 377 tests (new `writeSigner.test.ts` pins the
+  signer wiring and the refresh pairing on all three write panels; the
+  `nextPhase` no-regression matrix is unit-tested in `txStatus.test.ts`).
+- `npm run build` — exit 0.
+- Live browser test: Create policy → wallet prompt → Bradbury tx
+  `0x696b862adf4432d7c354273fa1e9d63616d9597c4b49f3d177606f13862e4129`
+  (`0x696b…4129`), ACCEPTED (ERROR) / FINISHED_WITH_ERROR — the form
+  submitted `live` mode with an `open_meteo_archive` source, which the contract
+  rejects with "EXPECTED: source incompatible with policy"; no policy was
+  created. From the owner `0x04e0353B7218b66D6803725ce7342E6e1225DB1b` to
+  ClimatePolicy `0x02b75bBd0E0398D19e0750d6adc513605AEF6DFC`. (See the new
+  session entry below for the fix.)
+
+### NEXT
+
+- Commit once the rest of the working tree settles (the new deployment's files
+  are still uncommitted).
+- Click through the panel once more on the next write: explorer link + accepted
+  → finalized refresh.
+
+### BLOCKED
+
+- none
+
+---
+
 ## On-chain: ClimateClaim redeployed with cross-contract policy reads; 5 claims decided
 
 ### DONE
@@ -88,6 +284,32 @@ gaps are stated plainly; nothing is claimed that was not run.
 - Key rotation for the two keys pasted into chat earlier (Bradbury
   `0x4b2e4c71…`, StudioNet `0xd64e58bf…`) requires the owner: the deployer is
   baked into the deployed contracts and the balances sit at that address.
+
+---
+
+## Fix: claim detail reads on mount, so claim-1 … claim-5 open
+
+### DONE
+
+`/claims/<id>` rendered "Claim not found" before it ever asked the chain: the
+bundle read was opt-in like every other read, and `bundle.loading` is false
+until someone clicks refresh. The bundle, source registry and policy list now
+read on mount.
+
+The no-data branch is split into three honest outcomes: an idle read (not asked
+yet), a failed read with the error text and a retry, and a genuinely unknown
+claim. `get_claim` answers a bad id with `EXPECTED: unknown claim`, which arrives
+as a failed read, so that case is reported as "not found" rather than as a
+network failure. New key `claimDetail.readFailed` in `en`, `es`, `fr`, `de`.
+
+### PROOF
+
+- `npm run typecheck` — exit 0.
+- `npx vitest run` — exit 0, 27 files, 365 tests, including an assertion that
+  ClaimDetail reads its bundle on mount.
+- Headless Chrome, each of the five claims on `0xb80e…`: `/claims/claim-1` …
+  `/claims/claim-5` all render their detail (title, Evidence, policy, settlement)
+  and none shows "Claim not found" or "This claim could not be read".
 
 ---
 

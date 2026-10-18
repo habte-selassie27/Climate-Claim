@@ -133,6 +133,16 @@ describe("an unread page is not a failed read", () => {
     expect(page("Claims.tsx")).toMatch(/listClaims\(\)[\s\S]{0,80}autoLive: true/);
   });
 
+  it("reads the claim bundle on mount for ClaimDetail", () => {
+    // Direct visits to /claims/<id> used to render "Claim not found" without
+    // ever asking the chain.
+    const src = readFileSync(
+      fileURLToPath(new URL("../pages/ClaimDetail.tsx", import.meta.url)),
+      "utf8",
+    );
+    expect(src).toMatch(/getClaimBundle\(id\), \[id\], \{ autoLive: true \}/);
+  });
+
   it("never caches a failed policy read, or refresh could never recover", () => {
     const svc = readFileSync(
       fileURLToPath(new URL("../services/claimService.ts", import.meta.url)),

@@ -201,6 +201,7 @@ export const fr: Dictionary = {
   "error.transient": "Un problème temporaire est survenu sur le réseau.",
   "error.llm": "L’évaluation n’a pas pu être terminée.",
   "error.generic": "Cette action n’a pas pu être effectuée.",
+  "error.execution": "L’appel a échoué pendant l’exécution sur la chaîne, donc rien n’a été écrit. La raison exacte se trouve dans la transaction de l’explorateur.",
 
   "agg.maxSingle": "le relevé le plus élevé d’une journée quelconque",
   "agg.cumulative": "le total sur toute la période",
@@ -535,6 +536,7 @@ export const fr: Dictionary = {
 
   "claimDetail.notFound.h": "Réclamation introuvable",
   "claimDetail.notFound.title": "Aucune réclamation nommée « {id} »",
+  "claimDetail.readFailed": "Cette réclamation n'a pas pu être lue",
   "claimDetail.notFound.body":
     "Elle a peut-être été supprimée, ou l’adresse provient d’un autre déploiement.",
   "claimDetail.h1": "Réclamation {id}",

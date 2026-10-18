@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useRead } from "../hooks/useRead";
 import { useWallet } from "../hooks/useWallet";
-import { runWrite } from "../services/evaluationService";
+import { refreshTx, runWrite } from "../services/evaluationService";
 import { IDLE, type TxState } from "../services/txStatus";
 import { AuditPanel } from "../components/AuditPanel";
 import { CheckList } from "../components/CheckList";
@@ -106,10 +106,11 @@ export function ClaimDetail() {
 
   // No seed: reads are live-only now. The bundle is several sequential reads
   // (rate-limited), so the page shows a skeleton until they land, and an error
-  // state if they do not.
-  const bundle = useRead(() => getClaimBundle(id), [id]);
-  const sources = useRead(() => listSources(), []);
-  const policies = useRead(() => listPolicies(), []);
+  // state if they do not. Auto-read on mount: without it a direct visit to
+  // /claims/<id> reported "Claim not found" before ever asking the chain.
+  const bundle = useRead(() => getClaimBundle(id), [id], { autoLive: true });
+  const sources = useRead(() => listSources(), [], { autoLive: true });
+  const policies = useRead(() => listPolicies(), [], { autoLive: true });
 
   const doWrite = useCallback(
     async (kind: WriteKind, args: unknown[]) => {
@@ -177,6 +178,50 @@ export function ClaimDetail() {
   const value = bundle.data;
 
   if (!value) {
+    // The contract answers a bad id with "EXPECTED: unknown claim", which arrives
+    // as a failed read. That is a missing claim, not a broken page — say so
+    // instead of blaming the network, and keep any other failure as a failure.
+    const missing = /unknown claim|no claim/i.test(bundle.liveError ?? "");
+
+    if (bundle.origin === "idle") {
+      return (
+        <div className="stack">
+          <h1>{t("claimDetail.h1", { id })}</h1>
+          <div className="empty" data-testid="claim-detail-idle">
+            <p>{t("origin.idle")}</p>
+            <button type="button" className="btn" onClick={bundle.refresh}>
+              {t("data.refreshLive")}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (bundle.origin === "error" && !missing) {
+      return (
+        <div className="stack">
+          <h1>{t("claimDetail.h1", { id })}</h1>
+          <div className="alert alert-warn" data-testid="claim-detail-error">
+            <strong>{t("claimDetail.readFailed")}</strong>
+            {bundle.liveError ? <p className="small mono">{bundle.liveError}</p> : null}
+            <div className="btn-row">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={bundle.refresh}
+                disabled={bundle.refreshing}
+              >
+                {t("common.retry")}
+              </button>
+              <Link className="btn btn-secondary" to="/claims">
+                Back to all claims
+              </Link>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="stack">
         <h1>{t("claimDetail.notFound.h")}</h1>
@@ -221,7 +266,15 @@ export function ClaimDetail() {
   // may do this; the contract re-checks, so the UI only gates on wallet presence.
   const canResolve = claim.state === "disputed" && (isOwner || isClaimant);
   // Mark a decided claim final. Owner only, per the contract's _require_owner.
-  const canFinalize = decided && !claim.finalized && isOwner && claim.settlement_state === "not_settled";
+  // The contract also refuses to finalize an inconclusive decision
+  // ("EXPECTED: inconclusive decision cannot settle"), so the UI must not
+  // offer the button for one -- showing it guarantees a failed tx.
+  const canFinalize =
+    decided &&
+    !claim.finalized &&
+    isOwner &&
+    claim.settlement_state === "not_settled" &&
+    claim.decision !== "inconclusive";
 
   return (
     <div className="stack">
@@ -545,7 +598,12 @@ export function ClaimDetail() {
                   state={tx}
                   actionLabel={WRITE_LABELS[lastWrite.kind]}
                   onRetry={() => void doWrite(lastWrite.kind, lastWrite.args)}
-                  onRefresh={bundle.refresh}
+                  onRefresh={() => {
+                    // Re-check the write itself (accepted -> finalized), then
+                    // the page's own reads.
+                    void refreshTx(tx).then(setTx);
+                    bundle.refresh();
+                  }}
                 />
               </div>
             ) : null}

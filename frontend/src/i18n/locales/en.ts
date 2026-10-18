@@ -213,6 +213,7 @@ export const en = {
   "error.transient": "There was a temporary problem on the network.",
   "error.llm": "The evaluation could not be completed.",
   "error.generic": "That action could not be completed.",
+  "error.execution": "The call failed during execution on chain, so nothing was written. The exact reason is in the transaction on the explorer.",
 
   // --- policy terms --------------------------------------------------------
   "agg.maxSingle": "highest single reading on any day",
@@ -548,6 +549,7 @@ export const en = {
   // --- claim detail --------------------------------------------------------
   "claimDetail.notFound.h": "Claim not found",
   "claimDetail.notFound.title": "No claim called “{id}”",
+  "claimDetail.readFailed": "This claim could not be read",
   "claimDetail.notFound.body": "It may have been removed, or the address may be from a different deployment.",
   "claimDetail.h1": "Claim {id}",
   "claimDetail.evidence": "Evidence",

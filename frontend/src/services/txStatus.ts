@@ -140,3 +140,64 @@ export const PHASE_TONE: Record<TxPhase, "idle" | "progress" | "accepted" | "fin
   finalized: "final",
   failed: "failed",
 };
+
+/** Forward order used by `nextPhase`; `failed` is handled separately. */
+const PHASE_ORDER: Record<Exclude<TxPhase, "failed">, number> = {
+  idle: 0,
+  submitted: 1,
+  pending: 2,
+  accepted: 3,
+  finalized: 4,
+};
+
+/**
+ * Forward-only phase movement for status re-checks (`refreshTx`).
+ *
+ * A re-check can observe an older status than what is on screen: the public
+ * read may lag or return a partial record, and a stale read
+ * must never walk the panel backwards. Allowed movements:
+ *
+ *   - any non-final phase -> finalized      (the appeal window closed)
+ *   - pending/accepted -> failed            (CANCELED / timeout surfaced later)
+ *   - failed -> pending/accepted/finalized  (a timed-out write that actually
+ *     went through recovers instead of staying failed forever)
+ *
+ * Everything else keeps `current`. Callers filter empty records before
+ * calling, so `arrived` is always a real observed status.
+ */
+export function nextPhase(current: TxPhase, arrived: TxPhase): TxPhase {
+  if (arrived === current || arrived === "idle") return current;
+  if (current === "finalized") return current;
+  if (arrived === "failed") return "failed";
+  if (current === "failed") return arrived;
+  return PHASE_ORDER[arrived] > PHASE_ORDER[current] ? arrived : current;
+}
+
+/**
+ * Stable prefix for a transaction that consensus decided but whose call failed
+ * during execution on chain. The contract's state is rolled back, so nothing was
+ * written; the panel must never present such a result as "accepted".
+ */
+export const EXECUTION_FAILED = "EXECUTION: the call failed during execution on chain, so nothing was written";
+
+/**
+ * The SDK transaction status name, whichever shape the SDK returned.
+ *
+ * genlayer-js@1.1.8's simplified receipt (`simplifyTransactionReceipt`) carries
+ * the raw `status_name` and drops the decoded `statusName`; the full transaction
+ * returned by `getTransaction()` carries `statusName`. Both are read here so the
+ * same mapping serves the write poll and the refresh path.
+ */
+export function receiptStatusName(receipt: unknown): string | undefined {
+  if (!receipt || typeof receipt !== "object") return undefined;
+  const r = receipt as { statusName?: string; status_name?: string };
+  return r.statusName ?? r.status_name;
+}
+
+/**
+ * True when consensus decided the transaction and the call itself failed on chain.
+ * Both the simplified receipt and the full transaction carry `txExecutionResultName`.
+ */
+export function executionFailed(receipt: { txExecutionResultName?: unknown } | null | undefined): boolean {
+  return receipt?.txExecutionResultName === "FINISHED_WITH_ERROR";
+}

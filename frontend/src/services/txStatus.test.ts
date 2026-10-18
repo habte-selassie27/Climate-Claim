@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   IDLE,
+  nextPhase,
   phaseText,
   phaseHint,
   isTerminal,
@@ -48,6 +49,40 @@ describe("phaseForStatus", () => {
   it("defaults unknown or missing statuses to pending, not to a terminal state", () => {
     expect(phaseForStatus(undefined)).toBe("pending");
     expect(phaseForStatus("SOME_FUTURE_STATUS")).toBe("pending");
+  });
+});
+
+describe("nextPhase", () => {
+  it("advances toward finality", () => {
+    expect(nextPhase("submitted", "pending")).toBe("pending");
+    expect(nextPhase("submitted", "accepted")).toBe("accepted");
+    expect(nextPhase("pending", "accepted")).toBe("accepted");
+    expect(nextPhase("accepted", "finalized")).toBe("finalized");
+  });
+
+  it("never walks backwards when a read returns an older status", () => {
+    // The public consensus-data read stops serving decided transactions; an
+    // empty record maps to pending and must not undo an accepted result.
+    expect(nextPhase("accepted", "pending")).toBe("accepted");
+    expect(nextPhase("pending", "submitted")).toBe("pending");
+    expect(nextPhase("finalized", "accepted")).toBe("finalized");
+    expect(nextPhase("finalized", "pending")).toBe("finalized");
+  });
+
+  it("lets failed surface from a decided write, and recovers out of failed", () => {
+    expect(nextPhase("pending", "failed")).toBe("failed");
+    expect(nextPhase("submitted", "failed")).toBe("failed");
+    expect(nextPhase("failed", "pending")).toBe("pending");
+    expect(nextPhase("failed", "accepted")).toBe("accepted");
+    expect(nextPhase("failed", "finalized")).toBe("finalized");
+    // A finalized result can never be undone by a later read.
+    expect(nextPhase("finalized", "failed")).toBe("finalized");
+  });
+
+  it("ignores idle arrivals and same-phase arrivals", () => {
+    expect(nextPhase("accepted", "idle")).toBe("accepted");
+    expect(nextPhase("idle", "idle")).toBe("idle");
+    expect(nextPhase("accepted", "accepted")).toBe("accepted");
   });
 });
 

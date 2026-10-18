@@ -84,9 +84,6 @@ export function Demo() {
       <section className="panel" data-testid="demo-live-claims">
         <div className="panel-head">
           <h2>Claims on {net.label}</h2>
-          <Link className="btn btn-secondary" to="/claims/new">
-            Create claim
-          </Link>
         </div>
 
         {claims.loading ? (

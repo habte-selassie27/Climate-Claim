@@ -8,7 +8,7 @@ import {
   getPolicyCount,
   listSources,
 } from "../services/claimService";
-import { runWrite } from "../services/evaluationService";
+import { refreshTx, runWrite } from "../services/evaluationService";
 import { IDLE, type TxState } from "../services/txStatus";
 import { TxStatusPanel } from "../components/TxStatusPanel";
 import { policySentence } from "../domain/copy";
@@ -75,6 +75,18 @@ const MAX_SCALED = 10_000_000; // _plausible: 100_000 * SCALE
 const MAX_PAYOUT = 10n ** 30n; // MAX_PAYOUT
 const MAX_CONDITION_CHARS = 300;
 
+// Mirror of the contract's MODE_KINDS (Climate-Policy.py): which source kinds each
+// data mode accepts. The contract reverts with "EXPECTED: source incompatible
+// with policy" when a chosen source's kind is not in this set, so the form
+// must never let that pairing be submitted.
+const MODE_KINDS: Record<string, string[]> = {
+  historical_simulation: ["open_meteo_archive", "nasa_power"],
+  live: ["open_meteo_forecast"],
+};
+function kindAllowed(mode: string, kind: string): boolean {
+  return (MODE_KINDS[mode] ?? []).includes(kind);
+}
+
 const NUM_RE = /^-?\d+(\.\d+)?$/;
 const INT_RE = /^\d+$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -102,7 +114,7 @@ function inclusiveDays(start: string, end: string): number {
 }
 
 /** Client-side mirror of the contract's create_policy validation. */
-function validate(form: FormState): Record<string, string> {
+function validate(form: FormState, sources: SourceDef[]): Record<string, string> {
   const errors: Record<string, string> = {};
 
   if (form.location_name.trim().length === 0 || form.location_name.trim().length > 200) {
@@ -121,6 +133,23 @@ function validate(form: FormState): Record<string, string> {
     errors.sources = "Choose at least one source.";
   } else if (form.sourceIds.length > MAX_SOURCES) {
     errors.sources = `At most ${MAX_SOURCES} sources per policy.`;
+  } else {
+    // Mirror MODE_KINDS: the contract reverts with
+    // "EXPECTED: source incompatible with policy" when a chosen source's kind
+    // cannot back the chosen data mode. A restored draft can carry such a
+    // pairing, so check it even though the list filters it out.
+    const incompatible = form.sourceIds.filter((id) => {
+      const source = sources.find((s) => s.id === id);
+      return source ? !kindAllowed(form.data_mode, source.kind) : false;
+    });
+    if (incompatible.length > 0) {
+      const names = incompatible
+        .map((id) => sources.find((s) => s.id === id)?.name ?? id)
+        .join(", ");
+      errors.sources =
+        `These sources cannot back a ${form.data_mode === "live" ? "live" : "historical simulation"} policy: ${names}. ` +
+        `The contract reverts with "EXPECTED: source incompatible with policy" — uncheck them, or switch data mode.`;
+    }
   }
   const minSources = Number(form.min_sources);
   if (
@@ -195,8 +224,13 @@ export function PolicyNew() {
     () => draftAtMount?.conditionTouched ?? false,
   );
 
-  const sources = (sourcesRead.data ?? []) as SourceDef[];
-  const metricSources = sources.filter((s) => s.metric === form.metric);
+  const sources = useMemo(() => (sourcesRead.data ?? []) as SourceDef[], [sourcesRead.data]);
+  // A source backs this policy only if it measures the policy's metric AND its
+  // kind is accepted by the policy's data mode (the contract rejects anything
+  // else with "EXPECTED: source incompatible with policy").
+  const metricSources = sources.filter(
+    (s) => s.metric === form.metric && kindAllowed(form.data_mode, s.kind),
+  );
   // form.metric is a plain string because it comes from storage; narrow it once
   // here rather than casting at every use.
   const metric = (METRICS as string[]).includes(form.metric)
@@ -295,6 +329,15 @@ export function PolicyNew() {
         );
         next.sourceIds = f.sourceIds.filter((id) => allowed.has(id));
       }
+      // Data mode and its sources are coupled the same way: MODE_KINDS decides
+      // which source kinds each mode accepts, and the contract rejects the rest
+      // with "EXPECTED: source incompatible with policy".
+      if (key === "data_mode") {
+        const allowed = new Set(
+          sources.filter((s) => kindAllowed(String(value), s.kind)).map((s) => s.id),
+        );
+        next.sourceIds = f.sourceIds.filter((id) => allowed.has(id));
+      }
       return next;
     });
   };
@@ -308,8 +351,24 @@ export function PolicyNew() {
     }));
   };
 
+  // A restored draft can pair a mode with a source that no longer shows in the
+  // list (the mode changed under it); the contract would reject that pairing.
+  // Once the registry is readable, drop any selected id that cannot back the
+  // current metric and mode.
+  useEffect(() => {
+    if (sources.length === 0) return;
+    setForm((f) => {
+      const kept = f.sourceIds.filter((id) =>
+        sources.some(
+          (s) => s.id === id && s.metric === f.metric && kindAllowed(f.data_mode, s.kind),
+        ),
+      );
+      return kept.length === f.sourceIds.length ? f : { ...f, sourceIds: kept };
+    });
+  }, [sources]);
+
   const submit = async () => {
-    const found = validate(form);
+    const found = validate(form, sources);
     setErrors(found);
     if (Object.keys(found).length > 0) return;
 
@@ -712,8 +771,9 @@ export function PolicyNew() {
             ) : null}
             {errors.sources ? <span className="field-error">{errors.sources}</span> : null}
             <span className="field-hint">
-              Only sources measuring {form.metric} are listed: the contract rejects a mixed-metric
-              policy. Choose 1 to {MAX_SOURCES}.
+              Only sources measuring {form.metric} that the selected data mode accepts are listed:
+              the contract rejects a mixed-metric policy or a source that cannot back the chosen
+              mode. Choose 1 to {MAX_SOURCES}.
             </span>
           </fieldset>
 
@@ -866,7 +926,12 @@ export function PolicyNew() {
               state={tx}
               actionLabel="Create policy"
               onRetry={() => void submit()}
-              onRefresh={() => sourcesRead.refresh()}
+              onRefresh={() => {
+                // Re-check the write itself (accepted -> finalized), then the
+                // page's own reads.
+                void refreshTx(tx).then(setTx);
+                sourcesRead.refresh();
+              }}
             />
             {createdId ? (
               <p style={{ marginTop: "var(--space-3)" }}>

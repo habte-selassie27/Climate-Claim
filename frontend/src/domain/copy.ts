@@ -351,6 +351,9 @@ export function mapError(error: string): ErrorMapping {
   if (head === "LLM_ERROR") {
     return { message: t("error.llm"), action: "retry", retryLabel: t("common.retry") };
   }
+  if (head === "EXECUTION") {
+    return { message: t("error.execution"), action: "fix" };
+  }
   return {
     message: t("error.generic"),
     action: "retry",

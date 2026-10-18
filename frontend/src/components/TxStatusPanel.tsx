@@ -1,5 +1,6 @@
 import type { TxState } from "../services/txStatus";
 import { PHASE_ICON, phaseText, phaseHint, isTerminal } from "../services/txStatus";
+import { activeNetwork } from "../config/network";
 import { mapError } from "../domain/copy";
 import { CopyField } from "./CopyField";
 import { useI18n } from "../i18n/I18nProvider";
@@ -16,11 +17,15 @@ interface Props {
  * Write lifecycle. Reads never use this component; only writes do.
  *
  * Every phase is visible, `accepted` is never rendered as `final`, and a failed
- * write says what happened and what to do next.
+ * write says what happened and what to do next. The hash links through the
+ * verified explorer route from network config, and `onRefresh` is whatever
+ * re-checks this write on the page — the pages pair it with `refreshTx` so an
+ * accepted result can actually reach `finalized`.
  */
 export function TxStatusPanel({ state, actionLabel, onRetry, onRefresh }: Props) {
   const { t } = useI18n();
   const { phase, hash, error, retryable } = state;
+  const net = activeNetwork();
 
   if (phase === "idle") return null;
 
@@ -54,7 +59,10 @@ export function TxStatusPanel({ state, actionLabel, onRetry, onRefresh }: Props)
           value={hash}
           kind="hash"
           label={t("audit.txHash")}
-          explorerUrl={undefined}
+          explorerUrl={net.explorerUrl}
+          txPath={net.txPath}
+          explorerAvailable={net.explorerAvailable}
+          explorerNote={net.explorerNote}
         />
       ) : null}
 
