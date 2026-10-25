@@ -65,8 +65,8 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
   studionet: {
     key: "studionet",
     label: "StudioNet",
-    chainId: 61999,
-    rpcUrl: "https://studio.genlayer.com/api",
+    chainId: ENV_CHAIN_ID ?? 61999,
+    rpcUrl: ENV_RPC_URL || "https://studio.genlayer.com/api",
     explorerUrl: "https://explorer-studio.genlayer.com",
     txPath: "/tx/",
     explorerAvailable: true,
@@ -89,13 +89,11 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
     // The faucet is browser-based, so the user has to claim manually.
     faucetUrl: "https://testnet-faucet.genlayer.foundation/",
   },
-  // Bradbury is where the two contracts live, so this is the entry the .env
-  // overrides target (see the module comment above).
   testnetBradbury: {
     key: "testnetBradbury",
     label: "Bradbury",
-    chainId: ENV_CHAIN_ID ?? 4221,
-    rpcUrl: ENV_RPC_URL || "https://rpc-bradbury.genlayer.com",
+    chainId: 4221,
+    rpcUrl: "https://rpc-bradbury.genlayer.com",
     explorerUrl: "https://explorer-bradbury.genlayer.com",
     txPath: "/tx/",
     explorerAvailable: true,
@@ -111,7 +109,7 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
  * otherwise `testnetBradbury`.
  */
 export const ACTIVE_NETWORK: NetworkKey = (
-  Object.prototype.hasOwnProperty.call(NETWORKS, ENV_NETWORK_KEY) ? ENV_NETWORK_KEY : "testnetBradbury"
+  Object.prototype.hasOwnProperty.call(NETWORKS, ENV_NETWORK_KEY) ? ENV_NETWORK_KEY : "studionet"
 ) as NetworkKey;
 
 export function activeNetwork(): NetworkConfig {

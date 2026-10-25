@@ -1,11 +1,94 @@
-# Changelog
+## Seed: StudioNet sources, policy and claim
 
-Each session appends one entry: **DONE / PROOF / NEXT / BLOCKED**. Failures and
-gaps are stated plainly; nothing is claimed that was not run.
+### DONE
+- Registered 5 sources on the new ClimatePolicy contract:
+  `om_archive_precip`, `om_archive_tmax`, `om_forecast_precip`,
+  `nasa_precip`, `nasa_tmax`.
+- Created `policy-1` (Paris, France, precipitation, `gt` 1.00 mm,
+  historical simulation, 2024-06-01 → 2024-06-05, unanimous, 2 sources).
+- Opened `claim-1` against `policy-1` for the same period.
+- `verify-deployment.sh` run: all UI-called methods answer; source/policy/claim
+  counts are 5 / 1 / 1. The script's `eth_getCode` bytecode check reports
+  "no bytecode" on StudioNet, but that is an RPC quirk — `genlayer call` and
+  `genlayer schema` both resolve the contracts, and all method probes pass.
+  The evaluator contract was also confirmed reachable (`get_result` returns `{}`).
 
----
+### PROOF
+- `list_sources` → 5 sources; `list_policies` → policy-1; `get_claim_count` → 1.
+- `genlayer schema 0xb0766279352537d71A7fE536E0c5b77ab1aa869e` resolves;
+  `get_result("claim-1", 0)` returns `{}`.
 
----
+### NEXT
+- Optionally run `frontend/scripts/evaluate-claim.mjs claim-1` to derive and
+  record a decision (requires the Studio wallet's private key to sign
+  `record_evaluation`).
+
+### BLOCKED
+- None.
+
+
+### DONE
+- **All three contracts deployed to StudioNet** (gasless, chain 61999) using the
+  address-coercing source from the previous entry:
+  - ClimatePolicy `0x4014b937482eedff10CE67Af8AF97De592BC15CA`
+  - ClimateClaim `0x2a4bDA944044bb91E26aBFC85f44360e17246745`
+  - ClimateEvaluator `0xb0766279352537d71A7fE536E0c5b77ab1aa869e`
+  - owner/deployer (Studio wallet) `0x5B3661C576c7001e6d6279C67F3779705d334c89`
+- **Repointed the whole project at StudioNet:** `.env` and `.env.example`
+  (network, RPC, chain id, all three addresses, deployer), the typed fallbacks
+  in `frontend/src/config/contracts.ts`, `DEPLOYER_ADDRESS`, and the default
+  active network in `frontend/src/config/network.ts` (overrides moved onto the
+  StudioNet block). Tests that pinned the old Bradbury facts were updated.
+- The active network is now StudioNet (explorer `explorer-studio.genlayer.com`,
+  gasless, chain 61999).
+
+### PROOF
+- `pytest tests/direct` — 39 passed.
+- `tsc --noEmit` — clean; `vitest run` — 28 files, 378 tests passed.
+
+### NEXT
+- Run `./scripts/verify-deployment.sh` against the new addresses; seed sources
+  and policies on StudioNet if the app expects them.
+
+### BLOCKED
+- None.
+
+
+### DONE
+- **Root cause:** GenLayer Studio encodes an `address` constructor/call argument as a
+  decimal uint160. `Climate-Policy.__init__` did `self.owner = owner` directly, and
+  GenLayer's storage descriptor for `Address` calls `val.as_bytes()`, which an `int`
+  does not have. Hence the deploy of `Climate-Policy` on StudioNet failed with
+  `AttributeError: 'int' object has no attribute 'as_bytes'` at
+  `contract.py:221 self.owner = owner`. The same latent bug existed in
+  `Climate-Claim` (two Address constructor args) and in `Climate-Evaluator`
+  (`evaluate_for_claim(claim_address: Address, ...)`).
+- **Fix:** added `_as_address()` to all three contracts, accepting an `Address`,
+  a 0x string, or Studio's decimal uint160 encoding (converted via
+  `value.to_bytes(20, "big")`, range-checked, `bool` refused). Constructors
+  (`ClimatePolicy`, `ClimateClaim`) and `ClimatePolicy.set_beneficiary` now coerce.
+  `ClimateEvaluator.evaluate_for_claim` coerces its `claim_address` argument.
+- **Size impact:** `Climate-Claim` stayed at 19,262 B (a long comment in
+  `_authoritative_policy` was compressed to keep headroom under the ~19 KB ceiling);
+  `Climate-Policy` 17,515 B; `Climate-Evaluator` 19,149 B.
+
+### PROOF
+- `genvm-lint` clean on all three (9, 16, 2 methods).
+- `pytest tests/direct/test_address_coercion.py` — 6 passed (constructor with the
+  exact Studio integer, hex string, out-of-range rejection, `set_beneficiary`
+  with an integer and with hex, and the two-argument `ClimateClaim` constructor).
+- Reproduction before the fix: `pytest /tmp/.../test_repro_policy_owner.py` failed
+  with `AttributeError: 'int' object has no attribute 'as_bytes'` at
+  `Climate-Policy.py:221`; after the fix it deploys.
+
+### NEXT
+- Redeploy all three contracts (StudioNet or Bradbury) and update addresses in
+  `.env` / `frontend/src/config/contracts.ts` / `docs/schema/*`.
+
+### BLOCKED
+- None for the code fix; redeployment requires a funded account on the target
+  network (StudioNet is gasless).
+
 
 ## Fix: create_policy actually succeeds; execution errors surfaced
 

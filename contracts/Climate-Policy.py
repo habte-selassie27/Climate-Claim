@@ -28,6 +28,15 @@ MODE_KINDS = {
 
 from genlayer import *
 
+def _as_address(value) -> Address:
+    if isinstance(value, Address):
+        return value
+    if isinstance(value, int):
+        if isinstance(value, bool) or not 0 <= value < 1 << 160:
+            raise gl.vm.UserError("EXPECTED: invalid address")
+        return Address(value.to_bytes(20, "big"))
+    return Address(value)
+
 @allow_storage
 @dataclass
 class Source:
@@ -218,7 +227,7 @@ class ClimatePolicy(gl.Contract):
     policy_counter: u256
 
     def __init__(self, owner: Address):
-        self.owner = owner
+        self.owner = _as_address(owner)
         self.policy_counter = u256(0)
 
     def _only_owner(self):
@@ -311,7 +320,7 @@ class ClimatePolicy(gl.Contract):
     def set_beneficiary(self, policy_id: str, beneficiary: Address) -> None:
         self._only_owner()
         p = self._get_policy(policy_id)
-        p.beneficiary = beneficiary
+        p.beneficiary = _as_address(beneficiary)
         p.version = u32(int(p.version) + 1)
         self.policies[policy_id] = p
 

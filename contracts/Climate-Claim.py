@@ -37,6 +37,15 @@ MAX_PAYOUT_LOG = 8
 ADDRESS_SIZE = 20
 ZERO_ADDRESS_BYTES = b"\x00" * ADDRESS_SIZE
 
+def _as_address(value) -> Address:
+    if isinstance(value, Address):
+        return value
+    if isinstance(value, int):
+        if isinstance(value, bool) or not 0 <= value < 1 << 160:
+            raise gl.vm.UserError("EXPECTED: invalid address")
+        return Address(value.to_bytes(20, "big"))
+    return Address(value)
+
 @allow_storage
 @dataclass
 class Claim:
@@ -112,8 +121,8 @@ class ClimateClaim(gl.Contract):
     refund_total: u256
 
     def __init__(self, owner: Address, policy_contract: Address):
-        self.owner = owner
-        self.policy_contract = policy_contract
+        self.owner = _as_address(owner)
+        self.policy_contract = _as_address(policy_contract)
         self.claim_counter = u256(0)
         self.escrow_balance = u256(0)
         self.refund_count = u256(0)
@@ -132,16 +141,9 @@ class ClimateClaim(gl.Contract):
         if gl.message.sender_address != c.claimant and gl.message.sender_address != self.owner:
             raise gl.vm.UserError("EXPECTED: claimant or owner only")
 
-    # The policy is read from ClimatePolicy itself, cross-contract, at the moment
-    # the claim is opened. Verified on Bradbury 2026-10-18 by a deployed probe that
-    # read list_policies and get_policy from this contract's peer: `gl.get_contract_at`
-    # takes an `Address`, and given a plain string it raises TypeError.
-    # `self.policy_contract` is already an `Address`, so it is passed as-is.
-    #
-    # This replaces an owner-only `register_policy_snapshot` bridge that had to be
-    # run by hand before any claim could exist. Reading the authoritative policy
-    # means a claim cannot be opened against terms nobody agreed to, and it costs
-    # one read instead of a privileged write.
+    # The policy is read from ClimatePolicy at claim time, so a caller cannot
+    # substitute terms. `gl.get_contract_at` requires an Address; the constructor
+    # coerces `policy_contract` to one.
     def _authoritative_policy(self, policy_id: str) -> dict:
         if not isinstance(policy_id, str) or not policy_id or len(policy_id) > 64:
             raise gl.vm.UserError("EXPECTED: invalid policy id")

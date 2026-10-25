@@ -12,10 +12,10 @@ import { ENV_CONTRACT_ADDRESS, ENV_EVALUATOR_ADDRESS, ENV_POLICY_ADDRESS } from 
  *   (web fetch + consensus) and the claim (state + settlement) cannot share one
  *   contract under that budget, so they are separate and wired together.
  *
- * CURRENT DEPLOYMENT — GenLayer Bradbury, chain 4221
- *   ClimatePolicy     0xA63E62c9289670A6323165A03a5a225fA14943D7
- *   ClimateEvaluator  0x1c7E7EdE3AE6cc1Fc456469fE366cb95D2dcd8C9
- *   ClimateClaim      0xD66064816966119D82B10A2c0735DB85219d6448
+ * CURRENT DEPLOYMENT — GenLayer StudioNet, chain 61999
+ *   ClimatePolicy     0x4014b937482eedff10CE67Af8AF97De592BC15CA
+ *   ClimateEvaluator  0xb0766279352537d71A7fE536E0c5b77ab1aa869e
+ *   ClimateClaim      0x2a4bDA944044bb91E26aBFC85f44360e17246745
  *   All ACCEPTED / AGREE / FINISHED_WITH_RETURN.
  *
  * HOW A DECISION IS PRODUCED (the reason this project needs GenLayer)
@@ -47,11 +47,11 @@ export type ContractKey = "policy" | "claim" | "evaluator";
  * used.
  */
 export const CONTRACT_ADDRESS =
-  ENV_CONTRACT_ADDRESS || "0xD66064816966119D82B10A2c0735DB85219d6448";
+  ENV_CONTRACT_ADDRESS || "0x2a4bDA944044bb91E26aBFC85f44360e17246745";
 
 /** Address of the POLICY contract. `VITE_CLIMATEPOLICY_ADDRESS` overrides it. */
 export const POLICY_ADDRESS =
-  ENV_POLICY_ADDRESS || "0xA63E62c9289670A6323165A03a5a225fA14943D7";
+  ENV_POLICY_ADDRESS || "0x4014b937482eedff10CE67Af8AF97De592BC15CA";
 
 /**
  * Address of the EVALUATOR contract. `VITE_CLIMATEEVALUATOR_ADDRESS` overrides it.
@@ -59,7 +59,7 @@ export const POLICY_ADDRESS =
  * contract records only what this one stored.
  */
 export const EVALUATOR_ADDRESS =
-  ENV_EVALUATOR_ADDRESS || "0x1c7E7EdE3AE6cc1Fc456469fE366cb95D2dcd8C9"
+  ENV_EVALUATOR_ADDRESS || "0xb0766279352537d71A7fE536E0c5b77ab1aa869e"
 
 /** All three addresses, keyed by which contract they are. */
 export const CONTRACTS: Record<ContractKey, `0x${string}`> = {
@@ -74,7 +74,7 @@ export const CONTRACTS: Record<ContractKey, `0x${string}`> = {
  * `set_policy_status`, `confirm_settlement` and `fail_settlement`. Evaluating a
  * claim, finalizing it and emitting its payout are permissionless.
  */
-export const DEPLOYER_ADDRESS = "0x04e0353B7218b66D6803725ce7342E6e1225DB1b";
+export const DEPLOYER_ADDRESS = "0x5B3661C576c7001e6d6279C67F3779705d334c89";
 
 /** Decimals used for every scaled integer the contracts store. */
 export const SCALE_DECIMALS = 2;

@@ -80,7 +80,7 @@ describe("deployed addresses", () => {
 
   it("name the deployer that owns both", async () => {
     const { DEPLOYER_ADDRESS } = await import("./contracts");
-    expect(DEPLOYER_ADDRESS).toBe("0x04e0353B7218b66D6803725ce7342E6e1225DB1b");
+    expect(DEPLOYER_ADDRESS).toBe("0x5B3661C576c7001e6d6279C67F3779705d334c89");
   });
 });
 
@@ -156,25 +156,16 @@ describe("declared unavailability", () => {
 });
 
 describe("active network", () => {
-  it("is Bradbury, where the contracts are deployed", async () => {
+  it("is StudioNet, where the contracts are deployed", async () => {
     const { ACTIVE_NETWORK } = await import("./network");
-    expect(ACTIVE_NETWORK).toBe("testnetBradbury");
+    expect(ACTIVE_NETWORK).toBe("studionet");
   });
 
-  it("does not let the env overrides rewrite the legacy StudioNet entry", async () => {
-    const { NETWORKS } = await import("./network");
-    // StudioNet's values are literals now. The .env overrides point at the
-    // active deployment, and must not be able to move StudioNet to another
-    // chain than the one it names.
-    expect(NETWORKS.studionet.chainId).toBe(61999);
-    expect(NETWORKS.studionet.rpcUrl).toBe("https://studio.genlayer.com/api");
-  });
-
-  it("gives the active network a Bradbury explorer", async () => {
+  it("gives the active network a StudioNet explorer", async () => {
     const { activeNetwork } = await import("./network");
     const net = activeNetwork();
-    expect(net.chainId).toBe(4221);
-    expect(net.explorerUrl).toBe("https://explorer-bradbury.genlayer.com");
-    expect(net.gasless).toBe(false);
+    expect(net.chainId).toBe(61999);
+    expect(net.explorerUrl).toBe("https://explorer-studio.genlayer.com");
+    expect(net.gasless).toBe(true);
   });
 });

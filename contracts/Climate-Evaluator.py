@@ -43,6 +43,15 @@ NASA = "nasa_power"
 COS = (1000, 996, 985, 966, 940, 906, 866, 819, 766, 707, 643, 574, 500, 423,
        342, 259, 174, 87, 0)
 
+def _as_address(value) -> Address:
+    if isinstance(value, Address):
+        return value
+    if isinstance(value, int):
+        if isinstance(value, bool) or not 0 <= value < 1 << 160:
+            raise gl.vm.UserError("EXPECTED: invalid address")
+        return Address(value.to_bytes(20, "big"))
+    return Address(value)
+
 def _pd(s: str):
     if not isinstance(s, str) or len(s) != 10 or s[4] != "-" or s[7] != "-":
         raise ValueError("date")
@@ -361,6 +370,7 @@ class ClimateEvaluator(gl.Contract):
     @gl.public.write
     def evaluate_for_claim(self, claim_address: Address, claim_id: str) -> dict:
         """Consensus round over the claim's frozen policy; stores the result."""
+        claim_address = _as_address(claim_address)
         if not isinstance(claim_id, str) or not claim_id or len(claim_id) > 64:
             raise gl.vm.UserError("EXPECTED: invalid claim id")
         try:
