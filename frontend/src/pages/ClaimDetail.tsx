@@ -40,49 +40,40 @@ const DISPUTE_GROUNDS_MAX = 500;
 /**
  * Writes this screen can send; used to label the shared status panel.
  *
- * `request_evaluation` is deliberately absent. It no longer exists: on the
- * deployed claim contract, recording a decision is the owner-only
- * `record_evaluation`, which takes the decision as an argument and verifies
- * nothing about it. Offering a visitor a button that claims to "evaluate" the
- * claim would misrepresent what the chain does, so the control is replaced by
- * an explanation (see the actions panel below).
+ * Evaluation is two writes, in order: the evaluator fetches the policy's sources
+ * inside a leader/validator round and stores the result; the claim then records
+ * that stored result after checking it names this policy version and period and
+ * agrees with the deterministic engine. Both are permissionless, and neither
+ * takes a decision as an argument.
  */
 type WriteKind =
+  | "evaluate_for_claim"
+  | "sync_evaluation"
   | "open_dispute"
-  | "resolve_dispute"
   | "finalize_decision"
   | "settle_claim"
   | "confirm_settlement"
   | "fail_settlement";
 
-/**
- * Panel labels match the button that was pressed, so a dispute is never
- * reported as "Re-evaluate disputed claim" (the file's buttons use these words).
- */
+/** Panel labels match the button that was pressed. */
 const WRITE_LABELS: Record<WriteKind, string> = {
+  evaluate_for_claim: "Evaluate from sources (consensus round)",
+  sync_evaluation: "Record consensus result",
   open_dispute: "Open dispute",
-  resolve_dispute: "Re-evaluate disputed claim",
   finalize_decision: "Mark decision final",
   settle_claim: "Emit payout",
   confirm_settlement: "Confirm payout delivered",
   fail_settlement: "Mark payout failed",
 };
 
-/**
- * Why this screen cannot start an evaluation.
- *
- * Stated in the UI rather than left implicit, because a reader who knows the
- * project's design (fetch evidence -> interpret -> consensus) will look for the
- * control and should be told plainly that this deployment does not have it.
- */
+/** What pressing Evaluate actually does, stated before it is pressed. */
 const EVALUATION_NOTE =
-  "This deployment records decisions, it does not compute them. The claim " +
-  "contract has no weather-data access and no model call: `record_evaluation` " +
-  "is owner-only and takes the decision, reason, summary and evidence as " +
-  "arguments, then stores them unverified. The earlier single-contract design " +
-  "fetched the sources and evaluated them on chain; that code is in " +
-  "contracts/Climate-Claim.py's predecessor but is not in this deployment, " +
-  "so there is no button here to start it.";
+  "Evaluation runs on chain from real sources: ClimateEvaluator reads this " +
+  "claim's frozen policy, fetches every eligible source inside a leader/validator " +
+  "round, and stores the result. ClimateClaim then records it, but only after it " +
+  "names this policy version and period and a decisive outcome agrees with the " +
+  "policy contract's own arithmetic. Any wallet can run this; no wallet can " +
+  "supply the decision.";
 
 /**
  * The main screen. Everything rendered here comes from the deployed contract:
@@ -128,6 +119,25 @@ export function ClaimDetail() {
     },
     [bundle],
   );
+
+  /**
+   * The two-step evaluation: consensus round on the evaluator, then record it on
+   * the claim. The second step is only attempted if the first landed, and the
+   * panel reports whichever step is running.
+   */
+  const runEvaluation = useCallback(async () => {
+    setTx(IDLE);
+    setLastWrite({ kind: "evaluate_for_claim", args: [id] });
+    const evaluated = await runWrite("evaluate_for_claim", [id], { onPhase: setTx });
+    if (evaluated.phase !== "accepted" && evaluated.phase !== "finalized") {
+      return evaluated;
+    }
+    setTx(IDLE);
+    setLastWrite({ kind: "sync_evaluation", args: [id] });
+    const synced = await runWrite("sync_evaluation", [id], { onPhase: setTx });
+    if (synced.phase === "accepted" || synced.phase === "finalized") bundle.refresh();
+    return synced;
+  }, [bundle, id]);
 
   /**
    * Submit a dispute with the user's own grounds.
@@ -259,20 +269,18 @@ export function ClaimDetail() {
   // transaction's receipt), never inferred from a balance.
   const canConfirm = settlement.state === "payout_emitted" && isOwner;
   const inFlight = settlement.state === "payout_emitted" || settlement.in_flight === true;
-  const isClaimant =
-    Boolean(wallet.address) && wallet.address!.toLowerCase() === claim.claimant.toLowerCase();
   const gate = { disabled: tx.phase !== "idle" || wallet.wrongNetwork || !wallet.connected };
-  // Re-evaluate an open dispute (the contract's resolve_dispute). Either party
-  // may do this; the contract re-checks, so the UI only gates on wallet presence.
-  const canResolve = claim.state === "disputed" && (isOwner || isClaimant);
-  // Mark a decided claim final. Owner only, per the contract's _require_owner.
-  // The contract also refuses to finalize an inconclusive decision
-  // ("EXPECTED: inconclusive decision cannot settle"), so the UI must not
-  // offer the button for one -- showing it guarantees a failed tx.
+  // Evaluation is permissionless and is offered whenever the claim is open for
+  // it; a dispute round simply produces the next result.
+  const canEvaluate =
+    !claim.finalized &&
+    ["created", "pending_evaluation", "evidence_collected", "disputed"].includes(claim.state);
+  // Finality is permissionless on the deployed contract. It still refuses an
+  // inconclusive decision ("EXPECTED: inconclusive decision cannot settle"), so
+  // the UI must not offer the button for one.
   const canFinalize =
     decided &&
     !claim.finalized &&
-    isOwner &&
     claim.settlement_state === "not_settled" &&
     claim.decision !== "inconclusive";
 
@@ -376,13 +384,10 @@ export function ClaimDetail() {
             <CheckList
               checks={checks}
               emptyReason={
-                // Checks have no on-chain source on this deployment, so the
-                // reason is stated rather than dressed up as "not evaluated yet"
-                // -- which would imply a future evaluation would fill them in.
-                "No per-check results are recorded on this deployment. The " +
-                "deployed claim contract stores a decision, a reason code and " +
-                "the evidence rows it was given, but it does not produce " +
-                "threshold, period, location, agreement or completeness checks."
+                "No consensus evaluation has been recorded for this claim yet. " +
+                "Press Evaluate from sources: the evaluator fetches the policy's " +
+                "sources and stores threshold, period, location, agreement and " +
+                "completeness checks with its result."
               }
             />
           </div>
@@ -414,9 +419,25 @@ export function ClaimDetail() {
             ) : null}
 
             <div className="alert alert-info" style={{ marginBottom: "var(--space-3)" }} data-testid="evaluation-note">
-              <strong>Evaluation is owner-mediated on this deployment</strong>
+              <strong>Evidence is fetched and judged by consensus</strong>
               <p>{EVALUATION_NOTE}</p>
             </div>
+
+            {canEvaluate ? (
+              <div className="btn-row" style={{ marginBottom: "var(--space-3)" }}>
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={gate.disabled}
+                  onClick={() => void runEvaluation()}
+                >
+                  {claim.state === "disputed"
+                    ? t("claimDetail.reevaluate")
+                    : t("claimDetail.evaluate")}
+                </button>
+                <span className="small muted">{t("claimDetail.evaluateHelp")}</span>
+              </div>
+            ) : null}
 
             <div className="btn-row">
               <button
@@ -459,20 +480,10 @@ export function ClaimDetail() {
                 </span>
               </div>
             ) : null}
-            {canResolve ? (
-              <div className="btn-row" style={{ marginTop: "var(--space-3)" }}>
-                <button
-                  type="button"
-                  className="btn"
-                  disabled={gate.disabled}
-                  onClick={() => void doWrite("resolve_dispute", [claim.id])}
-                >
-                  Re-evaluate disputed claim
-                </button>
-                <span className="small muted">
-                  {t("claimDetail.reevaluateHelp")}
-                </span>
-              </div>
+            {claim.state === "disputed" && canEvaluate ? (
+              <p className="small muted" style={{ marginTop: "var(--space-3)" }}>
+                {t("claimDetail.reevaluateHelp")}
+              </p>
             ) : null}
             {claim.state === "disputed" && claim.pending_grounds ? (
               <div className="alert alert-info" style={{ marginTop: "var(--space-3)" }}>

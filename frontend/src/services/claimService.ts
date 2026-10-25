@@ -11,15 +11,14 @@
  * `get_settlement` reads. This layer absorbs that difference so components keep
  * consuming the same domain types.
  *
- * Three capabilities genuinely have no data source on the current deployment and
- * are handled rather than faked:
- *
- *   - `get_checks`      nothing in either contract produces per-check results.
- *   - `get_criteria_version`, `get_owner`   the methods do not exist.
+ * Per-check results and the criteria version are stored with the consensus
+ * evaluation on ClimateEvaluator, keyed by claim and dispute round; `getChecks`
+ * reads that record. Evidence on the claim is the evaluator's own source rows, so
+ * what the page shows is what the contract evaluated.
  *
  * The rest (`get_source`, `get_policy_count`, `find_claim`, `get_source_count`,
- * `get_payouts`) are derived from list reads, which is cheaper and avoids
- * asserting a capability the schema does not have.
+ * `get_payouts`, `get_owner`) are derived from list reads, which is cheaper and
+ * avoids asserting a capability the schema does not have.
  */
 
 import { DEPLOYER_ADDRESS, METHODS } from "../config/contracts";
@@ -109,11 +108,10 @@ function mapDispute(raw: unknown): Dispute {
 /**
  * Map the evidence rows stored on a claim.
  *
- * These are whatever the owner passed to `record_evaluation`, so this is
- * defensive by necessity: the contract neither validates the inner shape nor
- * tells us what the keys mean. Unknown fields default to the SAFE value --
- * `ok` absent means not-known-good rather than good, because a missing flag is
- * not evidence that a source succeeded.
+ * These rows are the evaluator's per-source results, copied into the claim by
+ * `sync_evaluation`, and still parsed defensively: unknown fields default to the
+ * SAFE value -- `ok` absent means not-known-good rather than good, because a
+ * missing flag is not evidence that a source succeeded.
  */
 function mapEvidence(rows: unknown): EvidenceRecord[] {
   if (!Array.isArray(rows)) return [];
@@ -224,21 +222,57 @@ export async function getEvidence(
   return { ...result, data: mapEvidence(result.data.evidence) };
 }
 
+/** The structured result ClimateEvaluator stored for a claim and round. */
+export interface EvaluatorResult {
+  decision: Decision | "inconclusive";
+  reason_code: string;
+  observed_value_scaled: number;
+  checks: Record<string, string>;
+  sources: unknown[];
+  policy_id: string;
+  policy_version: number;
+  period_start: string;
+  period_end: string;
+  round: number;
+  criteria_version: string;
+  summary: string;
+}
+
+/** Read the consensus result for a claim and dispute round, or undefined. */
+export async function getEvaluationResult(
+  claimId: string,
+  round = 0,
+): Promise<ReadResult<EvaluatorResult | undefined>> {
+  return readLive<EvaluatorResult>(METHODS.get_result, [claimId, round]);
+}
+
 /**
- * Per-check results.
+ * Per-check results, read from the stored consensus evaluation.
  *
- * NO ON-CHAIN SOURCE FOR A CLAIM. Neither deployed contract stores per-check
- * rows against a claim. They ARE produced, but by `compute_evaluation` on the
- * policy contract, which derives them from evidence on demand rather than
- * persisting them — see `computeEvaluation` below, which is the supported way to
- * get checks. This returns an empty list so nothing presents another
- * deployment's checks as this claim's. See `AVAILABILITY.get_checks`.
+ * A claim that has not been through `evaluate_for_claim` has no record, so this
+ * returns an empty list rather than inventing checks. The order follows the
+ * evaluator's documented check set.
  */
 export async function getChecks(
   claimId: string,
+  round = 0,
 ): Promise<ReadResult<CheckResult[] | undefined>> {
-  void claimId;
-  return { data: [], origin: "live" };
+  const result = await getEvaluationResult(claimId, round);
+  const checks = result.data?.checks;
+  if (!checks || typeof checks !== "object") {
+    return { data: [], origin: result.origin, liveError: result.liveError };
+  }
+  const order: CheckResult["name"][] = [
+    "threshold_crossed",
+    "period_covered",
+    "location_match",
+    "source_agreement",
+    "data_completeness",
+  ];
+  const rows: CheckResult[] = order
+    .filter((name) => name in checks)
+    .map((name) => ({ name, status: as<CheckResult["status"]>(checks[name]), detail: "" }));
+  return { data: rows, origin: result.origin, liveError: result.liveError };
 }
 
 export async function getDisputes(claimId: string): Promise<ReadResult<Dispute[] | undefined>> {
@@ -260,10 +294,11 @@ export async function getSettlement(claimId: string): Promise<ReadResult<Settlem
  * components do not have to know about it.
  */
 export async function getClaimBundle(claimId: string): Promise<ReadResult<ClaimBundle | undefined>> {
-  const [claimRes, evidenceRes, checksRes, disputesRes, settlementRes] = await Promise.all([
-    getClaim(claimId),
+  const claimRes = await getClaim(claimId);
+  const round = claimRes.data?.dispute_rounds ?? 0;
+  const [evidenceRes, checksRes, disputesRes, settlementRes] = await Promise.all([
     getEvidence(claimId),
-    getChecks(claimId),
+    getChecks(claimId, round),
     getDisputes(claimId),
     getSettlement(claimId),
   ]);
@@ -414,8 +449,12 @@ export async function findClaim(
   };
 }
 
-/** Can this deployment produce a claim decision at all? See `record_evaluation`. */
-export const EVALUATION_IS_OWNER_MEDIATED = true;
+/**
+ * This deployment DOES produce decisions on chain: ClimateEvaluator fetches the
+ * policy's sources inside a leader/validator round and stores the result, and
+ * `sync_evaluation` records it against the claim. See `getEvaluationResult`.
+ */
+export const EVALUATION_IS_OWNER_MEDIATED = false;
 
 /* --- the decision engine ------------------------------------------------
  * `compute_evaluation` is the NEW method on ClimatePolicy in this deployment and

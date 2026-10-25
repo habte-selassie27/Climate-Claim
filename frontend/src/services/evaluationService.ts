@@ -11,9 +11,10 @@
  * approval prompt appears in the right extension.
  */
 
+import { CalldataAddress } from "genlayer-js/types";
 import { getClient, getWriteClient } from "./client";
 import { currentSigner } from "../hooks/useWallet";
-import { addressFor, METHODS } from "../config/contracts";
+import { addressFor, CONTRACT_ADDRESS, METHODS } from "../config/contracts";
 import {
   nextPhase,
   phaseForStatus,
@@ -27,19 +28,19 @@ import { mapError } from "../domain/copy";
 /**
  * A write the UI can trigger. Names match the deployed schemas exactly.
  *
- * `record_evaluation` REPLACES `request_evaluation`. That is a real change in
- * meaning, not a rename: `request_evaluation` made the contract fetch weather
- * data, ask a model and compute the threshold itself, so any wallet could start
- * a consensus evaluation. `record_evaluation` is OWNER-ONLY and takes the
- * decision as an argument -- the contract stores what it is told and verifies
- * nothing about it. The UI must not present it as "evaluate this claim".
+ * Evaluation is two writes on purpose:
+ *   `evaluate_for_claim` (ClimateEvaluator) fetches the policy's sources inside a
+ *   leader/validator round and stores the result on chain;
+ *   `sync_evaluation` (ClimateClaim) records that stored result against the
+ *   claim, after checking it names the claim's policy version and period and
+ *   agrees with the deterministic engine. Neither takes a decision as an
+ *   argument, so no wallet can assert one.
  */
 export type WriteKind =
-  | "register_policy_snapshot"
+  | "evaluate_for_claim"
+  | "sync_evaluation"
   | "start_claim"
-  | "record_evaluation"
   | "open_dispute"
-  | "resolve_dispute"
   | "finalize_decision"
   | "settle_claim"
   | "confirm_settlement"
@@ -47,6 +48,16 @@ export type WriteKind =
   | "create_policy"
   | "register_source"
   | "fund";
+
+/**
+ * genlayer-js encodes a plain string as a string. An `Address` parameter needs
+ * the SDK's calldata type or the contract receives the wrong type and its
+ * `gl.get_contract_at` call raises TypeError.
+ */
+function calldataAddress(hex: string): CalldataAddress {
+  const bytes = hex.replace(/^0x/, "").match(/../g) ?? [];
+  return new CalldataAddress(Uint8Array.from(bytes.map((b) => parseInt(b, 16))));
+}
 
 export interface WriteCallbacks {
   /** Called once the tx hash is known, so the UI can show and persist it. */
@@ -91,12 +102,16 @@ export async function runWrite(
     // provider it would fall back to `window.ethereum`, which may belong to a
     // different wallet than the one the user chose.
     const client = await getWriteClient(signer.account, signer.provider);
-    // Route by method: the two contracts have separate addresses, so a single
-    // configured address would send policy writes to the claim contract.
+    // Route by method: the contracts have separate addresses, so a single
+    // configured address would send an evaluator call to the claim contract.
+    // The evaluator takes the claim's address as its first argument, typed
+    // `Address` on chain, so it is wrapped rather than sent as a string.
+    const callArgs =
+      kind === "evaluate_for_claim" ? [calldataAddress(CONTRACT_ADDRESS), ...args] : args;
     const hash = (await client.writeContract({
       address: addressFor(METHODS[kind]),
       functionName: METHODS[kind],
-      args: args as never,
+      args: callArgs as never,
       value: options.value ?? 0n,
     })) as `0x${string}`;
 

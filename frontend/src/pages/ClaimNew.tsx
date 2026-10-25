@@ -18,11 +18,9 @@ const net = activeNetwork();
  * page lists those policies live and hands the chosen one to `StartClaimPanel`,
  * which submits `start_claim(policy_id, period_start, period_end)`.
  *
- * A LIMITATION WORTH STATING UP FRONT, because it will otherwise look like a
- * bug: ClimateClaim's `start_claim` accepts a policy id, and the only way that
- * id becomes known to it is `register_policy_snapshot`, which is OWNER-ONLY.
- * So a brand-new policy cannot back a claim until the owner bridges it across.
- * Rather than hide that, the page says so and names the method.
+ * `start_claim` reads the policy from ClimatePolicy with a cross-contract view,
+ * so a freshly created policy can back a claim immediately and no bridge step
+ * exists.
  *
  * Nothing here fabricates a claim. If no policy exists, the page offers to
  * create one; if the write fails, the failure is shown as the contract reported
@@ -132,8 +130,8 @@ export function ClaimNew() {
           ) : null}
 
           <div className="alert alert-info">
-            <strong>{t("claimNew.bridge.h")}</strong>
-            <p>{t("claimNew.bridge.body")}</p>
+            <strong>{t("claimNew.evaluate.h")}</strong>
+            <p>{t("claimNew.evaluate.body")}</p>
           </div>
         </>
       )}

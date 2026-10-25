@@ -22,6 +22,7 @@
 
 declare const __ENV_VITE_CLIMATECLAIM_ADDRESS__: string;
 declare const __ENV_VITE_CLIMATEPOLICY_ADDRESS__: string;
+declare const __ENV_VITE_CLIMATEEVALUATOR_ADDRESS__: string;
 declare const __ENV_VITE_GENLAYER_RPC_URL__: string;
 declare const __ENV_VITE_GENLAYER_CHAIN_ID__: string;
 declare const __ENV_VITE_GLTEST_NETWORK__: string;
@@ -56,6 +57,13 @@ export const ENV_CONTRACT_ADDRESS: string = address(
 export const ENV_POLICY_ADDRESS: string = address(
   typeof __ENV_VITE_CLIMATEPOLICY_ADDRESS__ === "string"
     ? __ENV_VITE_CLIMATEPOLICY_ADDRESS__
+    : "",
+);
+
+/** Address of the EVALUATOR contract, or "" to use the typed fallback. */
+export const ENV_EVALUATOR_ADDRESS: string = address(
+  typeof __ENV_VITE_CLIMATEEVALUATOR_ADDRESS__ === "string"
+    ? __ENV_VITE_CLIMATEEVALUATOR_ADDRESS__
     : "",
 );
 

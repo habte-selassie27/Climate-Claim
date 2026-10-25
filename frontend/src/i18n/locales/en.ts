@@ -435,8 +435,8 @@ export const en = {
   "claimNew.createPolicy": "Create a policy",
   "claimNew.pickPolicy": "Policy",
   "claimNew.count": "{shown} active of {total} policy.",
-  "claimNew.bridge.h": "A new policy cannot back a claim until it is bridged",
-  "claimNew.bridge.body": "ClimateClaim only knows a policy id once the owner has copied it across with register_policy_snapshot, which is owner-only. If a claim against a brand-new policy reverts with \"policy snapshot not registered\", that is why — the policy has to be bridged first.",
+  "claimNew.evaluate.h": "Evaluation fetches the sources itself",
+  "claimNew.evaluate.body": "Once a claim exists, press Evaluate from sources on it: the evaluator reads the frozen policy, fetches every eligible source in a consensus round, and the claim records the result. Anyone can run it, and no wallet can supply the decision.",
   "claims.h1": "Claims",
   "claims.lede": "Every claim below exists on the deployed contract at {address} on {network}.",
   "claims.empty": "No claims yet. Start one from a policy on the policies page.",
@@ -563,6 +563,9 @@ export const en = {
   "claimDetail.finalize": "Finalize decision",
   "claimDetail.finalizeHelp":
     "Re-reads the decision at finality; refuses if it changed. Owner only.",
+  "claimDetail.evaluate": "Evaluate from sources",
+  "claimDetail.evaluateHelp":
+    "Two permissionless transactions: a consensus round on the evaluator, then recording its stored result on this claim.",
   "claimDetail.reevaluate": "Re-evaluate",
   "claimDetail.reevaluateHelp": "Runs a new evaluation round. The open grounds are kept in the history.",
   "claimDetail.dispute.open": "Dispute open",

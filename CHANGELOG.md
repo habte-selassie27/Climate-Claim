@@ -2258,3 +2258,13 @@ NEXT. Unchanged and still the largest item: the deployed pair has no direct test
 suite, and nothing deployed evaluates anything.
 
 BLOCKED. Nothing.
+
+## Reconnect source-fetching consensus evaluator
+
+DONE. Added contracts/Climate-Evaluator.py: a deployable (17.5 KB) source-fetching consensus evaluator using gl.nondet.web.get + gl.vm.run_nondet with the documented equivalence rule. Climate-Claim.record_evaluation and resolve_dispute are no longer owner-only assertions: they verify the supplied decision against ClimatePolicy.compute_evaluation, so a decision must match the evidence. Lint clean for all three contracts.
+
+PROOF. genvm-lint 3/3 clean; pytest tests/direct 33 passed; pytest archive/tests 170 passed.
+
+NEXT. Wire frontend evaluation button to Climate-Evaluator and deploy it.
+
+BLOCKED. Deployment requires a funded account / network access.

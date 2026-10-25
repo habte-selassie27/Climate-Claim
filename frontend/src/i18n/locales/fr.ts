@@ -421,8 +421,8 @@ export const fr: Dictionary = {
   "claimNew.createPolicy": "Créer une politique",
   "claimNew.pickPolicy": "Politique",
   "claimNew.count": "{shown} active(s) sur {total} politique(s).",
-  "claimNew.bridge.h": "Une nouvelle politique ne peut pas soutenir une réclamation avant d'être reliée",
-  "claimNew.bridge.body": "ClimateClaim ne connaît un identifiant de politique qu'après que le propriétaire l'a copiée via register_policy_snapshot, qui est réservé au propriétaire. Si une réclamation contre une politique toute nouvelle est rejetée avec « policy snapshot not registered », c'est pourquoi : la politique doit d'abord être reliée.",
+  "claimNew.evaluate.h": "L'évaluation récupère elle-même les sources",
+  "claimNew.evaluate.body": "Une fois la réclamation créée, appuyez sur « Évaluer depuis les sources » : l'évaluateur lit la politique gelée, récupère chaque source éligible lors d'un tour de consensus, et la réclamation enregistre le résultat. N'importe qui peut le lancer, et aucun portefeuille ne peut fournir la décision.",
   "claims.h1": "Réclamations",
   "claims.lede":
     "Toutes les réclamations ci-dessous existent sur le contrat déployé à {address} sur {network}.",
@@ -551,6 +551,9 @@ export const fr: Dictionary = {
   "claimDetail.finalize": "Finaliser la décision",
   "claimDetail.finalizeHelp":
     "Relit la décision à la finalité ; refuse si elle a changé. Propriétaire uniquement.",
+  "claimDetail.evaluate": "Évaluer depuis les sources",
+  "claimDetail.evaluateHelp":
+    "Deux transactions sans permission : un tour de consensus sur l'évaluateur, puis l'enregistrement de son résultat sur cette réclamation.",
   "claimDetail.reevaluate": "Ré-évaluer",
   "claimDetail.reevaluateHelp":
     "Lance un nouveau tour d’évaluation. Les motifs ouverts sont conservés dans l’historique.",

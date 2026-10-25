@@ -420,8 +420,8 @@ export const es: Dictionary = {
   "claimNew.createPolicy": "Crear una política",
   "claimNew.pickPolicy": "Política",
   "claimNew.count": "{shown} activas de {total} política.",
-  "claimNew.bridge.h": "Una política nueva no puede respaldar una reclamación hasta que se conecte",
-  "claimNew.bridge.body": "ClimateClaim solo conoce un identificador de política cuando el propietario la ha copiado con register_policy_snapshot, que es exclusivo del propietario. Si una reclamación contra una política nueva se revierte con «policy snapshot not registered», esta es la razón: la política debe conectarse primero.",
+  "claimNew.evaluate.h": "La evaluación obtiene las fuentes por sí misma",
+  "claimNew.evaluate.body": "Cuando exista una reclamación, pulsa «Evaluar desde las fuentes»: el evaluador lee la política congelada, obtiene cada fuente elegible en una ronda de consenso y la reclamación registra el resultado. Cualquiera puede ejecutarlo, y ninguna cartera puede aportar la decisión.",
   "claims.h1": "Reclamaciones",
   "claims.lede":
     "Todas las reclamaciones siguientes existen en el contrato desplegado en {address} en {network}.",
@@ -549,6 +549,9 @@ export const es: Dictionary = {
   "claimDetail.finalize": "Finalizar decisión",
   "claimDetail.finalizeHelp":
     "Vuelve a leer la decisión en la finalidad; se niega si ha cambiado. Solo el propietario.",
+  "claimDetail.evaluate": "Evaluar desde las fuentes",
+  "claimDetail.evaluateHelp":
+    "Dos transacciones sin permisos: una ronda de consenso en el evaluador y luego el registro de su resultado en esta reclamación.",
   "claimDetail.reevaluate": "Volver a evaluar",
   "claimDetail.reevaluateHelp":
     "Ejecuta una nueva ronda de evaluación. Los motivos abiertos se conservan en el historial.",

@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
-import { CONTRACT_ADDRESS, POLICY_ADDRESS, addressFor, METHODS } from "../config/contracts";
+import {
+  CONTRACT_ADDRESS,
+  EVALUATOR_ADDRESS,
+  POLICY_ADDRESS,
+  addressFor,
+  METHODS,
+} from "../config/contracts";
 
 /**
  * The two creation workflows and the dynamic demo.
@@ -12,7 +18,8 @@ import { CONTRACT_ADDRESS, POLICY_ADDRESS, addressFor, METHODS } from "../config
  *
  *   ClimatePolicy.create_policy(...)                                    WRITE
  *   ClimateClaim.start_claim(policy_id, period_start, period_end)       WRITE
- *   ClimateClaim.register_policy_snapshot(policy_json)                  WRITE
+ *   ClimateEvaluator.evaluate_for_claim(claim, claim_id)                WRITE
+ *   ClimateClaim.sync_evaluation(claim_id)                              WRITE
  *   ClimatePolicy.compute_evaluation(policy, evidence, days)            VIEW
  *
  * Nothing here may invent a capability: these assert the forms call methods
@@ -91,16 +98,22 @@ describe("claim creation", () => {
     expect(src).toContain("active[0].id");
   });
 
-  it("states the register_policy_snapshot limitation instead of hiding it", () => {
-    // register_policy_snapshot is owner-only, so a brand-new policy cannot back
-    // a claim until the owner bridges it. The page must say so.
+  it("states that evaluation fetches the sources itself", () => {
+    // start_claim reads the policy cross-contract, so there is no bridge step;
+    // the page must not claim one exists.
     const src = read("pages/ClaimNew.tsx");
-    expect(src).toMatch(/register_policy_snapshot/);
-    expect(src).toContain("claimNew.bridge.h");
+    expect(src).toContain("claimNew.evaluate.h");
+    expect(src).not.toMatch(/register_policy_snapshot/);
   });
 
-  it("routes the bridge method to the claim contract", () => {
-    expect(addressFor(METHODS.register_policy_snapshot)).toBe(CONTRACT_ADDRESS);
+  it("runs the consensus round before recording it on the claim", () => {
+    const src = read("pages/ClaimDetail.tsx");
+    expect(src).toContain('runWrite("evaluate_for_claim"');
+    expect(src).toContain('runWrite("sync_evaluation"');
+  });
+
+  it("routes the consensus round to the evaluator", () => {
+    expect(addressFor(METHODS.evaluate_for_claim)).toBe(EVALUATOR_ADDRESS);
   });
 });
 

@@ -422,8 +422,8 @@ export const de: Dictionary = {
   "claimNew.createPolicy": "Eine Richtlinie erstellen",
   "claimNew.pickPolicy": "Richtlinie",
   "claimNew.count": "{shown} aktiv von {total} Richtlinie.",
-  "claimNew.bridge.h": "Eine neue Richtlinie kann einen Anspruch erst nach der Verknüpfung stützen",
-  "claimNew.bridge.body": "ClimateClaim kennt eine Richtlinien-ID erst, nachdem der Eigentümer sie mit register_policy_snapshot kopiert hat, was nur dem Eigentümer möglich ist. Bricht ein Anspruch gegen eine brandneue Richtlinie mit „policy snapshot not registered“ ab, liegt es daran — die Richtlinie muss zuerst verknüpft werden.",
+  "claimNew.evaluate.h": "Die Bewertung ruft die Quellen selbst ab",
+  "claimNew.evaluate.body": "Sobald ein Anspruch existiert, „Aus Quellen bewerten“ drücken: der Evaluator liest die eingefrorene Richtlinie, ruft jede zulässige Quelle in einer Konsensrunde ab, und der Anspruch zeichnet das Ergebnis auf. Jeder kann das ausführen, und keine Wallet kann die Entscheidung liefern.",
   "claims.h1": "Claims",
   "claims.lede":
     "Alle Claims unten existieren im bereitgestellten Vertrag unter {address} in {network}.",
@@ -552,6 +552,9 @@ export const de: Dictionary = {
   "claimDetail.finalize": "Entscheidung finalisieren",
   "claimDetail.finalizeHelp":
     "Liest die Entscheidung bei der Finalität erneut; lehnt ab, wenn sie sich geändert hat. Nur für den Eigentümer.",
+  "claimDetail.evaluate": "Aus Quellen bewerten",
+  "claimDetail.evaluateHelp":
+    "Zwei erlaubnisfreie Transaktionen: eine Konsensrunde im Evaluator, dann das Aufzeichnen seines gespeicherten Ergebnisses im Anspruch.",
   "claimDetail.reevaluate": "Neu bewerten",
   "claimDetail.reevaluateHelp":
     "Führt eine neue Bewertungsrunde aus. Offene Gründe bleiben im Verlauf erhalten.",
