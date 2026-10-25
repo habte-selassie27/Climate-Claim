@@ -148,7 +148,7 @@ describe("the configured deployment is the current one", () => {
       pathToFileURL(join(SRC, "config", "contracts.ts")).href
     );
     // Deployed on Bradbury; see config/contracts.ts for details.
-    expect(addr).toBe("0x2a4bDA944044bb91E26aBFC85f44360e17246745");
+    expect(addr).toBe("0x2783Afd5C0eCDd99Dbba8d178b8Ab1741d3433b6");
   });
 
   it("the policy contract is the deployed ClimatePolicy", () => {

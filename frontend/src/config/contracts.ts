@@ -47,7 +47,7 @@ export type ContractKey = "policy" | "claim" | "evaluator";
  * used.
  */
 export const CONTRACT_ADDRESS =
-  ENV_CONTRACT_ADDRESS || "0x2a4bDA944044bb91E26aBFC85f44360e17246745";
+  ENV_CONTRACT_ADDRESS || "0x2783Afd5C0eCDd99Dbba8d178b8Ab1741d3433b6";
 
 /** Address of the POLICY contract. `VITE_CLIMATEPOLICY_ADDRESS` overrides it. */
 export const POLICY_ADDRESS =
