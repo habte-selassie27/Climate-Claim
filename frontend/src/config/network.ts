@@ -108,20 +108,10 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
 
 /**
  * Active network: `VITE_GLTEST_NETWORK` when it names a configured network,
- * otherwise `testnetBradbury`.
- *
- * The default is Bradbury because that is where the two contracts are actually
- * deployed (see config/contracts.ts). It used to default to StudioNet, which is
- * now only the home of the older single-contract deployment and the recorded
- * snapshot -- pointing the app there by default would open it against a
- * contract whose schema the app no longer speaks.
- *
- * An unrecognised value falls back rather than indexing `NETWORKS` with an
- * unknown key, which would yield `undefined` and crash the app at import time
- * (the wrong-network banner reads `activeNetwork()` on first render).
+ * otherwise `studionet`.
  */
 export const ACTIVE_NETWORK: NetworkKey = (
-  Object.prototype.hasOwnProperty.call(NETWORKS, ENV_NETWORK_KEY) ? ENV_NETWORK_KEY : "testnetBradbury"
+  Object.prototype.hasOwnProperty.call(NETWORKS, ENV_NETWORK_KEY) ? ENV_NETWORK_KEY : "studionet"
 ) as NetworkKey;
 
 export function activeNetwork(): NetworkConfig {

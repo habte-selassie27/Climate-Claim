@@ -38,8 +38,15 @@ describe("contract routing", () => {
 
   it("sends claim writes to the claim contract", async () => {
     const { addressFor, CONTRACT_ADDRESS } = await import("./contracts");
-    for (const method of ["start_claim", "record_evaluation", "settle_claim", "fund"]) {
+    for (const method of ["start_claim", "sync_evaluation", "settle_claim", "fund"]) {
       expect(addressFor(method), method).toBe(CONTRACT_ADDRESS);
+    }
+  });
+
+  it("sends the consensus round and its result to the evaluator", async () => {
+    const { addressFor, EVALUATOR_ADDRESS } = await import("./contracts");
+    for (const method of ["evaluate_for_claim", "get_result"]) {
+      expect(addressFor(method), method).toBe(EVALUATOR_ADDRESS);
     }
   });
 
@@ -54,12 +61,12 @@ describe("contract routing", () => {
 });
 
 describe("deployed addresses", () => {
-  it("are both well-formed and distinct", async () => {
-    const { CONTRACT_ADDRESS, POLICY_ADDRESS } = await import("./contracts");
-    for (const address of [CONTRACT_ADDRESS, POLICY_ADDRESS]) {
+  it("are well-formed and distinct", async () => {
+    const { CONTRACT_ADDRESS, EVALUATOR_ADDRESS, POLICY_ADDRESS } = await import("./contracts");
+    for (const address of [CONTRACT_ADDRESS, POLICY_ADDRESS, EVALUATOR_ADDRESS]) {
       expect(address).toMatch(/^0x[0-9a-fA-F]{40}$/);
     }
-    expect(CONTRACT_ADDRESS).not.toBe(POLICY_ADDRESS);
+    expect(new Set([CONTRACT_ADDRESS, POLICY_ADDRESS, EVALUATOR_ADDRESS]).size).toBe(3);
   });
 
   it("are not the retired StudioNet monolith", async () => {
@@ -90,32 +97,32 @@ describe("method table", () => {
     }
   });
 
-  it("marks the evaluation write as owner-mediated, not a request", async () => {
+  it("exposes a two-step evaluation that never takes a decision", async () => {
     const { METHOD_META } = await import("./contracts");
-    expect(METHOD_META.record_evaluation).toBeDefined();
-    expect(METHOD_META.record_evaluation.readonly).toBe(false);
-    // The old public entry point is gone. If it reappears in the table, the app
-    // would offer a write the chain cannot serve.
+    expect(METHOD_META.evaluate_for_claim.contract).toBe("evaluator");
+    expect(METHOD_META.evaluate_for_claim.readonly).toBe(false);
+    expect(METHOD_META.sync_evaluation.contract).toBe("claim");
+    expect(METHOD_META.sync_evaluation.readonly).toBe(false);
+    // No method that stores a caller-supplied decision may reappear: that is the
+    // exact shape the project was rejected for.
+    expect("record_evaluation" in METHOD_META).toBe(false);
+    expect("resolve_dispute" in METHOD_META).toBe(false);
     expect("request_evaluation" in METHOD_META).toBe(false);
   });
 });
 
 describe("declared unavailability", () => {
-  it("records the capabilities this deployment lacks", async () => {
+  it("records that fetching and consensus live in the evaluator", async () => {
     const { AVAILABILITY: availability } = await import("./contracts");
-    expect(availability.get_criteria_version).toBe("removed");
-    expect(availability.request_evaluation).toBe("removed");
-    // Nothing on chain fetches weather data, so there is no engine that could
-    // evaluate a live source.
-    expect(availability.evaluate_from_web).toBe("removed");
+    expect(availability.request_evaluation).toBe("evaluator");
+    expect(availability.evaluate_from_web).toBe("evaluator");
+    expect(availability.get_criteria_version).toBe("evaluator");
   });
 
-  it("records that checks come from the engine, not from stored state", async () => {
+  it("stores per-check results with the consensus result", async () => {
     const { AVAILABILITY: availability, METHOD_META: meta } = await import("./contracts");
-    // `compute_evaluation` derives per-check results on demand. No deployed
-    // method STORES them against a claim, so `get_checks` is not a method and
-    // must not be routed as one.
-    expect(availability.get_checks).toBe("engine");
+    expect(availability.get_checks).toBe("evaluator");
+    // There is still no `get_checks` method: checks travel inside get_result.
     expect("get_checks" in meta).toBe(false);
   });
 
@@ -149,9 +156,9 @@ describe("declared unavailability", () => {
 });
 
 describe("active network", () => {
-  it("is Bradbury, where the contracts are deployed", async () => {
+  it("is StudioNet, where the contracts are deployed", async () => {
     const { ACTIVE_NETWORK } = await import("./network");
-    expect(ACTIVE_NETWORK).toBe("testnetBradbury");
+    expect(ACTIVE_NETWORK).toBe("studionet");
   });
 
   it("does not let the env overrides rewrite the legacy StudioNet entry", async () => {
@@ -163,11 +170,11 @@ describe("active network", () => {
     expect(NETWORKS.studionet.rpcUrl).toBe("https://studio.genlayer.com/api");
   });
 
-  it("gives the active network a Bradbury explorer", async () => {
+  it("gives the active network a StudioNet explorer", async () => {
     const { activeNetwork } = await import("./network");
     const net = activeNetwork();
-    expect(net.chainId).toBe(4221);
-    expect(net.explorerUrl).toBe("https://explorer-bradbury.genlayer.com");
-    expect(net.gasless).toBe(false);
+    expect(net.chainId).toBe(61999);
+    expect(net.explorerUrl).toBe("https://explorer-studio.genlayer.com");
+    expect(net.gasless).toBe(true);
   });
 });
