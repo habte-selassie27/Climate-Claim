@@ -13,9 +13,9 @@ import { ENV_CONTRACT_ADDRESS, ENV_EVALUATOR_ADDRESS, ENV_POLICY_ADDRESS } from 
  *   contract under that budget, so they are separate and wired together.
  *
  * CURRENT DEPLOYMENT — GenLayer Bradbury, chain 4221
- *   ClimatePolicy     0x358A3ea6018c78F1187d235ac0ACD29696f32cE6  (re-deployed)
- *   ClimateEvaluator  0xC140408B4342De9762cDa53fF94a1154E609Ba48
- *   ClimateClaim      0xE8609cED714D6f9781C93bb387f0943556B87cAA  (re-deployed)
+ *   ClimatePolicy     0x8446De6f3416056D3A18B755Da43E4956819CE5C
+ *   ClimateEvaluator  0x1c7E7EdE3AE6cc1Fc456469fE366cb95D2dcd8C9
+ *   ClimateClaim      0xcF49f422731926De812aa04b8c6Db2Ff88F227bB
  *   All ACCEPTED / AGREE / FINISHED_WITH_RETURN.
  *
  * HOW A DECISION IS PRODUCED (the reason this project needs GenLayer)
@@ -47,11 +47,11 @@ export type ContractKey = "policy" | "claim" | "evaluator";
  * used.
  */
 export const CONTRACT_ADDRESS =
-  ENV_CONTRACT_ADDRESS || "0xE8609cED714D6f9781C93bb387f0943556B87cAA";
+  ENV_CONTRACT_ADDRESS || "0xcF49f422731926De812aa04b8c6Db2Ff88F227bB";
 
 /** Address of the POLICY contract. `VITE_CLIMATEPOLICY_ADDRESS` overrides it. */
 export const POLICY_ADDRESS =
-  ENV_POLICY_ADDRESS || "0x358A3ea6018c78F1187d235ac0ACD29696f32cE6";
+  ENV_POLICY_ADDRESS || "0x8446De6f3416056D3A18B755Da43E4956819CE5C";
 
 /**
  * Address of the EVALUATOR contract. `VITE_CLIMATEEVALUATOR_ADDRESS` overrides it.
@@ -59,7 +59,7 @@ export const POLICY_ADDRESS =
  * contract records only what this one stored.
  */
 export const EVALUATOR_ADDRESS =
-  ENV_EVALUATOR_ADDRESS || "0xC140408B4342De9762cDa53fF94a1154E609Ba48"
+  ENV_EVALUATOR_ADDRESS || "0x1c7E7EdE3AE6cc1Fc456469fE366cb95D2dcd8C9"
 
 /** All three addresses, keyed by which contract they are. */
 export const CONTRACTS: Record<ContractKey, `0x${string}`> = {

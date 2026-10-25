@@ -148,11 +148,11 @@ describe("the configured deployment is the current one", () => {
       pathToFileURL(join(SRC, "config", "contracts.ts")).href
     );
     // Deployed on Bradbury; see config/contracts.ts for details.
-    expect(addr).toBe("0xE8609cED714D6f9781C93bb387f0943556B87cAA");
+    expect(addr).toBe("0xcF49f422731926De812aa04b8c6Db2Ff88F227bB");
   });
 
   it("the policy contract is the deployed ClimatePolicy", () => {
-    expect(POLICY_ADDRESS).toBe("0x358A3ea6018c78F1187d235ac0ACD29696f32cE6");
+    expect(POLICY_ADDRESS).toBe("0x8446De6f3416056D3A18B755Da43E4956819CE5C");
   });
 
   it("both are 0x-prefixed 40-hex addresses", () => {
