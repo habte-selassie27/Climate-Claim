@@ -12,10 +12,10 @@ import { ENV_CONTRACT_ADDRESS, ENV_EVALUATOR_ADDRESS, ENV_POLICY_ADDRESS } from 
  *   (web fetch + consensus) and the claim (state + settlement) cannot share one
  *   contract under that budget, so they are separate and wired together.
  *
- * CURRENT DEPLOYMENT — GenLayer StudioNet, chain 61999
- *   ClimatePolicy     0x358A3ea6018c78F1187d235ac0ACD29696f32cE6
- *   ClimateEvaluator  0x665EeDf75573994C57C53638DaDcA457A61a44E5
- *   ClimateClaim      0xE8609cED714D6f9781C93bb387f0943556B87cAA
+ * CURRENT DEPLOYMENT — GenLayer Bradbury, chain 4221
+ *   ClimatePolicy     0x358A3ea6018c78F1187d235ac0ACD29696f32cE6  (re-deployed)
+ *   ClimateEvaluator  0xC140408B4342De9762cDa53fF94a1154E609Ba48
+ *   ClimateClaim      0xE8609cED714D6f9781C93bb387f0943556B87cAA  (re-deployed)
  *   All ACCEPTED / AGREE / FINISHED_WITH_RETURN.
  *
  * HOW A DECISION IS PRODUCED (the reason this project needs GenLayer)
@@ -59,7 +59,7 @@ export const POLICY_ADDRESS =
  * contract records only what this one stored.
  */
 export const EVALUATOR_ADDRESS =
-  ENV_EVALUATOR_ADDRESS || "0x665EeDf75573994C57C53638DaDcA457A61a44E5";
+  ENV_EVALUATOR_ADDRESS || "0xC140408B4342De9762cDa53fF94a1154E609Ba48"
 
 /** All three addresses, keyed by which contract they are. */
 export const CONTRACTS: Record<ContractKey, `0x${string}`> = {

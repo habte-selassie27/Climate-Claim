@@ -108,10 +108,10 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
 
 /**
  * Active network: `VITE_GLTEST_NETWORK` when it names a configured network,
- * otherwise `studionet`.
+ * otherwise `testnetBradbury`.
  */
 export const ACTIVE_NETWORK: NetworkKey = (
-  Object.prototype.hasOwnProperty.call(NETWORKS, ENV_NETWORK_KEY) ? ENV_NETWORK_KEY : "studionet"
+  Object.prototype.hasOwnProperty.call(NETWORKS, ENV_NETWORK_KEY) ? ENV_NETWORK_KEY : "testnetBradbury"
 ) as NetworkKey;
 
 export function activeNetwork(): NetworkConfig {

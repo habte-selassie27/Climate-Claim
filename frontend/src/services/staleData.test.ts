@@ -147,7 +147,7 @@ describe("the configured deployment is the current one", () => {
     const { CONTRACT_ADDRESS: addr } = await import(
       pathToFileURL(join(SRC, "config", "contracts.ts")).href
     );
-    // Deployed on StudioNet; see config/contracts.ts for details.
+    // Deployed on Bradbury; see config/contracts.ts for details.
     expect(addr).toBe("0xE8609cED714D6f9781C93bb387f0943556B87cAA");
   });
 

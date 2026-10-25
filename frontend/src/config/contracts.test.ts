@@ -156,9 +156,9 @@ describe("declared unavailability", () => {
 });
 
 describe("active network", () => {
-  it("is StudioNet, where the contracts are deployed", async () => {
+  it("is Bradbury, where the contracts are deployed", async () => {
     const { ACTIVE_NETWORK } = await import("./network");
-    expect(ACTIVE_NETWORK).toBe("studionet");
+    expect(ACTIVE_NETWORK).toBe("testnetBradbury");
   });
 
   it("does not let the env overrides rewrite the legacy StudioNet entry", async () => {
@@ -170,11 +170,11 @@ describe("active network", () => {
     expect(NETWORKS.studionet.rpcUrl).toBe("https://studio.genlayer.com/api");
   });
 
-  it("gives the active network a StudioNet explorer", async () => {
+  it("gives the active network a Bradbury explorer", async () => {
     const { activeNetwork } = await import("./network");
     const net = activeNetwork();
-    expect(net.chainId).toBe(61999);
-    expect(net.explorerUrl).toBe("https://explorer-studio.genlayer.com");
-    expect(net.gasless).toBe(true);
+    expect(net.chainId).toBe(4221);
+    expect(net.explorerUrl).toBe("https://explorer-bradbury.genlayer.com");
+    expect(net.gasless).toBe(false);
   });
 });
