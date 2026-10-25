@@ -13,7 +13,7 @@ import { ENV_CONTRACT_ADDRESS, ENV_EVALUATOR_ADDRESS, ENV_POLICY_ADDRESS } from 
  *   contract under that budget, so they are separate and wired together.
  *
  * CURRENT DEPLOYMENT — GenLayer Bradbury, chain 4221
- *   ClimatePolicy     0xbad7E387Dbb7DE7470447041BC02147FFb0d899A
+ *   ClimatePolicy     0xA63E62c9289670A6323165A03a5a225fA14943D7
  *   ClimateEvaluator  0x1c7E7EdE3AE6cc1Fc456469fE366cb95D2dcd8C9
  *   ClimateClaim      0xD66064816966119D82B10A2c0735DB85219d6448
  *   All ACCEPTED / AGREE / FINISHED_WITH_RETURN.
@@ -51,7 +51,7 @@ export const CONTRACT_ADDRESS =
 
 /** Address of the POLICY contract. `VITE_CLIMATEPOLICY_ADDRESS` overrides it. */
 export const POLICY_ADDRESS =
-  ENV_POLICY_ADDRESS || "0xbad7E387Dbb7DE7470447041BC02147FFb0d899A";
+  ENV_POLICY_ADDRESS || "0xA63E62c9289670A6323165A03a5a225fA14943D7";
 
 /**
  * Address of the EVALUATOR contract. `VITE_CLIMATEEVALUATOR_ADDRESS` overrides it.

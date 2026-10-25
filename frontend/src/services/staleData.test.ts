@@ -152,7 +152,7 @@ describe("the configured deployment is the current one", () => {
   });
 
   it("the policy contract is the deployed ClimatePolicy", () => {
-    expect(POLICY_ADDRESS).toBe("0xbad7E387Dbb7DE7470447041BC02147FFb0d899A");
+    expect(POLICY_ADDRESS).toBe("0xA63E62c9289670A6323165A03a5a225fA14943D7");
   });
 
   it("both are 0x-prefixed 40-hex addresses", () => {
