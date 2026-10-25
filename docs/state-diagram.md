@@ -1,11 +1,19 @@
 # Claim state machine
 
-> **Documents the ARCHIVED design, not the deployment.** This describes
-> `archive/climateclaim.py`, the pre-split single contract. That contract is
-> **not deployed**: what is on chain is `contracts/Climate-Policy.py` and
-> `contracts/Climate-Claim.py`, which do no evaluation and produce no
-> checks. See [`archive/README.md`](../archive/README.md) and
-> [`contracts/README.md`](../contracts/README.md).
+> **Historical design; the deployed path is different.** This page describes the
+> pre-split single contract in `archive/climateclaim.py` (kept as design
+> history). The deployed StudioNet path uses three contracts:
+>
+> 1. `ClimateEvaluator.evaluate_for_claim(claim_address, claim_id)` fetches the
+>    eligible sources inside a leader/validator round and stores the result.
+> 2. `ClimateClaim.sync_evaluation(claim_id)` re-derives the decision from that
+>    result with `ClimatePolicy.compute_evaluation` and records it.
+> 3. `open_dispute` increments the round; resolving it requires a fresh
+>    `evaluate_for_claim` + `sync_evaluation`. There is no `resolve_dispute` and
+>    no `request_evaluation` in the deployed claim schema.
+>
+> Current proof and commands: [`portal-submission.md`](portal-submission.md).
+> The rest of this page documents the archived state machine and its tests.
 
 Every transition is enumerated here, enforced in `archive/climateclaim.py`,
 and covered by direct tests (valid **and** invalid).

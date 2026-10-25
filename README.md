@@ -5,67 +5,65 @@ checks recorded weather observations against a policy written in plain language,
 shows you the readings that produced the answer — including when the honest answer is
 "we cannot tell".**
 
-Deployed on GenLayer **Bradbury** (chain 4221) as two contracts:
+**Live app:** <https://climate-claim-fawn.vercel.app/>
+**Network:** GenLayer **StudioNet** (chain 61999, gasless)
+**Full submission, proof and reviewer commands:**
+[`docs/portal-submission.md`](docs/portal-submission.md)
+
+Deployed as three contracts, all **FINALIZED / MAJORITY_AGREE**:
 
 | Contract | Address | Bytes | Methods |
 |---|---|---|---|
-| `Climate-Policy.py` | [`0x02b75bBd0E0398D19e0750d6adc513605AEF6DFC`](https://explorer-bradbury.genlayer.com/address/0x02b75bBd0E0398D19e0750d6adc513605AEF6DFC) | 17,643 | 9 |
-| `Climate-Claim.py` | [`0x0b7Cfa4012fADd9f570951bCE059bB4e2497D311`](https://explorer-bradbury.genlayer.com/address/0x0b7Cfa4012fADd9f570951bCE059bB4e2497D311) | 19,410 | 16 |
+| `Climate-Policy.py` | [`0x4014b937482eedff10CE67Af8AF97De592BC15CA`](https://explorer-studio.genlayer.com/address/0x4014b937482eedff10CE67Af8AF97De592BC15CA) | 17,515 | 9 |
+| `Climate-Claim.py` | [`0x2783Afd5C0eCDd99Dbba8d178b8Ab1741d3433b6`](https://explorer-studio.genlayer.com/address/0x2783Afd5C0eCDd99Dbba8d178b8Ab1741d3433b6) | 18,757 | 16 |
+| `Climate-Evaluator.py` | [`0xb0766279352537d71A7fE536E0c5b77ab1aa869e`](https://explorer-studio.genlayer.com/address/0xb0766279352537d71A7fE536E0c5b77ab1aa869e) | 19,149 | 2 |
 
-Both reached consensus **AGREE** with `FINISHED_WITH_RETURN`. Deploy tx hashes,
-per-method schemas read back from chain, current contents and the verification
-steps are in
-[`docs/deployment-bradbury-2026-10-18.md`](docs/deployment-bradbury-2026-10-18.md).
+Current on-chain state: **5 sources, `policy-1`, `claim-1` decided
+`confirmed` / `threshold_crossed`**, observed **269** (2.69 mm) against a
+**1.00 mm** threshold, from Open-Meteo ERA5 (`160`) and NASA POWER (`379`), with
+all five checks `pass`. The claim's `get_evaluator()` returns
+`0xb0766279352537d71A7fE536E0c5b77ab1aa869e`, and the evaluator's
+`get_result("claim-1", 0)` is the result the claim recorded.
 
-Current on-chain state: **3 sources, 6 policies (all active — `policy-1`..`policy-5`
-as `historical_simulation`, `policy-6` as `live`), 5 claims, all decided**:
-`confirmed` (127), `not_confirmed` (85), `inconclusive` /
-`source_conflict` (107), `inconclusive` / `missing_observations` (0), `confirmed`
-(275). Confirm it yourself:
+**The decision path is consensus, not owner assertion.** `evaluate_for_claim`
+fetches every eligible source inside a leader/validator round and stores the
+structured result. `sync_evaluation(claim_id)` is permissionless: it reads that
+result for the claim's current dispute round, verifies the policy id, version and
+period, re-derives the outcome with `ClimatePolicy.compute_evaluation` from the
+same evidence rows, and rejects a decision/reason mismatch. The deployed claim
+schema has **no `record_evaluation` and no `resolve_dispute`** — there is no
+method that lets the owner assert a decision.
+Disputes advance the round and require a fresh consensus round. Settlement only
+consumes a decision that was already synced and finalized.
+
+Verify it yourself:
 
 ```bash
-set -a && . ./.env && set +a
-./scripts/verify-deployment.sh
+genlayer network set studionet
+genlayer call 0x2783Afd5C0eCDd99Dbba8d178b8Ab1741d3433b6 get_evaluator
+genlayer call 0xb0766279352537d71A7fE536E0c5b77ab1aa869e get_result --args "claim-1" 0
+genlayer call 0x2783Afd5C0eCDd99Dbba8d178b8Ab1741d3433b6 get_claim --args "claim-1"
+genlayer schema 0x2783Afd5C0eCDd99Dbba8d178b8Ab1741d3433b6
 ```
 
-`Climate-Policy.py` now also carries **`compute_evaluation`**, which derives a
-decision from a frozen policy and a set of evidence rows. That is the substantive
-change: the decision is **derived on chain** rather than asserted by whoever
-calls `record_evaluation`.
-
-> **What this deployment does and does not do — read this before the feature list.**
+> **What this deployment does and does not do.**
 >
-> The contracts are split because both GenLayer testnets reject a deploy whose
-> source exceeds ~19 KB, **comments included**. Measured: 18,600 B accepted,
-> 20,294 B rejected, and a probe that was 90% comments was rejected too — which
-> is what rules out line count and logic complexity as the metric. There is no
-> override. The split is a deployment requirement, not a design preference; see
+> The contracts are split because GenLayer testnets reject a deploy whose source
+> exceeds roughly 19 KB, **comments included**. Measured: 18,600 B accepted,
+> 20,294 B rejected, and a probe that was 90% comments was rejected too. The
+> split is a deployment requirement, not a design preference; see
 > [`contracts/README.md`](contracts/README.md).
 >
-> The deployed pair is **narrower than the design this project describes**. It
-> does **not** fetch weather data, does **not** call a model, and does **not**
-> evaluate anything on chain. `record_evaluation` is owner-only and takes the
-> decision, reason, summary, observed value and evidence as arguments; the
-> contract stores them and verifies none of them. Per-check results
-> (threshold / period / location / agreement / completeness) are not produced by
-> anything, so the UI says so instead of rendering an empty panel.
+> The evaluator fetches and normalises structured weather records inside
+> `gl.vm.run_nondet`; it does **not** send policy text to an LLM. Validators
+> re-fetch and compare the decision, reason group, required checks, per-source
+> crossing flags and scaled values. Threshold arithmetic is plain code on both
+> sides. The LLM-assisted policy-wording design in `archive/` is pre-split
+> history and is **not** referenced by any deployed contract.
 >
-> The evaluation engine — Open-Meteo / NASA POWER retrieval, unit normalisation,
-> aggregation, threshold comparison under consensus, and the equivalence rule
-> that decides whether two validators agree on *meaning* — lives in
-> `archive/climateclaim.py`, which is **not deployed**. It is the pre-split
-> source and it is what 170 of the 203 direct tests cover. It is archived rather
-> than deleted because removing it orphaned every one of those tests: see
-> [`archive/README.md`](archive/README.md). `contracts/` holds only what is
-> actually on chain, so "what is deployed" has exactly one answer.
->
-> The older StudioNet deployment of the single 32-method contract,
-> `0x6E4BD06bD969E745546A7957d818eDaD47882ea8` (deploy tx
-> `0x85748a90fe90c0b4c92ef7810be643935cd1fadce04dc7f9a425f8c66cc8809f`,
-> consensus 5/5 AGREE), is still reachable; its artifacts are under
-> [`artifacts/studionet-v2/`](artifacts/studionet-v2/), and v1
-> (`0xE16032420e3155C0822e9150a98c6B1163869F0c`) under
-> [`artifacts/deployment-v1/`](artifacts/deployment-v1/).
+> `finalize_decision` and `settle_claim` are owner-triggered. They cannot choose
+> or change an outcome; they only advance a decision that consensus already
+> produced. No live payout has been executed on this deployment.
 
 ---
 
@@ -138,35 +136,31 @@ pip install -r requirements.txt
 GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/Climate-Policy.py
 GENVM_VERSION=v0.3.0-rc7 genvm-lint check contracts/Climate-Claim.py
 # Python 3.12+ required (genlayer_py needs collections.abc.Buffer).
-python3.12 -m pytest tests/direct/ -q          # 33: config drift checks
+python3.12 -m pytest tests/direct/ -q          # 39: config drift + address coercion
 python3.12 -m pytest archive/tests -q          # 170: the pre-split contract
 ```
 
 ### Read the deployed contracts
 
 ```bash
-genlayer network set testnet-bradbury
-
-# Policy contract: sources and policies
-genlayer schema 0x02b75bBd0E0398D19e0750d6adc513605AEF6DFC
-genlayer call   0x02b75bBd0E0398D19e0750d6adc513605AEF6DFC list_policies
-genlayer call   0x02b75bBd0E0398D19e0750d6adc513605AEF6DFC list_sources
-
-# Claim contract: claims, disputes, settlement
-genlayer schema 0x0b7Cfa4012fADd9f570951bCE059bB4e2497D311
-genlayer call   0x0b7Cfa4012fADd9f570951bCE059bB4e2497D311 get_claim_count
-genlayer call   0x0b7Cfa4012fADd9f570951bCE059bB4e2497D311 list_claims
-
-# The deploy, on the explorer
-genlayer receipt 0x6130f4f929c1612a52b49c2e8ce7c2f02260c41afa10fb965ddfa28c667309ff
-```
-
-### Read the older StudioNet deployment
-
-```bash
 genlayer network set studionet
-genlayer call 0x6E4BD06bD969E745546A7957d818eDaD47882ea8 get_claim --args claim-2
-genlayer receipt 0x85748a90fe90c0b4c92ef7810be643935cd1fadce04dc7f9a425f8c66cc8809f
+
+# Policy contract: sources, policies, pure evaluation
+genlayer schema 0x4014b937482eedff10CE67Af8AF97De592BC15CA
+genlayer call   0x4014b937482eedff10CE67Af8AF97De592BC15CA list_policies
+genlayer call   0x4014b937482eedff10CE67Af8AF97De592BC15CA list_sources
+
+# Evaluator: source-fetching consensus round + stored result
+genlayer schema 0xb0766279352537d71A7fE536E0c5b77ab1aa869e
+genlayer call   0xb0766279352537d71A7fE536E0c5b77ab1aa869e get_result --args "claim-1" 0
+
+# Claim contract: claims, disputes, settlement, evaluator link
+genlayer schema 0x2783Afd5C0eCDd99Dbba8d178b8Ab1741d3433b6
+genlayer call   0x2783Afd5C0eCDd99Dbba8d178b8Ab1741d3433b6 get_evaluator
+genlayer call   0x2783Afd5C0eCDd99Dbba8d178b8Ab1741d3433b6 get_claim --args "claim-1"
+
+# The claim's deploy, on the explorer
+genlayer receipt 0x8a9af0f83ecde0dc739890ed61a2d3dabbd0def03a3cf1b3ca80c1af4794d9fd
 ```
 
 ### Seed a fresh deployment's source registry
@@ -186,42 +180,31 @@ Until it is run, every `create_policy` reverts with `EXPECTED: unknown source`.
 
 ## What is on chain right now
 
-> **The deployment below predates the audit fixes.** Every claim, receipt and
-> schema under `artifacts/` and [`docs/schema.json`](docs/schema.json) was captured
-> from the v2 contract as it stood then; the contract source has since changed
-> (criteria version `climateclaim-criteria-2`). The recorded evidence is kept
-> as-is because it is real, but the deployment must be **redeployed and
-> re-captured** before its schema is used to wire the app. The differences are
-> listed in [`CHANGELOG.md`](CHANGELOG.md).
+StudioNet, read back on 2026-10-25:
 
-Six real claims, all readable, all reproduced in
-[`artifacts/DEPLOYMENT.md`](artifacts/DEPLOYMENT.md):
+| Item | Value |
+|---|---|
+| Policy | `policy-1` — Paris, France, precipitation `gt` 1.00 mm, 2024-06-01 → 2024-06-05, `historical_simulation`, unanimous, 2 sources |
+| Claim | `claim-1` — same period, state `decided_confirmed` |
+| Consensus result | `confirmed` / `threshold_crossed`, observed `269` (2.69 mm) |
+| Sources used | Open-Meteo ERA5 `160`; NASA POWER `379` (scaled ×100) |
+| Checks | `threshold_crossed`, `period_covered`, `location_match`, `source_agreement`, `data_completeness` — all `pass` |
+| Rounds | evaluation round `1`; dispute rounds `0`; not finalized; not settled |
 
-| Claim | Policy | Decision | Why | Evidence |
-|---|---|---|---|---|
-| `claim-1` | 1 | *evaluation failed* | `EXTERNAL: sources_unreachable` | NASA POWER unreachable; retryable |
-| `claim-2` | 3 | **Not confirmed** | `threshold_not_crossed` | 0.90 mm vs `> 1.00 mm`, station `48.8928,2.2920` |
-| `claim-3` | 2 | *not evaluated* | state `created` | demonstrates the start of the lifecycle |
-| `claim-4` | 4 | **Inconclusive** | `location_mismatch` | grid cell ~5 973 m away, outside a 5 km tolerance |
-| `claim-5` | 5 | **Not confirmed** | `threshold_not_crossed` | 0.90 mm vs `> 5.00 mm` |
-| `claim-6` | 7 | **Not confirmed** | `threshold_not_crossed` | 0.90 mm vs `> 1.00 mm` (payout configured) |
+The three transactions that produced this state are all **FINALIZED /
+MAJORITY_AGREE**: `start_claim`
+[`0x1a5e007f…aa7dc592`](https://explorer-studio.genlayer.com/tx/0x1a5e007ff08ab7beb0ab14dd48458e3401a202e5e009d92b08679391aa7dc592),
+`evaluate_for_claim`
+[`0xc3864051…2ba0675`](https://explorer-studio.genlayer.com/tx/0xc3864051040577a21e411a18dc75a20f81cf8308f1f07173d5f5710482ba0675),
+and `sync_evaluation`
+[`0xac4629ab…920ccf8`](https://explorer-studio.genlayer.com/tx/0xac4629ab10ba9baa4fd8e01d0fa07b1f39e0976db440f9509b8998f4e920ccf8).
+The full read-back and reviewer commands are in
+[`docs/portal-submission.md`](docs/portal-submission.md).
 
-`claim-4` is the interesting one. It was *expected* to be `not_confirmed` and instead
-became `inconclusive`, because Open-Meteo answered the Paris request with a grid cell
-~5 973 m away — outside that policy's 5 km tolerance but inside policy-3's 12 km. The
-distance rule alone flips the outcome, and the contract said so instead of guessing.
-
-**Why `claim-2` is `not_confirmed`, not `confirmed`.** The live Open-Meteo archive
-returns a maximum of **0.90 mm** for Paris 2024-06-01..05 at the time of this
-seeding (reanalysis data is periodically revised; the earlier v1 deployment recorded
-1.20 mm for the same window). Nothing was adjusted to force a pass: against a
-`> 1.00 mm` threshold, 0.90 mm honestly does not cross, so the claim is
-`not_confirmed`. A claim that the real reading *does* cross (a `> 0.50 mm` policy)
-is the intended `confirmed` + settlement demonstration and is pending the owner's
-keystore to run `finalize_decision` / `settle_claim` on chain.
-
-**No claim is finalized.** All six report `finalized: false`, so the UI shows
-*Accepted — can still be appealed* and never claims finality it cannot demonstrate.
+The earlier Bradbury deployment and the older StudioNet v2 run are retained as
+historical evidence under [`artifacts/`](artifacts/) and
+[`docs/deployment-bradbury-2026-10-18.md`](docs/deployment-bradbury-2026-10-18.md).
+They are **not** what the live app points at.
 
 ---
 
@@ -254,19 +237,30 @@ created ──► evidence_collected ──► pending_evaluation ──┬─�
 Every transition is documented in [`docs/state-diagram.md`](docs/state-diagram.md) and
 tested valid **and** invalid in `tests/direct/test_state_machine.py`.
 
-### Why one contract
+### Why three contracts
 
-GenVM allows one `gl.Contract` per module. The four responsibilities (policy registry,
-evidence evaluator, claim state machine, settlement controller) are clearly sectioned
-inside a single deployed contract rather than split across cross-contract calls, which
-would add moving parts without improving testability.
+GenVM allows one `gl.Contract` per module, and both GenLayer testnets reject a
+deploy whose source exceeds roughly 19 KB. The four responsibilities are split
+along the natural trust boundary:
+
+- **ClimatePolicy** — registry, immutable policy snapshots, and the pure
+  `compute_evaluation` function (no web, no model, no clock).
+- **ClimateEvaluator** — the non-deterministic half: fetch eligible sources in
+  `gl.vm.run_nondet`, normalise, compare, reach equivalence, store the result.
+- **ClimateClaim** — claim state, disputes, finalization, and settlement. It
+  reads the evaluator's stored result and re-derives the decision with
+  `ClimatePolicy.compute_evaluation` before recording it.
+
+Settlement is separate from evaluation and cannot change a decision. See
+[`contracts/README.md`](contracts/README.md) and
+[`docs/equivalence.md`](docs/equivalence.md).
 
 ---
 
 ## Equivalence design
 
 The full design is in [`docs/equivalence.md`](docs/equivalence.md). The short version —
-`request_evaluation` is the single non-deterministic call, and two validator results are
+`evaluate_for_claim` is the single non-deterministic call, and two validator results are
 treated as equivalent when:
 
 - the **decision** matches exactly;
@@ -649,45 +643,32 @@ Stated plainly:
    `https://explorer-studio.genlayer.com/tx/<hash>` (verified serving on 2026-10-16);
    if it is ever paused again, the UI disables them with a reason instead of linking
    to a dead page.
-2. **No claim is finalized or settled yet, and the deployed contract is older than
-   the source.** The v2 deployment created policies 7 and 8 with a real
-   `payout_amount` (1,000,000 wei) and the recorded claims exercise evaluation,
-   disputes and settlement states, but `finalize_decision` / `settle_claim` /
-   `confirm_settlement` have not been run against a deployment — they are
-   owner-only. The two-phase settlement lifecycle is implemented and unit-tested
-   but **not yet demonstrated by a live transfer**, and the recorded deployment
-   predates the audit fixes described in the changelog. A redeploy is required
-   before the on-chain evidence matches the current source. Live mode
-   (`data_mode: live`) is in the same position: it requires the forecast-kind
-   source added after the v2 deploy, so it becomes demonstrable with the same
-   redeploy (`scripts/live-claim.sh`).
-3. **No integration tests.** `tests/integration/` does not exist. On-chain behaviour
-   was verified by real writes against StudioNet (deploy, 7 policies, 7 claims,
-   5 evaluations — receipts under `artifacts/studionet-v2/`) rather than by an
-   integration suite.
-4. **The deployed contracts are narrower than the design.** Bradbury now holds a
-   two-contract deployment, but that pair does no evaluation: no weather fetch, no
-   model call, no threshold arithmetic. Decisions are recorded by the owner via
-   `record_evaluation` and stored unverified, and no per-check results exist
-   anywhere. The evaluation engine is in `archive/climateclaim.py`, which is
-   **not deployed** — 170 of the 203 direct tests cover code that is not on any
-   chain.
-   Closing this gap is the single largest piece of outstanding work.
-5. **The deployed pair has no direct tests.** The 170 archived tests cover
-   `archive/climateclaim.py`. Neither `Climate-Policy.py` nor
-   `Climate-Claim.py` has a direct suite, so their behaviour is evidenced
-   only by the reads recorded in
-   [`docs/deployment-bradbury-2026-10-18.md`](docs/deployment-bradbury-2026-10-18.md).
-6. **The observed reading moved between deployments.** The live Open-Meteo archive
-   now returns max 0.90 mm for Paris 2024-06-01..05, where the v1 deployment
-   recorded 1.20 mm. Reanalysis data is revised over time. This is why the current
-   `claim-2` / `claim-5` / `claim-6` are `not_confirmed` rather than the earlier
-   mixed result — the honest outcome for the data as it stands today.
-6. **Grid cells are not points.** A tight distance tolerance produces `inconclusive`
-   by design. That is correct behaviour, but it surprises people who expect a single
-   location answer.
-7. **Reanalysis, not station observations.** These are modelled grids, smoother and
-   more complete than a real rain gauge.
+2. **StudioNet is a test network.** It is gasless and holds no real funds. The
+   current deployment has **not executed a live payout**: `claim-1` is
+   `decided_confirmed` but not finalized or settled. `finalize_decision` and
+   `settle_claim` are owner-triggered; they cannot select or change the decision,
+   only advance one that consensus already produced.
+3. **No integration tests.** `tests/integration/` does not exist. On-chain
+   behaviour was verified by real writes against StudioNet: three deploys, one
+   policy, one claim, one consensus evaluation and one sync, with receipts and
+   read-backs recorded in
+   [`docs/portal-submission.md`](docs/portal-submission.md).
+4. **The deployed evaluator does not use an LLM.** It fetches structured weather
+   records from Open-Meteo and NASA POWER, normalises them, and compares the
+   derived decision/checks/values under validator equivalence. Policy wording is
+   already compiled into the frozen policy snapshot. The LLM-assisted design in
+   `archive/climateclaim.py` is pre-split history and is **not deployed**; its
+   170 tests cover code that is not on chain.
+5. **The three deployed contracts do not have a full per-method direct suite.**
+   `tests/direct/` currently has 39 tests covering config drift and Studio's
+   uint160 address encoding. Contract behaviour is evidenced by the on-chain
+   receipts and read-backs, not by a mocked unit suite for every method.
+6. **Reanalysis, not station observations.** Open-Meteo ERA5 and NASA POWER are
+   modelled grids, smoother and more complete than a real rain gauge. Grid cells
+   are not points; a tight distance tolerance can produce `inconclusive` by design.
+7. **Historical simulation, not live weather.** `claim-1` covers a 2024 period and
+   is labelled `historical_simulation`. Live mode is supported by the source kind
+   but is not demonstrated by the current on-chain claim.
 
 ---
 

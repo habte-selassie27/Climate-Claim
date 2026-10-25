@@ -15,8 +15,8 @@ import { ENV_CONTRACT_ADDRESS, ENV_EVALUATOR_ADDRESS, ENV_POLICY_ADDRESS } from 
  * CURRENT DEPLOYMENT — GenLayer StudioNet, chain 61999
  *   ClimatePolicy     0x4014b937482eedff10CE67Af8AF97De592BC15CA
  *   ClimateEvaluator  0xb0766279352537d71A7fE536E0c5b77ab1aa869e
- *   ClimateClaim      0x2a4bDA944044bb91E26aBFC85f44360e17246745
- *   All ACCEPTED / AGREE / FINISHED_WITH_RETURN.
+ *   ClimateClaim      0x2783Afd5C0eCDd99Dbba8d178b8Ab1741d3433b6
+ *   All FINALIZED / MAJORITY_AGREE.
  *
  * HOW A DECISION IS PRODUCED (the reason this project needs GenLayer)
  *   1. `evaluate_for_claim(claim_address, claim_id)` on ClimateEvaluator reads the

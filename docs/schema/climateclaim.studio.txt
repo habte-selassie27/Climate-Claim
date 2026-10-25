@@ -1,0 +1,97 @@
+[genlayer-js] initializeConsensusSmartContract() is deprecated and will be removed in a future release. The consensus contract is now resolved from the static chain definition.
+- Getting schema for contract at 0x2783Afd5C0eCDd99Dbba8d178b8Ab1741d3433b6...
+
+Result:
+{
+  ctor: {
+    params: [
+      [ 'owner', 'address' ],
+      [ 'policy_contract', 'address' ],
+      [ 'evaluator_contract', 'address' ]
+    ],
+    kwparams: {}
+  },
+  methods: {
+    confirm_settlement: {
+      params: [ [ 'claim_id', 'string' ], [ 'proof_reference', 'string' ] ],
+      kwparams: {},
+      readonly: false,
+      ret: 'null',
+      payable: false
+    },
+    fail_settlement: {
+      params: [ [ 'claim_id', 'string' ], [ 'reason', 'string' ] ],
+      kwparams: {},
+      readonly: false,
+      ret: 'null',
+      payable: false
+    },
+    finalize_decision: {
+      params: [ [ 'claim_id', 'string' ] ],
+      kwparams: {},
+      readonly: false,
+      ret: 'null',
+      payable: false
+    },
+    fund: {
+      params: [],
+      kwparams: {},
+      readonly: false,
+      ret: 'null',
+      payable: true
+    },
+    get_claim: {
+      params: [ [ 'claim_id', 'string' ] ],
+      kwparams: {},
+      readonly: true,
+      ret: 'dict'
+    },
+    get_claim_count: { params: [], kwparams: {}, readonly: true, ret: 'int' },
+    get_escrow_balance: { params: [], kwparams: {}, readonly: true, ret: 'int' },
+    get_evaluator: { params: [], kwparams: {}, readonly: true, ret: 'string' },
+    get_in_flight: { params: [], kwparams: {}, readonly: true, ret: 'array' },
+    get_refunds: { params: [], kwparams: {}, readonly: true, ret: 'dict' },
+    list_claims: { params: [], kwparams: {}, readonly: true, ret: 'array' },
+    open_dispute: {
+      params: [ [ 'claim_id', 'string' ], [ 'grounds', 'string' ] ],
+      kwparams: {},
+      readonly: false,
+      ret: 'null',
+      payable: false
+    },
+    register_policy_snapshot: {
+      params: [ [ 'policy_json', 'string' ] ],
+      kwparams: {},
+      readonly: false,
+      ret: 'string',
+      payable: false
+    },
+    settle_claim: {
+      params: [ [ 'claim_id', 'string' ] ],
+      kwparams: {},
+      readonly: false,
+      ret: 'null',
+      payable: false
+    },
+    start_claim: {
+      params: [
+        [ 'policy_id', 'string' ],
+        [ 'period_start', 'string' ],
+        [ 'period_end', 'string' ]
+      ],
+      kwparams: {},
+      readonly: false,
+      ret: 'string',
+      payable: false
+    },
+    sync_evaluation: {
+      params: [ [ 'claim_id', 'string' ] ],
+      kwparams: {},
+      readonly: false,
+      ret: 'null',
+      payable: false
+    }
+  }
+}
+
+✔ Contract schema retrieved successfully

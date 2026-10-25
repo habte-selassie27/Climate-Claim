@@ -1,3 +1,47 @@
+## StudioNet: consensus evaluator live end-to-end (appeal evidence)
+
+### DONE
+- Redeployed `ClimateClaim` at
+  `0x2783Afd5C0eCDd99Dbba8d178b8Ab1741d3433b6` with the evaluator address as
+  the third constructor argument; owner is the Studio wallet
+  `0x5B3661C576c7001e6d6279C67F3779705d334c89`.
+- Ran the full consensus path on `claim-1`:
+  - `evaluate_for_claim(claim, "claim-1")` tx
+    `0xc3864051040577a21e411a18dc75a20f81cf8308f1f07173d5f5710482ba0675`
+    — FINALIZED / MAJORITY_AGREE. Result: `confirmed` /
+    `threshold_crossed`, observed `269` (2.69 mm), Open-Meteo `160`,
+    NASA POWER `379`, all five checks `pass`.
+  - `sync_evaluation("claim-1")` tx
+    `0xac4629ab10ba9baa4fd8e01d0fa07b1f39e0976db440f9509b8998f4e920ccf8`
+    — FINALIZED / MAJORITY_AGREE. `get_claim` now reports
+    `state: decided_confirmed`, `evaluation_round: 1`.
+- Updated the live app's production `VITE_CLIMATECLAIM_ADDRESS` to the new
+  contract and verified the deployed JS bundle contains all three addresses.
+- Rewrote `docs/portal-submission.md` for StudioNet with addresses, explorer
+  links, transaction hashes, read-backs and reviewer commands. Updated the
+  README's deployment header and the equivalence/state docs.
+
+### PROOF
+- `get_evaluator()` → `0xb0766279352537d71A7fE536E0c5b77ab1aa869e`.
+- `get_result("claim-1", 0)` → decision `confirmed`, observed `269`, both sources
+  `crossed: true`, period `2024-06-01..2024-06-05`.
+- `get_claim("claim-1")` → `decided_confirmed`, `evaluation_round: 1`,
+  evidence rows present.
+- `genlayer schema` on the claim includes `sync_evaluation` and `get_evaluator`;
+  it does **not** include `record_evaluation` or `resolve_dispute`.
+- All three deploy receipts and the start/evaluate/sync receipts are
+  `FINALIZED` / `MAJORITY_AGREE`.
+- `pytest tests/direct` — 39 passed; `tsc --noEmit` clean; `vitest run` — 378
+  passed.
+
+### NEXT
+- Optionally finalize and settle `claim-1` to demonstrate the payout path; this
+  deployment's payout amount is zero, so a funded policy would be needed.
+
+### BLOCKED
+- None.
+
+
 ## Fix: wire source-fetching consensus into the claim path
 
 ### DONE

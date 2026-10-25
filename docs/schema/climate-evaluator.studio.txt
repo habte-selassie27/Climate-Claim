@@ -1,0 +1,24 @@
+[genlayer-js] initializeConsensusSmartContract() is deprecated and will be removed in a future release. The consensus contract is now resolved from the static chain definition.
+- Getting schema for contract at 0xb0766279352537d71A7fE536E0c5b77ab1aa869e...
+
+Result:
+{
+  ctor: { params: [], kwparams: {} },
+  methods: {
+    evaluate_for_claim: {
+      params: [ [ 'claim_address', 'address' ], [ 'claim_id', 'string' ] ],
+      kwparams: {},
+      readonly: false,
+      ret: 'dict',
+      payable: false
+    },
+    get_result: {
+      params: [ [ 'claim_id', 'string' ], [ 'round_no', 'int' ] ],
+      kwparams: {},
+      readonly: true,
+      ret: 'dict'
+    }
+  }
+}
+
+✔ Contract schema retrieved successfully

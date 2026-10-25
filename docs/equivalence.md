@@ -1,29 +1,24 @@
 # Equivalence design
 
-> **WHAT IS DEPLOYED, AND WHAT IS NOT.**
+> **Deployed on StudioNet (2026-10-25).**
 >
-> This page describes two things, and the difference matters.
+> `ClimateEvaluator.evaluate_for_claim(claim_address, claim_id)` reads the
+> claim's frozen policy, fetches each eligible source inside `gl.vm.run_nondet`,
+> normalises the records, derives the decision and checks in plain code, and
+> stores a structured result keyed by claim id + dispute round. Leader and
+> validators independently fetch and evaluate; `_equivalent` compares the
+> decision, reason group, required checks, per-source `ok`/`crossed` flags and
+> scaled values within tolerance, and rejects a `confirmed` whose arithmetic does
+> not support it.
 >
-> **DEPLOYED** — `ClimatePolicy.compute_evaluation(policy_json, evidence_json,
-> days_expected)` derives a decision from a frozen policy and a set of evidence
-> rows. It is a **pure function**: no web access, no model call, no storage
-> reads, no clock. It recomputes each row's `crossed` flag from the raw scaled
-> value and the threshold rather than trusting it, applies the agreement rule,
-> and returns the decision. So the decision is **derived on chain** rather than
-> asserted by the owner — which was the previous behaviour and the reason
-> `record_evaluation` was unverifiable.
+> `ClimateClaim.sync_evaluation(claim_id)` then re-derives the decision from the
+> same evidence rows with `ClimatePolicy.compute_evaluation` and only records a
+> match. The owner cannot assert a decision: the deployed claim schema has no
+> `record_evaluation` or `resolve_dispute`.
 >
-> **NOT DEPLOYED** — everything below about the consensus equivalence rule,
-> leader/validator disagreement and the model-assisted reading of policy wording.
-> That belongs to `archive/climateclaim.py`, the pre-split contract, which is
-> not deployed and cannot be: at ~63 KB it is far above the ~19 KB deploy
-> ceiling both testnets enforce. See
-> [`deployment-bradbury-2026-10-18.md`](deployment-bradbury-2026-10-18.md).
->
-> The honest summary: what is deployed makes the decision **verifiable**. It is
-> not, and does not claim to be, a consensus judgement over non-deterministic
-> interpretation. The equivalence rule below is the design for that, preserved
-> with its tests, ready for a network with the headroom.
+> The LLM-assisted policy-wording variant in `archive/climateclaim.py` is not
+> deployed; it is retained with its tests as pre-split design history. The
+> template below covers that variant where noted.
 
 GenLayer validators agree on the **meaning** of a non-deterministic result, not
 on exact bytes. Everything the deployed contracts can decide with plain code,
@@ -31,7 +26,7 @@ they decide with plain code.
 
 ---
 
-## CALL NAME: `evaluate_claim_evidence`
+## CALL NAME: `evaluate_for_claim` (older template name: `evaluate_claim_evidence`)
 
 **PURPOSE** — decide whether retrieved weather evidence confirms a policy's
 condition, using the eligible documented sources.
@@ -42,8 +37,9 @@ policy's **frozen source snapshot** (source id, kind, URL, parameter name,
 metric, unit, and the policy's `data_mode`). The observation window is the
 **claim's own** `period_start`/`period_end`, never the policy's.
 
-**NON-DETERMINISTIC SOURCE** — `gl.nondet.web.get(...)` HTTP fetch **plus**
-`gl.nondet.exec_prompt(...)` LLM interpretation.
+**NON-DETERMINISTIC SOURCE** — `gl.nondet.web.get(...)` HTTP fetch. The deployed
+evaluator parses the structured response deterministically and does **not** call
+an LLM; the archived variant additionally used `gl.nondet.exec_prompt(...)`.
 
 **LEADER PRODUCES** — a JSON-encodable dict:
 
