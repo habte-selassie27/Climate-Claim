@@ -1,19 +1,6 @@
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 """
-ClimateClaim.py — claim lifecycle contract.
-
-ClimatePolicy is the configuration source of truth. This contract owns claims,
-evidence, disputes, and settlement state, emits native payout transfers with
-in-flight tracking and rollback on failure, and records refunds when a payout
-message errors.
-
-`start_claim` reads the policy from the configured ClimatePolicy address with a
-cross-contract view, so a claim is opened against the terms the registry
-actually holds and no caller-supplied copy can be substituted.
-`register_policy_snapshot` is only a cache that `start_claim` ignores.
-
-Decisions are not derived here. `record_evaluation` stores what the caller
-derived; the derivation itself lives in ClimatePolicy's `compute_evaluation`.
+ClimateClaim.py — claim lifecycle, disputes, settlement; consensus via ClimateEvaluator.
 """
 from dataclasses import dataclass
 import json
@@ -110,6 +97,7 @@ class _NativeRecipient:
 class ClimateClaim(gl.Contract):
     owner: Address
     policy_contract: Address
+    evaluator_contract: Address
     claims: TreeMap[str, Claim]
     claim_ids: DynArray[str]
     claim_index: TreeMap[str, str]
@@ -120,9 +108,11 @@ class ClimateClaim(gl.Contract):
     refund_count: u256
     refund_total: u256
 
-    def __init__(self, owner: Address, policy_contract: Address):
+    def __init__(self, owner: Address, policy_contract: Address,
+                 evaluator_contract: Address):
         self.owner = _as_address(owner)
         self.policy_contract = _as_address(policy_contract)
+        self.evaluator_contract = _as_address(evaluator_contract)
         self.claim_counter = u256(0)
         self.escrow_balance = u256(0)
         self.refund_count = u256(0)
@@ -165,10 +155,7 @@ class ClimateClaim(gl.Contract):
             raise gl.vm.UserError("EXPECTED: policy has an invalid period")
         return p
 
-    # Kept for callers that want to pre-register, and now permissionless: the
-    # snapshot is only a cache. `start_claim` re-reads the authoritative policy
-    # and refuses to use anything but that, so a wrong entry here cannot affect a
-    # claim. It exists so existing tooling and the UI keep working.
+    # `start_claim` re-reads the authoritative policy; this snapshot is only a cache.
     @gl.public.write
     def register_policy_snapshot(self, policy_json: str) -> str:
         if len(policy_json) > 12000:
@@ -186,8 +173,6 @@ class ClimateClaim(gl.Contract):
 
     @gl.public.write
     def start_claim(self, policy_id: str, period_start: str, period_end: str) -> str:
-        # Anyone may open a claim. The terms come from ClimatePolicy, not from
-        # anything the caller supplied and nothing the owner pre-registered.
         p = self._authoritative_policy(policy_id)
         if not _date_ok(period_start) or not _date_ok(period_end) or period_start > period_end:
             raise gl.vm.UserError("EXPECTED: invalid claim period")
@@ -212,35 +197,6 @@ class ClimateClaim(gl.Contract):
         return cid
 
     @gl.public.write
-    def record_evaluation(self, claim_id: str, decision: str, reason: str,
-                          summary: str, observed_scaled: int, evidence_json: str) -> None:
-        self._only_owner()
-        c = self._claim(claim_id)
-        if c.finalized or c.state == "settled":
-            raise gl.vm.UserError("EXPECTED: claim finalized")
-        if decision not in DECISIONS:
-            raise gl.vm.UserError("EXPECTED: invalid decision")
-        if len(evidence_json) > 12000:
-            raise gl.vm.UserError("EXPECTED: evidence too large")
-        try:
-            evidence = json.loads(evidence_json)
-        except Exception:
-            raise gl.vm.UserError("EXPECTED: invalid evidence JSON")
-        if not isinstance(evidence, list):
-            raise gl.vm.UserError("EXPECTED: evidence must be a list")
-        c.decision = decision
-        c.reason = _require_text(reason, "reason", 80)
-        c.summary = _require_text(summary, "summary", 280)
-        c.observed_scaled = i256(observed_scaled)
-        c.evidence_json = json.dumps(evidence, separators=(",", ":"))
-        c.state = {"confirmed": "decided_confirmed",
-                   "not_confirmed": "decided_not_confirmed",
-                   "inconclusive": "inconclusive"}[decision]
-        c.finalized = False
-        c.settlement_state = SETTLEMENT_NOT
-        self.claims[claim_id] = c
-
-    @gl.public.write
     def open_dispute(self, claim_id: str, grounds: str) -> None:
         c = self._claim(claim_id)
         self._only_claimant_or_owner(c)
@@ -255,36 +211,61 @@ class ClimateClaim(gl.Contract):
         self.claims[claim_id] = c
 
     @gl.public.write
-    def resolve_dispute(self, claim_id: str, decision: str, reason: str,
-                        summary: str, observed_scaled: int, evidence_json: str) -> None:
-        self._only_owner()
+    def sync_evaluation(self, claim_id: str) -> None:
+        """Record a consensus result stored by ClimateEvaluator against this claim."""
         c = self._claim(claim_id)
-        if c.state != "disputed" or not c.pending_grounds:
-            raise gl.vm.UserError("EXPECTED: no pending dispute")
-        if decision not in DECISIONS:
-            raise gl.vm.UserError("EXPECTED: invalid decision")
+        if c.state not in ("created", "pending_evaluation", "evidence_collected", "disputed"):
+            raise gl.vm.UserError("EXPECTED: claim is not open for evaluation")
         try:
-            evidence = json.loads(evidence_json)
+            proxy = gl.get_contract_at(self.evaluator_contract)
         except Exception:
-            raise gl.vm.UserError("EXPECTED: invalid evidence JSON")
-        if not isinstance(evidence, list) or len(evidence_json) > 12000:
-            raise gl.vm.UserError("EXPECTED: invalid evidence")
-        history = json.loads(c.disputes_json)
-        history.append({"round": int(c.dispute_rounds), "opener": c.pending_opener.as_hex,
-                        "grounds": c.pending_grounds, "decision": decision,
-                        "reason": reason})
-        c.disputes_json = json.dumps(history, separators=(",", ":"))
-        c.pending_grounds = ""
-        c.decision = decision
-        c.reason = _require_text(reason, "reason", 80)
-        c.summary = _require_text(summary, "summary", 280)
-        c.observed_scaled = i256(observed_scaled)
-        c.evidence_json = json.dumps(evidence, separators=(",", ":"))
+            raise gl.vm.UserError("EXTERNAL: evaluator contract unreachable")
+        try:
+            res = proxy.view().get_result(claim_id, int(c.dispute_rounds))
+        except Exception:
+            raise gl.vm.UserError("EXTERNAL: evaluator contract unreachable")
+        if not isinstance(res, dict) or not res.get("decision"):
+            raise gl.vm.UserError("EXTERNAL: no evaluation result")
+        if res.get("policy_id") != c.policy_id:
+            raise gl.vm.UserError("EXTERNAL: evaluation policy mismatch")
+        if res.get("period_start") != c.period_start or res.get("period_end") != c.period_end:
+            raise gl.vm.UserError("EXTERNAL: evaluation period mismatch")
+        p = json.loads(c.policy_snapshot_json)
+        if not isinstance(p, dict) or res.get("policy_version") != p.get("version"):
+            raise gl.vm.UserError("EXTERNAL: evaluation version mismatch")
+        srcs = res.get("sources")
+        if not isinstance(srcs, list):
+            raise gl.vm.UserError("EXTERNAL: evaluation evidence missing")
+        rows = []
+        for r in srcs:
+            if not isinstance(r, dict) or not isinstance(r.get("source_id"), str):
+                continue
+            rows.append({"source_id": r["source_id"],
+                         "ok": bool(r.get("ok")),
+                         "days_covered": r.get("days_covered") if isinstance(r.get("days_covered"), int) else 0,
+                         "value_scaled": r.get("value_scaled") if isinstance(r.get("value_scaled"), int) else 0})
+        days = _ordinal(c.period_end) - _ordinal(c.period_start) + 1
+        try:
+            pp = gl.get_contract_at(self.policy_contract)
+            computed = pp.view().compute_evaluation(c.policy_snapshot_json,
+                                                   json.dumps(rows, separators=(",", ":")), days)
+        except Exception:
+            raise gl.vm.UserError("EXTERNAL: policy contract unreachable")
+        if not isinstance(computed, dict) or computed.get("decision") != res.get("decision"):
+            raise gl.vm.UserError("EXTERNAL: evaluation mismatch")
+        if computed.get("reason_code") != res.get("reason_code"):
+            raise gl.vm.UserError("EXTERNAL: evaluation mismatch")
+        c.decision = str(res["decision"])
+        c.reason = _require_text(str(res.get("reason_code", "none")), "reason", 80)
+        c.summary = _require_text(str(res.get("summary", "")) or "Consensus evaluation.", "summary", 280)
+        c.observed_scaled = i256(int(res.get("observed_value_scaled", 0)))
+        c.evidence_json = json.dumps(srcs, separators=(",", ":"))
         c.state = {"confirmed": "decided_confirmed",
                    "not_confirmed": "decided_not_confirmed",
-                   "inconclusive": "inconclusive"}[decision]
+                   "inconclusive": "inconclusive"}.get(c.decision, "inconclusive")
         c.finalized = False
         c.settlement_state = SETTLEMENT_NOT
+        c.evaluation_round = u256(int(c.evaluation_round) + 1)
         self.claims[claim_id] = c
 
     @gl.public.write
@@ -360,8 +341,6 @@ class ClimateClaim(gl.Contract):
         self.claims[claim_id] = c
         self._clear_in_flight(claim_id)
 
-    # Hook: a message sent by this contract errored. Record it as a refund event
-    # and mark any in-flight payout as failed.
     @gl.public.write.payable
     def __on_errored_message__(self) -> None:
         value = int(gl.message.value)
@@ -378,6 +357,10 @@ class ClimateClaim(gl.Contract):
                     separators=(",", ":"))
                 self.claims[cid] = claim
             del self.in_flight[0]
+
+    @gl.public.view
+    def get_evaluator(self) -> str:
+        return self.evaluator_contract.as_hex
 
     @gl.public.view
     def get_claim(self, claim_id: str) -> dict:

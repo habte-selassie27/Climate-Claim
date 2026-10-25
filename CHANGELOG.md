@@ -1,4 +1,33 @@
-## Seed: StudioNet sources, policy and claim
+## Fix: wire source-fetching consensus into the claim path
+
+### DONE
+- **Root cause of the portal rejection:** `ClimateClaim` was deterministic and
+  owner-controlled (`record_evaluation` stored whatever the owner supplied), while
+  `ClimateEvaluator` (the source-fetching consensus engine) was deployed but
+  never called from the claim/settlement path. `sync_evaluation` and
+  `get_evaluator` were referenced by the frontend and contracts metadata but did
+  not exist on the contract.
+- **Fix:** `ClimateClaim` now takes an `evaluator_contract` address, exposes
+  `get_evaluator()`, and implements `sync_evaluation(claim_id)`: it reads the
+  stored consensus result from `ClimateEvaluator`, verifies policy id / version /
+  period, cross-checks the decision against `ClimatePolicy.compute_evaluation`
+  over the same evidence rows, and only then records it. Decisions now come from
+  consensus, not from an owner assertion.
+- Removed the owner-controlled `record_evaluation` and `resolve_dispute` paths;
+  disputes are re-resolved by re-running `evaluate_for_claim` + `sync_evaluation`.
+- `ClimateClaim` is now 18,757 B (under the ~19 KB ceiling).
+
+### PROOF
+- `genvm-lint` clean on `Climate-Claim.py` (16 methods, 7 views, 3 ctor params).
+- `pytest tests/direct` — 39 passed, including the 3-argument constructor.
+
+### NEXT
+- Redeploy `ClimateClaim` with the evaluator address as the third constructor arg,
+  then update `.env` / Vercel / `contracts.ts`.
+
+### BLOCKED
+- Redeployment requires the Studio wallet (owner) and a fresh contract address.
+
 
 ### DONE
 - Registered 5 sources on the new ClimatePolicy contract:

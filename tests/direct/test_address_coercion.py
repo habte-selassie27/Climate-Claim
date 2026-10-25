@@ -90,6 +90,6 @@ def test_set_beneficiary_accepts_hex_string(direct_owner, direct_deploy):
     assert cc.get_policy(pid)["beneficiary"].lower() == WALLET_HEX.lower()
 
 
-def test_claim_contract_constructs_with_two_studio_integers(direct_deploy):
-    cc = direct_deploy(CLAIM, STUDIO_INT, STUDIO_INT)
+def test_claim_contract_constructs_with_three_studio_integers(direct_deploy):
+    cc = direct_deploy(CLAIM, STUDIO_INT, STUDIO_INT, STUDIO_INT)
     assert cc is not None
